@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kundenportal - Elektro Müller GmbH</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#005049",
+                      "on-primary": "#ffffff",
+                      "surface-container": "#e5eeff",
+                      "on-error": "#ffffff",
+                      "on-surface": "#0b1c30",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-fixed-variant": "#653e00",
+                      "on-secondary-fixed": "#131b2e",
+                      "secondary-fixed": "#dae2fd",
+                      "on-tertiary-container": "#fffbff",
+                      "on-secondary-container": "#5c647a",
+                      "inverse-surface": "#213145",
+                      "on-primary-container": "#f4fffc",
+                      "on-background": "#0b1c30",
+                      "inverse-on-surface": "#eaf1ff",
+                      "primary": "#00685f",
+                      "on-secondary": "#ffffff",
+                      "primary-container": "#008378",
+                      "surface-container-highest": "#d3e4fe",
+                      "surface-container-low": "#eff4ff",
+                      "surface-bright": "#f8f9ff",
+                      "tertiary-container": "#a36700",
+                      "tertiary-fixed": "#ffddb8",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#89f5e7",
+                      "surface-tint": "#006a61",
+                      "error-container": "#ffdad6",
+                      "tertiary-fixed-dim": "#ffb95f",
+                      "on-error-container": "#93000a",
+                      "on-secondary-fixed-variant": "#3f465c",
+                      "inverse-primary": "#6bd8cb",
+                      "surface-variant": "#d3e4fe",
+                      "secondary": "#565e74",
+                      "background": "#f8f9ff",
+                      "outline-variant": "#bcc9c6",
+                      "secondary-fixed-dim": "#bec6e0",
+                      "on-tertiary-fixed": "#2a1700",
+                      "secondary-container": "#dae2fd",
+                      "surface-container-high": "#dce9ff",
+                      "outline": "#6d7a77",
+                      "on-surface-variant": "#3d4947",
+                      "error": "#ba1a1a",
+                      "on-primary-fixed": "#00201d",
+                      "surface-dim": "#cbdbf5",
+                      "tertiary": "#825100",
+                      "primary-fixed-dim": "#6bd8cb",
+                      "surface": "#f8f9ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "12px",
+                      "base": "8px",
+                      "margin-mobile": "16px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "xl": "32px",
+                      "gutter": "24px",
+                      "md": "16px",
+                      "container-max": "1280px"
+              },
+              "fontFamily": {
+                      "title-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "display-lg": [
+                              "Inter"
+                      ],
+                      "label-lg": [
+                              "Inter"
+                      ],
+                      "headline-lg-mobile": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "Inter"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "title-lg": [
+                              "22px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "57px",
+                              {
+                                      "lineHeight": "64px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "label-lg": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.1px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.5px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-surface text-on-surface font-body-lg min-h-screen flex flex-col md:flex-row">
+<!-- Mobile Top Nav -->
+<header class="md:hidden bg-surface-container-lowest border-b border-outline-variant shadow-sm w-full top-0 z-50 sticky px-margin-mobile h-16 flex justify-between items-center">
+<h1 class="font-title-lg-mobile text-title-lg-mobile font-bold text-primary">Elektro Müller GmbH</h1>
+<button class="text-on-surface-variant hover:bg-surface-container rounded-full p-2 transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</header>
+<!-- SideNavBar (Desktop) -->
+<nav class="bg-surface-container-low border-r border-outline-variant h-screen w-64 hidden md:flex flex-col flex-shrink-0 sticky top-0 p-md gap-base">
+<div class="mb-lg">
+<h1 class="font-title-lg text-title-lg text-primary font-bold">Elektro Müller GmbH</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Customer Portal</p>
+</div>
+<div class="flex-grow flex flex-col gap-sm">
+<a class="flex items-center gap-sm p-sm text-primary font-bold bg-primary-container text-on-primary-container rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-lg text-label-lg">Dashboard</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="construction">construction</span>
+<span class="font-label-lg text-label-lg">Projects</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-lg text-label-lg">Invoices</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="font-label-lg text-label-lg">Documents</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg hover:bg-surface-container-highest transition-all active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+<span class="font-label-lg text-label-lg">Support</span>
+</a>
+</div>
+<div class="mt-auto border-t border-outline-variant pt-md">
+<div class="flex items-center gap-sm p-sm text-on-surface-variant">
+<img alt="User Profile" class="w-10 h-10 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzoH6UdkQ7D46uRu0i-ol0EdB6K5i_Q0yZOSxBdO7buHxrTfOP3FbvKJKCT1SjMtyIG6jDhVxo25r5WddH9ElPcPtAFZhZD1TVFP8mALr8yd2aza5UFaplibP4Y-t9cojXjgEF4FyXTYaQtJN2ndNd7URgYtnENS6-ZD9dIDSJJqgD205M5wuxmqqu_HnjgWH0YKQKsUf7hy7b7LKJsn6AOKWP9HUuKVMBGpH5yfvApasG6y3zjs6de2xDfNh-XN9NVOB0araurX8"/>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface">Max Mustermann</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Logout</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow p-margin-mobile md:p-gutter max-w-container-max mx-auto w-full pb-24 md:pb-gutter">
+<!-- Header Section -->
+<header class="mb-xl">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface">Willkommen, Max Mustermann</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant mt-2">Ihre aktuelle Übersicht bei Elektro Müller GmbH.</p>
+</header>
+<!-- Summary Cards (Bento Grid) -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-md mb-xl">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="p-2 bg-tertiary-container/10 rounded-lg text-tertiary">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+</div>
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#ffb95f]/20 text-[#825100] font-label-sm text-label-sm">
+                        Warten auf Ihre Freigabe
+                    </span>
+</div>
+<div>
+<h3 class="font-display-lg text-display-lg text-on-surface">3</h3>
+<p class="font-label-lg text-label-lg text-on-surface-variant">Offene Angebote</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="p-2 bg-error-container rounded-lg text-on-error-container">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+</div>
+</div>
+<div>
+<h3 class="font-display-lg text-display-lg text-on-surface">1</h3>
+<div class="flex justify-between items-end">
+<p class="font-label-lg text-label-lg text-on-surface-variant">Offene Rechnungen</p>
+<p class="font-title-lg text-title-lg text-error">1.535,10 €</p>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="p-2 bg-primary-container rounded-lg text-on-primary-container">
+<span class="material-symbols-outlined" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+<div>
+<h3 class="font-display-lg text-display-lg text-on-surface">12</h3>
+<p class="font-label-lg text-label-lg text-on-surface-variant">Bezahlte Rechnungen</p>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+<div class="flex justify-between items-start mb-md">
+<div class="p-2 bg-secondary-container rounded-lg text-on-secondary-container">
+<span class="material-symbols-outlined" data-icon="contract">contract</span>
+</div>
+</div>
+<div>
+<h3 class="font-display-lg text-display-lg text-on-surface">1</h3>
+<p class="font-label-lg text-label-lg text-on-surface-variant">Verträge / Abos</p>
+</div>
+</div>
+</section>
+<!-- Data Table Section -->
+<section class="mb-xl bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<div class="p-lg border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h3 class="font-title-lg text-title-lg text-on-surface">Meine Dokumente</h3>
+<button class="text-primary font-label-lg text-label-lg hover:underline hidden md:block">Alle ansehen</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[800px]">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant font-label-lg text-label-lg text-on-surface-variant">
+<th class="py-sm px-lg font-medium">Typ</th>
+<th class="py-sm px-lg font-medium">Nr</th>
+<th class="py-sm px-lg font-medium">Datum</th>
+<th class="py-sm px-lg font-medium text-right">Betrag</th>
+<th class="py-sm px-lg font-medium">Status</th>
+<th class="py-sm px-lg font-medium text-right">Aktion</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Row 1 -->
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors">
+<td class="py-md px-lg">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="description">description</span>
+                                    Angebot
+                                </div>
+</td>
+<td class="py-md px-lg font-medium text-on-surface">AN-2026-0042</td>
+<td class="py-md px-lg text-on-surface-variant">12.05.2026</td>
+<td class="py-md px-lg text-right font-medium">1.535,10 €</td>
+<td class="py-md px-lg">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-[#ffb95f]/20 text-[#825100] font-label-sm text-label-sm">
+                                    Wartet auf Freigabe
+                                </span>
+</td>
+<td class="py-md px-lg text-right">
+<button class="bg-primary text-on-primary font-label-lg text-label-lg px-4 py-2 rounded-full hover:bg-primary/90 transition-colors">Ansehen / Freigeben</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="py-md px-lg">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="receipt">receipt</span>
+                                    Rechnung
+                                </div>
+</td>
+<td class="py-md px-lg font-medium text-on-surface">RE-2026-0015</td>
+<td class="py-md px-lg text-on-surface-variant">01.05.2026</td>
+<td class="py-md px-lg text-right font-medium">450,00 €</td>
+<td class="py-md px-lg">
+<span class="inline-flex items-center px-2 py-1 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm">
+                                    Bezahlt
+                                </span>
+</td>
+<td class="py-md px-lg text-right">
+<button class="bg-primary/10 text-primary font-label-lg text-label-lg px-4 py-2 rounded-full hover:bg-primary/20 transition-colors">Ansehen</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Upload Section -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-lg">
+<h3 class="font-title-lg text-title-lg text-on-surface mb-md">Dokumente hochladen</h3>
+<div class="border-2 border-dashed border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer mb-lg text-center">
+<div class="p-4 bg-surface rounded-full shadow-sm mb-md text-primary">
+<span class="material-symbols-outlined text-[32px]" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<p class="font-label-lg text-label-lg text-on-surface mb-1">Dateien hierhin ziehen oder klicken</p>
+<p class="font-body-md text-body-md text-on-surface-variant">PDF, JPG, PNG oder ZIP (max. 50 MB)</p>
+</div>
+<div>
+<h4 class="font-label-lg text-label-lg text-on-surface-variant mb-sm">Zuletzt hochgeladen</h4>
+<div class="flex items-center justify-between p-sm border border-outline-variant rounded-lg bg-surface-bright">
+<div class="flex items-center gap-sm">
+<div class="p-2 bg-secondary-container rounded-lg text-on-secondary-container">
+<span class="material-symbols-outlined" data-icon="folder_zip">folder_zip</span>
+</div>
+<div>
+<p class="font-label-lg text-label-lg text-on-surface">Fotos-Bad.zip</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Hochgeladen 10.05.2026 von Max Mustermann</p>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors p-2 rounded-full hover:bg-surface-container">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface border-t border-outline-variant shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden pb-safe">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="home" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-2 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="handyman">handyman</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-2 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">Invoices</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest rounded-lg p-2 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+<span class="font-label-sm text-label-sm-mobile mt-1">More</span>
+</a>
+</nav>
+</body></html>

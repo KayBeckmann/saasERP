@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+
+<html class="antialiased" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Bestellvorschlag - saasERP</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface": "#f8fafb",
+                        "on-secondary-container": "#4a607f",
+                        "on-tertiary-fixed-variant": "#4a4358",
+                        "outline-variant": "#c5c6cd",
+                        "outline": "#75777d",
+                        "secondary": "#4a607e",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#7a849b",
+                        "surface-variant": "#e1e3e4",
+                        "on-surface-variant": "#45474c",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#545f74",
+                        "tertiary-fixed": "#e8def9",
+                        "tertiary-fixed-dim": "#ccc2dc",
+                        "on-secondary-fixed-variant": "#324865",
+                        "surface-container-low": "#f2f4f5",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#111c2e",
+                        "secondary-fixed-dim": "#b1c8eb",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#bcc7df",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#d3e4ff",
+                        "on-surface": "#191c1d",
+                        "primary": "#000000",
+                        "on-primary-fixed": "#111c2e",
+                        "on-tertiary-fixed": "#1e192b",
+                        "surface-dim": "#d8dadb",
+                        "surface-container-highest": "#e1e3e4",
+                        "tertiary-container": "#1e192b",
+                        "surface-container-high": "#e6e8e9",
+                        "inverse-surface": "#2e3132",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed-variant": "#3d475b",
+                        "on-secondary-fixed": "#021c37",
+                        "surface-container": "#eceeef",
+                        "tertiary": "#000000",
+                        "background": "#f8fafb",
+                        "on-background": "#191c1d",
+                        "on-tertiary-container": "#888098",
+                        "secondary-container": "#c5dcff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#bcc7df",
+                        "surface-bright": "#f8fafb",
+                        "primary-fixed": "#d8e2fc",
+                        "inverse-on-surface": "#eff1f2",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "base": "4px",
+                        "grid_columns": "12",
+                        "xl": "32px",
+                        "sidebar_width": "280px",
+                        "sm": "8px",
+                        "gutter": "24px",
+                        "xs": "4px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "title-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-lg": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["57px", { "lineHeight": "64px", "letterSpacing": "-0.25px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+                        "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+                        "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "500" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+                        "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafb; color: #191c1d; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[280px] bg-surface-container-lowest border-r border-outline-variant flex flex-col z-40 hidden md:flex">
+<div class="p-md">
+<div class="font-headline-sm text-headline-sm font-bold text-primary">saasERP</div>
+<div class="font-body-md text-body-md text-on-surface-variant">Handwerksbetrieb GmbH</div>
+</div>
+<div class="flex-1 overflow-y-auto py-sm">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">group</span>
+                Kunden
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">description</span>
+                Angebote
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assignment</span>
+                Aufträge
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">receipt</span>
+                Rechnungen
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assignment_late</span>
+                Mahnwesen
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+                Artikel &amp; Produkte
+            </a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary/10 text-primary border-l-4 border-primary font-title-md text-title-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_cart</span>
+                Bestellungen
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">warehouse</span>
+                Lager
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">account_tree</span>
+                Projekte
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">analytics</span>
+                Berichte
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+                Einstellungen
+            </a>
+</div>
+<div class="mt-auto border-t border-outline-variant py-sm">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">help</span>
+                Hilfe
+            </a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-colors font-body-md text-body-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">logout</span>
+                Abmelden
+            </a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 flex flex-col md:ml-[280px] min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center h-16 px-lg sticky top-0 z-30">
+<div class="flex items-center gap-md">
+<!-- Mobile Menu Button (hidden on md) -->
+<button class="md:hidden text-on-surface-variant hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+<!-- Trailing Icons -->
+<div class="flex items-center gap-sm text-on-surface-variant">
+<button class="p-2 rounded-full hover:bg-surface-container-high hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-high hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container-high hover:text-primary transition-opacity duration-150">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-gutter max-w-[1400px] w-full mx-auto">
+<!-- Header Section -->
+<div class="mb-lg">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md mb-xs">
+<a class="hover:underline" href="#">Aufträge</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span>AUF-2026-014</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary mb-2">Bestellvorschlag</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Auftrag AUF-2026-014 — Müller, Badsanierung</p>
+</div>
+<!-- Info Banner -->
+<div class="bg-secondary-fixed/30 border border-secondary/20 rounded-lg p-md mb-lg flex items-start gap-md">
+<span class="material-symbols-outlined text-secondary mt-0.5">info</span>
+<div>
+<p class="font-body-md text-body-md text-on-surface">Mengen aus Auftrags- und Produktpositionen automatisch zusammengeführt.</p>
+</div>
+</div>
+<!-- Content Canvas -->
+<div class="space-y-xl">
+<!-- Supplier Group 1: Großhandel Schmidt GmbH -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="bg-surface-container-low p-md border-b border-outline-variant flex justify-between items-center">
+<div class="flex items-center gap-md">
+<input checked="" class="w-5 h-5 rounded border-outline text-primary focus:ring-primary" type="checkbox"/>
+<h2 class="font-title-lg text-title-lg text-primary">Großhandel Schmidt GmbH</h2>
+</div>
+<button class="bg-primary text-on-primary font-label-lg text-label-lg px-md py-sm rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                            Bestellung erstellen
+                        </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container border-b border-outline-variant">
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Artikel</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Benötigt</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Lager</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Zu bestellen</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Einheit</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">EK-Preis</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Gesamt</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Row 1: Needs Order -->
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-lowest bg-error-container/10">
+<td class="p-sm py-md">
+<div class="font-medium text-on-surface">Waschtisch Keramik 60cm</div>
+<div class="text-on-surface-variant text-sm">Art-Nr: SAN-WT-60</div>
+</td>
+<td class="p-sm text-right tabular-nums">2</td>
+<td class="p-sm text-right tabular-nums text-error font-medium">0</td>
+<td class="p-sm text-right">
+<input class="w-20 text-right border-outline-variant rounded p-1 bg-surface-container-lowest focus:ring-primary focus:border-primary" type="number" value="2"/>
+</td>
+<td class="p-sm">Stk</td>
+<td class="p-sm text-right tabular-nums">85,00 €</td>
+<td class="p-sm text-right tabular-nums font-medium">170,00 €</td>
+</tr>
+<!-- Row 2: Partial Stock -->
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-lowest bg-error-container/10">
+<td class="p-sm py-md">
+<div class="font-medium text-on-surface">Einhandmischer Chrom</div>
+<div class="text-on-surface-variant text-sm">Art-Nr: SAN-EM-C</div>
+</td>
+<td class="p-sm text-right tabular-nums">2</td>
+<td class="p-sm text-right tabular-nums text-error font-medium">1</td>
+<td class="p-sm text-right">
+<input class="w-20 text-right border-outline-variant rounded p-1 bg-surface-container-lowest focus:ring-primary focus:border-primary" type="number" value="1"/>
+</td>
+<td class="p-sm">Stk</td>
+<td class="p-sm text-right tabular-nums">120,50 €</td>
+<td class="p-sm text-right tabular-nums font-medium">120,50 €</td>
+</tr>
+<!-- Row 3: Fully in Stock (No order needed by default, but shown) -->
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-lowest bg-surface-container-lowest">
+<td class="p-sm py-md">
+<div class="font-medium text-on-surface">Eckventil 1/2"</div>
+<div class="text-on-surface-variant text-sm">Art-Nr: SAN-EV-12</div>
+</td>
+<td class="p-sm text-right tabular-nums">4</td>
+<td class="p-sm text-right tabular-nums text-secondary font-medium">25</td>
+<td class="p-sm text-right">
+<input class="w-20 text-right border-outline-variant rounded p-1 bg-surface-container-lowest focus:ring-primary focus:border-primary text-on-surface-variant" type="number" value="0"/>
+</td>
+<td class="p-sm">Stk</td>
+<td class="p-sm text-right tabular-nums">4,20 €</td>
+<td class="p-sm text-right tabular-nums font-medium">0,00 €</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="bg-surface-container-low font-title-md text-title-md border-t-2 border-outline-variant">
+<td class="p-sm text-right" colspan="6">Summe Großhandel Schmidt GmbH:</td>
+<td class="p-sm text-right tabular-nums">290,50 €</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</section>
+<!-- Supplier Group 2: Elektro-Fuchs -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+<div class="bg-surface-container-low p-md border-b border-outline-variant flex justify-between items-center">
+<div class="flex items-center gap-md">
+<input checked="" class="w-5 h-5 rounded border-outline text-primary focus:ring-primary" type="checkbox"/>
+<h2 class="font-title-lg text-title-lg text-primary">Elektro-Fuchs</h2>
+</div>
+<button class="bg-primary text-on-primary font-label-lg text-label-lg px-md py-sm rounded-md hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+                            Bestellung erstellen
+                        </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container border-b border-outline-variant">
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Artikel</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Benötigt</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Lager</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Zu bestellen</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider">Einheit</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">EK-Preis</th>
+<th class="p-sm font-label-lg text-label-lg text-on-surface-variant uppercase tracking-wider text-right">Gesamt</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md">
+<!-- Row 1: Needs Order -->
+<tr class="border-b border-outline-variant/50 hover:bg-surface-container-lowest bg-error-container/10">
+<td class="p-sm py-md">
+<div class="font-medium text-on-surface">LED-Spiegelschrank 80cm</div>
+<div class="text-on-surface-variant text-sm">Art-Nr: EL-SPS-80</div>
+</td>
+<td class="p-sm text-right tabular-nums">1</td>
+<td class="p-sm text-right tabular-nums text-error font-medium">0</td>
+<td class="p-sm text-right">
+<input class="w-20 text-right border-outline-variant rounded p-1 bg-surface-container-lowest focus:ring-primary focus:border-primary" type="number" value="1"/>
+</td>
+<td class="p-sm">Stk</td>
+<td class="p-sm text-right tabular-nums">245,00 €</td>
+<td class="p-sm text-right tabular-nums font-medium">245,00 €</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="bg-surface-container-low font-title-md text-title-md border-t-2 border-outline-variant">
+<td class="p-sm text-right" colspan="6">Summe Elektro-Fuchs:</td>
+<td class="p-sm text-right tabular-nums">245,00 €</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</section>
+<!-- Global Action Footer -->
+<div class="flex justify-end gap-md pt-lg border-t border-outline-variant mt-xl">
+<button class="px-lg py-sm rounded-md border border-outline text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-lg text-label-lg">
+                        Abbrechen
+                    </button>
+<button class="px-lg py-sm rounded-md bg-secondary text-on-secondary hover:bg-secondary/90 transition-colors font-label-lg text-label-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">done_all</span>
+                        Alle ausgewählten erstellen
+                    </button>
+</div>
+</div>
+</main>
+</div>
+</body></html>
