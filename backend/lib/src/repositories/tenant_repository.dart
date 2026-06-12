@@ -6,12 +6,13 @@ class TenantRepository {
 
   final Pool<void> _pool;
 
+  static const _columns = 'id, name, created_at, branding_color, '
+      'company_address, company_tax_id, logo_url, '
+      'default_vat_rate, reduced_vat_rate';
+
   Future<Tenant> create(String name) async {
     final result = await _pool.execute(
-      Sql.named(
-        'INSERT INTO tenants (name) VALUES (@name) '
-        'RETURNING id, name, created_at, branding_color',
-      ),
+      Sql.named('INSERT INTO tenants (name) VALUES (@name) RETURNING $_columns'),
       parameters: {'name': name},
     );
     return _fromRow(result.first.toColumnMap());
@@ -19,10 +20,7 @@ class TenantRepository {
 
   Future<Tenant?> findById(String id) async {
     final result = await _pool.execute(
-      Sql.named(
-        'SELECT id, name, created_at, branding_color '
-        'FROM tenants WHERE id = @id',
-      ),
+      Sql.named('SELECT $_columns FROM tenants WHERE id = @id'),
       parameters: {'id': id},
     );
     if (result.isEmpty) return null;
@@ -38,9 +36,37 @@ class TenantRepository {
       Sql.named(
         'UPDATE tenants SET branding_color = @branding_color '
         'WHERE id = @id '
-        'RETURNING id, name, created_at, branding_color',
+        'RETURNING $_columns',
       ),
       parameters: {'id': tenantId, 'branding_color': brandingColor},
+    );
+    return _fromRow(result.first.toColumnMap());
+  }
+
+  /// Aktualisiert die Mandanten-Konfiguration (Firmendaten, Logo, Steuersätze).
+  Future<Tenant> updateConfig({
+    required String tenantId,
+    required UpdateTenantConfigRequest config,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'UPDATE tenants SET '
+        'company_address = @company_address, '
+        'company_tax_id = @company_tax_id, '
+        'logo_url = @logo_url, '
+        'default_vat_rate = @default_vat_rate, '
+        'reduced_vat_rate = @reduced_vat_rate '
+        'WHERE id = @id '
+        'RETURNING $_columns',
+      ),
+      parameters: {
+        'id': tenantId,
+        'company_address': config.companyAddress,
+        'company_tax_id': config.companyTaxId,
+        'logo_url': config.logoUrl,
+        'default_vat_rate': config.defaultVatRate,
+        'reduced_vat_rate': config.reducedVatRate,
+      },
     );
     return _fromRow(result.first.toColumnMap());
   }
@@ -50,5 +76,10 @@ class TenantRepository {
         name: row['name'] as String,
         createdAt: (row['created_at'] as DateTime).toUtc(),
         brandingColor: row['branding_color'] as String?,
+        companyAddress: row['company_address'] as String?,
+        companyTaxId: row['company_tax_id'] as String?,
+        logoUrl: row['logo_url'] as String?,
+        defaultVatRate: (row['default_vat_rate'] as num).toDouble(),
+        reducedVatRate: (row['reduced_vat_rate'] as num).toDouble(),
       );
 }

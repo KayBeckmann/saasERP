@@ -1,6 +1,7 @@
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
+import 'package:backend/src/repositories/number_sequence_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
@@ -17,6 +18,7 @@ final _userRepository = UserRepository(_pool);
 final _tenantAccessRepository = TenantAccessRepository(_pool);
 final _tenantEncryptionKeyRepository = TenantEncryptionKeyRepository(_pool);
 final _tenantEncryptionService = TenantEncryptionService(_config, _tenantEncryptionKeyRepository);
+final _numberSequenceRepository = NumberSequenceRepository(_pool);
 
 Handler middleware(Handler handler) {
   return handler
@@ -28,7 +30,8 @@ Handler middleware(Handler handler) {
       .use(provider<UserRepository>((_) => _userRepository))
       .use(provider<TenantAccessRepository>((_) => _tenantAccessRepository))
       .use(provider<TenantEncryptionKeyRepository>((_) => _tenantEncryptionKeyRepository))
-      .use(provider<TenantEncryptionService>((_) => _tenantEncryptionService));
+      .use(provider<TenantEncryptionService>((_) => _tenantEncryptionService))
+      .use(provider<NumberSequenceRepository>((_) => _numberSequenceRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.

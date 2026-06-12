@@ -99,6 +99,21 @@ class ApiClient {
     return Tenant.fromJson(_decode(response));
   }
 
+  Future<Tenant> updateTenantConfig({
+    required String token,
+    required UpdateTenantConfigRequest config,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/tenant/config'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(config.toJson()),
+    );
+    return Tenant.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

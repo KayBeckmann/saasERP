@@ -80,6 +80,25 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
+            if (user?.role == UserRole.owner && tenant != null) ...[
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Firmendaten & Steuersätze',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      _CompanyConfigEditor(tenant: tenant),
+                    ],
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -170,6 +189,131 @@ class _BrandingEditorState extends State<_BrandingEditor> {
             _controller.clear();
             auth.updateTenantBranding(null);
           },
+        ),
+      ],
+    );
+  }
+}
+
+/// Editor für Firmendaten und Steuersätze des Mandanten (nur Owner).
+/// Grundlage für Briefkopf/Belege und Nummernkreise (Mandanten-Konfiguration).
+class _CompanyConfigEditor extends StatefulWidget {
+  const _CompanyConfigEditor({required this.tenant});
+
+  final Tenant? tenant;
+
+  @override
+  State<_CompanyConfigEditor> createState() => _CompanyConfigEditorState();
+}
+
+class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
+  late final TextEditingController _addressController =
+      TextEditingController(text: widget.tenant?.companyAddress ?? '');
+  late final TextEditingController _taxIdController =
+      TextEditingController(text: widget.tenant?.companyTaxId ?? '');
+  late final TextEditingController _logoUrlController =
+      TextEditingController(text: widget.tenant?.logoUrl ?? '');
+  late final TextEditingController _defaultVatController =
+      TextEditingController(text: _formatRate(widget.tenant?.defaultVatRate ?? 19.0));
+  late final TextEditingController _reducedVatController =
+      TextEditingController(text: _formatRate(widget.tenant?.reducedVatRate ?? 7.0));
+
+  static String _formatRate(double value) =>
+      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _taxIdController.dispose();
+    _logoUrlController.dispose();
+    _defaultVatController.dispose();
+    _reducedVatController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthController>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _addressController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Firmenadresse',
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _taxIdController,
+          decoration: const InputDecoration(
+            labelText: 'Steuernummer / USt-IdNr.',
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _logoUrlController,
+          decoration: const InputDecoration(
+            labelText: 'Logo-URL',
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _defaultVatController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Standard-MwSt. (%)',
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _reducedVatController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Ermäßigte MwSt. (%)',
+                  isDense: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: () {
+              final defaultVat = double.tryParse(_defaultVatController.text.replaceAll(',', '.'));
+              final reducedVat = double.tryParse(_reducedVatController.text.replaceAll(',', '.'));
+              if (defaultVat == null || reducedVat == null) return;
+              auth.updateTenantConfig(
+                UpdateTenantConfigRequest(
+                  companyAddress: _addressController.text.trim().isEmpty
+                      ? null
+                      : _addressController.text.trim(),
+                  companyTaxId: _taxIdController.text.trim().isEmpty
+                      ? null
+                      : _taxIdController.text.trim(),
+                  logoUrl: _logoUrlController.text.trim().isEmpty
+                      ? null
+                      : _logoUrlController.text.trim(),
+                  defaultVatRate: defaultVat,
+                  reducedVatRate: reducedVat,
+                ),
+              );
+            },
+            child: const Text('Speichern'),
+          ),
         ),
       ],
     );

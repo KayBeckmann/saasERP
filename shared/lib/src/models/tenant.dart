@@ -4,6 +4,11 @@ class Tenant {
     required this.name,
     required this.createdAt,
     this.brandingColor,
+    this.companyAddress,
+    this.companyTaxId,
+    this.logoUrl,
+    this.defaultVatRate = 19.0,
+    this.reducedVatRate = 7.0,
   });
 
   final String id;
@@ -15,11 +20,31 @@ class Tenant {
   /// (späteres Whitelabel-Potenzial, auch für die Kunden-App relevant).
   final String? brandingColor;
 
+  /// Firmenadresse für Briefkopf/Belege (mehrzeiliger Freitext).
+  final String? companyAddress;
+
+  /// Steuernummer/USt-IdNr. für Briefkopf/Belege.
+  final String? companyTaxId;
+
+  /// URL des Firmenlogos (Briefkopf/Belege, Whitelabel).
+  final String? logoUrl;
+
+  /// Standard-Umsatzsteuersatz in Prozent (z. B. 19.0).
+  final double defaultVatRate;
+
+  /// Ermäßigter Umsatzsteuersatz in Prozent (z. B. 7.0).
+  final double reducedVatRate;
+
   factory Tenant.fromJson(Map<String, dynamic> json) => Tenant(
         id: json['id'] as String,
         name: json['name'] as String,
         createdAt: DateTime.parse(json['created_at'] as String),
         brandingColor: json['branding_color'] as String?,
+        companyAddress: json['company_address'] as String?,
+        companyTaxId: json['company_tax_id'] as String?,
+        logoUrl: json['logo_url'] as String?,
+        defaultVatRate: (json['default_vat_rate'] as num?)?.toDouble() ?? 19.0,
+        reducedVatRate: (json['reduced_vat_rate'] as num?)?.toDouble() ?? 7.0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -27,6 +52,46 @@ class Tenant {
         'name': name,
         'created_at': createdAt.toIso8601String(),
         'branding_color': brandingColor,
+        'company_address': companyAddress,
+        'company_tax_id': companyTaxId,
+        'logo_url': logoUrl,
+        'default_vat_rate': defaultVatRate,
+        'reduced_vat_rate': reducedVatRate,
+      };
+}
+
+/// Aktualisiert die Mandanten-Konfiguration (Firmendaten, Logo, Steuersätze).
+/// Nur für Owner. Felder, die `null` sind, bleiben unverändert.
+class UpdateTenantConfigRequest {
+  const UpdateTenantConfigRequest({
+    this.companyAddress,
+    this.companyTaxId,
+    this.logoUrl,
+    required this.defaultVatRate,
+    required this.reducedVatRate,
+  });
+
+  final String? companyAddress;
+  final String? companyTaxId;
+  final String? logoUrl;
+  final double defaultVatRate;
+  final double reducedVatRate;
+
+  factory UpdateTenantConfigRequest.fromJson(Map<String, dynamic> json) =>
+      UpdateTenantConfigRequest(
+        companyAddress: json['company_address'] as String?,
+        companyTaxId: json['company_tax_id'] as String?,
+        logoUrl: json['logo_url'] as String?,
+        defaultVatRate: (json['default_vat_rate'] as num).toDouble(),
+        reducedVatRate: (json['reduced_vat_rate'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'company_address': companyAddress,
+        'company_tax_id': companyTaxId,
+        'logo_url': logoUrl,
+        'default_vat_rate': defaultVatRate,
+        'reduced_vat_rate': reducedVatRate,
       };
 }
 

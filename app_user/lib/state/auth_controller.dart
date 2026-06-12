@@ -150,6 +150,31 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Aktualisiert die Mandanten-Konfiguration (Firmendaten, Logo,
+  /// Steuersätze) — nur Owner.
+  Future<bool> updateTenantConfig(UpdateTenantConfigRequest config) async {
+    final currentToken = token;
+    if (currentToken == null) return false;
+
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      tenant = await _apiClient.updateTenantConfig(
+        token: currentToken,
+        config: config,
+      );
+      return true;
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> _loadAvailableTenants() async {
     if (token == null) return;
     try {
