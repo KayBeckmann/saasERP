@@ -30,6 +30,15 @@ class AuthController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+
+    // Ablauf lokal prüfen, bevor ein Backend-Request gemacht wird.
+    if (TokenCodec.decodeUnverified(storedToken).isExpired) {
+      await _authStorage.clearToken();
+      status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return;
+    }
+
     try {
       final me = await _apiClient.me(storedToken);
       token = storedToken;

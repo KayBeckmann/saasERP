@@ -1,6 +1,8 @@
 /// Gemeinsame Modelle und DTOs für saasERP-Backend, User-App und Kunden-App.
 library;
 
+export 'src/auth/auth_token_payload.dart';
+export 'src/auth/token_codec.dart';
 export 'src/models/app_user.dart';
 export 'src/models/auth.dart';
 export 'src/models/tenant.dart';

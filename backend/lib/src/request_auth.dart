@@ -1,5 +1,6 @@
 import 'package:dart_frog/dart_frog.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 import 'auth_service.dart';
 
