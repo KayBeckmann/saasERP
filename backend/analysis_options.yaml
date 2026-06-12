@@ -1,0 +1,8 @@
+include: package:dart_frog_lint/recommended.yaml
+
+linter:
+  rules:
+    public_member_api_docs: false
+    always_use_package_imports: false
+    lines_longer_than_80_chars: false
+    avoid_catching_errors: false

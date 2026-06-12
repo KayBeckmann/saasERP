@@ -1,0 +1,7 @@
+**/.dart_tool/
+**/.dart_frog/
+**/build/
+**/.git/
+**/coverage/
+**/.idea/
+**/.vscode/
