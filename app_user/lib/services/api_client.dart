@@ -56,6 +56,32 @@ class ApiClient {
     return AuthResponse.fromJson(_decode(response));
   }
 
+  Future<List<TenantAccess>> meTenants(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/me/tenants'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['tenants'] as List)
+        .map((e) => TenantAccess.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AuthResponse> switchTenant({
+    required String token,
+    required String tenantId,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/auth/switch_tenant'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(SwitchTenantRequest(tenantId: tenantId).toJson()),
+    );
+    return AuthResponse.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

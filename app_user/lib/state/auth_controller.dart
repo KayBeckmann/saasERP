@@ -19,6 +19,7 @@ class AuthController extends ChangeNotifier {
   String? token;
   AppUser? user;
   Tenant? tenant;
+  List<TenantAccess> availableTenants = [];
   String? errorMessage;
   bool isLoading = false;
 
@@ -45,6 +46,7 @@ class AuthController extends ChangeNotifier {
       user = me.user;
       tenant = me.tenant;
       status = AuthStatus.authenticated;
+      await _loadAvailableTenants();
     } on ApiException {
       await _authStorage.clearToken();
       status = AuthStatus.unauthenticated;
@@ -82,6 +84,7 @@ class AuthController extends ChangeNotifier {
       user = response.user;
       tenant = response.tenant;
       status = AuthStatus.authenticated;
+      await _loadAvailableTenants();
       return true;
     } on ApiException catch (e) {
       errorMessage = e.message;
@@ -92,11 +95,51 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Wechselt den aktiven Mandanten (Tenant-Auswahl für Nutzer mit
+  /// mehreren Zugängen, z. B. Berater) und stellt ein neu skopiertes
+  /// JWT für den Ziel-Mandanten aus.
+  Future<bool> switchTenant(String tenantId) async {
+    final currentToken = token;
+    if (currentToken == null) return false;
+
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await _apiClient.switchTenant(
+        token: currentToken,
+        tenantId: tenantId,
+      );
+      await _authStorage.saveToken(response.token);
+      token = response.token;
+      user = response.user;
+      tenant = response.tenant;
+      return true;
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadAvailableTenants() async {
+    if (token == null) return;
+    try {
+      availableTenants = await _apiClient.meTenants(token!);
+    } on ApiException {
+      availableTenants = [];
+    }
+  }
+
   Future<void> logout() async {
     await _authStorage.clearToken();
     token = null;
     user = null;
     tenant = null;
+    availableTenants = [];
     status = AuthStatus.unauthenticated;
     notifyListeners();
   }

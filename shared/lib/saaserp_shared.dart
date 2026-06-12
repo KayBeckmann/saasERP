@@ -6,4 +6,5 @@ export 'src/auth/token_codec.dart';
 export 'src/models/app_user.dart';
 export 'src/models/auth.dart';
 export 'src/models/tenant.dart';
+export 'src/models/tenant_access.dart';
 export 'src/models/user_role.dart';

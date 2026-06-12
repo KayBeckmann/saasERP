@@ -16,6 +16,30 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(tenant?.name ?? 'saasERP'),
         actions: [
+          if (auth.availableTenants.length > 1)
+            PopupMenuButton<String>(
+              tooltip: 'Mandant wechseln',
+              icon: const Icon(Icons.apartment),
+              onSelected: (tenantId) => auth.switchTenant(tenantId),
+              itemBuilder: (context) => auth.availableTenants
+                  .map(
+                    (access) => PopupMenuItem(
+                      value: access.tenant.id,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (access.tenant.id == tenant?.id)
+                            const Padding(
+                              padding: EdgeInsets.only(right: 8),
+                              child: Icon(Icons.check, size: 18),
+                            ),
+                          Text(access.tenant.name),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Abmelden',

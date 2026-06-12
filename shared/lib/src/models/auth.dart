@@ -44,6 +44,18 @@ class LoginRequest {
       };
 }
 
+/// Mandantenwechsel für Nutzer mit mehreren Zugängen (Tenant-Auswahl).
+class SwitchTenantRequest {
+  const SwitchTenantRequest({required this.tenantId});
+
+  final String tenantId;
+
+  factory SwitchTenantRequest.fromJson(Map<String, dynamic> json) =>
+      SwitchTenantRequest(tenantId: json['tenant_id'] as String);
+
+  Map<String, dynamic> toJson() => {'tenant_id': tenantId};
+}
+
 /// Antwort auf Register/Login: JWT + zugehöriger Mandant/Benutzer.
 class AuthResponse {
   const AuthResponse({

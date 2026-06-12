@@ -1,6 +1,7 @@
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
+import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -11,6 +12,7 @@ final _pool = createDbPool(_config);
 final _authService = AuthService(_config);
 final _tenantRepository = TenantRepository(_pool);
 final _userRepository = UserRepository(_pool);
+final _tenantAccessRepository = TenantAccessRepository(_pool);
 
 Handler middleware(Handler handler) {
   return handler
@@ -19,7 +21,8 @@ Handler middleware(Handler handler) {
       .use(provider<Pool<void>>((_) => _pool))
       .use(provider<AuthService>((_) => _authService))
       .use(provider<TenantRepository>((_) => _tenantRepository))
-      .use(provider<UserRepository>((_) => _userRepository));
+      .use(provider<UserRepository>((_) => _userRepository))
+      .use(provider<TenantAccessRepository>((_) => _tenantAccessRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.
