@@ -11,6 +11,7 @@ class AppConfig {
     required this.dbPassword,
     required this.jwtSecret,
     required this.corsOrigin,
+    required this.encryptionMasterKey,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -23,6 +24,7 @@ class AppConfig {
       dbPassword: env['POSTGRES_PASSWORD'] ?? 'saaserp',
       jwtSecret: env['JWT_SECRET'] ?? 'dev-secret-change-me',
       corsOrigin: env['CORS_ORIGIN'] ?? '*',
+      encryptionMasterKey: env['ENCRYPTION_MASTER_KEY'] ?? 'dev-encryption-key-change-me',
     );
   }
 
@@ -33,4 +35,8 @@ class AppConfig {
   final String dbPassword;
   final String jwtSecret;
   final String corsOrigin;
+
+  /// Globaler Master-Key zum Wrapping der Tenant-Datenschlüssel
+  /// (Envelope-Encryption, siehe `TenantEncryptionService`).
+  final String encryptionMasterKey;
 }

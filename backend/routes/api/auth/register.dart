@@ -4,6 +4,7 @@ import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
+import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -46,6 +47,7 @@ Future<Response> onRequest(RequestContext context) async {
   final userRepository = context.read<UserRepository>();
   final tenantRepository = context.read<TenantRepository>();
   final tenantAccessRepository = context.read<TenantAccessRepository>();
+  final tenantEncryptionService = context.read<TenantEncryptionService>();
   final authService = context.read<AuthService>();
 
   final existing = await userRepository.findByEmail(req.email);
@@ -69,6 +71,7 @@ Future<Response> onRequest(RequestContext context) async {
     tenantId: tenant.id,
     role: user.role.toJson(),
   );
+  await tenantEncryptionService.provisionTenant(tenant.id);
 
   final token = authService.issueToken(
     userId: user.id,
