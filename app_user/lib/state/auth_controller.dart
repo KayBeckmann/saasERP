@@ -125,6 +125,31 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  /// Setzt die Branding-Farbe des aktuellen Mandanten (nur Owner).
+  /// `brandingColor: null` setzt auf das generische Theme zurück.
+  Future<bool> updateTenantBranding(String? brandingColor) async {
+    final currentToken = token;
+    if (currentToken == null) return false;
+
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      tenant = await _apiClient.updateTenantBranding(
+        token: currentToken,
+        brandingColor: brandingColor,
+      );
+      return true;
+    } on ApiException catch (e) {
+      errorMessage = e.message;
+      return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> _loadAvailableTenants() async {
     if (token == null) return;
     try {

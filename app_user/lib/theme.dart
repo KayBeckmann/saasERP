@@ -1,15 +1,30 @@
 import 'package:flutter/material.dart';
 
+const _deepNavy = Color(0xFF091426);
+const _steelBlue = Color(0xFF4A607E);
+
+/// Liest einen Hex-Code (`#RRGGBB`) aus dem Tenant-Branding. Gibt `null`
+/// zurück, wenn kein/ein ungültiger Wert gesetzt ist — dann greift das
+/// generische Theme.
+Color? parseBrandingColor(String? hex) {
+  if (hex == null) return null;
+  final match = RegExp(r'^#([0-9A-Fa-f]{6})$').firstMatch(hex);
+  if (match == null) return null;
+  return Color(int.parse(match.group(1)!, radix: 16) | 0xFF000000);
+}
+
 /// Farb-/Formsprache angelehnt an das Mockup-Designsystem
 /// "Craft-Trade ERP System" (siehe ~/git/saasERP/mockup).
-ThemeData buildAppTheme() {
-  const deepNavy = Color(0xFF091426);
-  const steelBlue = Color(0xFF4A607E);
+///
+/// [primaryColor] kommt aus dem Branding des aktuellen Mandanten
+/// (Whitelabel-Potenzial) — `null` fällt auf das generische Theme zurück.
+ThemeData buildAppTheme({Color? primaryColor}) {
+  final primary = primaryColor ?? _deepNavy;
 
   final colorScheme = ColorScheme.fromSeed(
-    seedColor: deepNavy,
-    primary: deepNavy,
-    secondary: steelBlue,
+    seedColor: primary,
+    primary: primary,
+    secondary: _steelBlue,
     surface: const Color(0xFFF8FAFB),
   );
 
@@ -24,7 +39,7 @@ ThemeData buildAppTheme() {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: deepNavy,
+        backgroundColor: primary,
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(4),

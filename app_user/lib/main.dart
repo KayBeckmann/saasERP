@@ -17,10 +17,14 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AuthController()..restoreSession(),
-      child: MaterialApp(
-        title: 'saasERP',
-        theme: buildAppTheme(),
-        home: const RootScreen(),
+      child: Consumer<AuthController>(
+        builder: (context, auth, _) => MaterialApp(
+          title: 'saasERP',
+          theme: buildAppTheme(
+            primaryColor: parseBrandingColor(auth.tenant?.brandingColor),
+          ),
+          home: const RootScreen(),
+        ),
       ),
     );
   }

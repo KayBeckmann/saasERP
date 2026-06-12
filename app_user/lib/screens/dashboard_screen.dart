@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../theme.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -70,6 +72,10 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text('Name: ${tenant?.name ?? '-'}'),
                     Text('ID: ${tenant?.id ?? '-'}'),
+                    if (user?.role == UserRole.owner) ...[
+                      const SizedBox(height: 16),
+                      _BrandingEditor(brandingColor: tenant?.brandingColor),
+                    ],
                   ],
                 ),
               ),
@@ -95,6 +101,77 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Branding-Editor für Owner: setzt die Primärfarbe des Mandanten
+/// (Whitelabel-Potenzial), wirkt sofort auf das App-Theme.
+class _BrandingEditor extends StatefulWidget {
+  const _BrandingEditor({required this.brandingColor});
+
+  final String? brandingColor;
+
+  @override
+  State<_BrandingEditor> createState() => _BrandingEditorState();
+}
+
+class _BrandingEditorState extends State<_BrandingEditor> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.brandingColor ?? '',
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<AuthController>();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: parseBrandingColor(widget.brandingColor) ??
+                Theme.of(context).colorScheme.primary,
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Branding-Farbe (#RRGGBB)',
+              hintText: '#091426',
+              isDense: true,
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.check),
+          tooltip: 'Speichern',
+          onPressed: () {
+            final value = _controller.text.trim();
+            auth.updateTenantBranding(value.isEmpty ? null : value);
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.restart_alt),
+          tooltip: 'Zurücksetzen',
+          onPressed: () {
+            _controller.clear();
+            auth.updateTenantBranding(null);
+          },
+        ),
+      ],
     );
   }
 }

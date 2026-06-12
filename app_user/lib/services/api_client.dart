@@ -82,6 +82,23 @@ class ApiClient {
     return AuthResponse.fromJson(_decode(response));
   }
 
+  Future<Tenant> updateTenantBranding({
+    required String token,
+    required String? brandingColor,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/tenant/branding'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(
+        UpdateTenantBrandingRequest(brandingColor: brandingColor).toJson(),
+      ),
+    );
+    return Tenant.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
