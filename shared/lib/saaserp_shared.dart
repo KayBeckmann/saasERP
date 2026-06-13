@@ -5,6 +5,7 @@ export 'src/auth/auth_token_payload.dart';
 export 'src/auth/token_codec.dart';
 export 'src/encryption/field_cipher.dart';
 export 'src/models/app_user.dart';
+export 'src/models/article.dart';
 export 'src/models/auth.dart';
 export 'src/models/customer.dart';
 export 'src/models/supplier.dart';

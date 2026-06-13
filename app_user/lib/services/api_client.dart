@@ -226,6 +226,62 @@ class ApiClient {
     }
   }
 
+  Future<List<Article>> listArticles(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/articles'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['articles'] as List)
+        .map((e) => Article.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Article> createArticle({
+    required String token,
+    required CreateArticleRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/articles'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Article.fromJson(_decode(response));
+  }
+
+  Future<Article> updateArticle({
+    required String token,
+    required String id,
+    required UpdateArticleRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/articles/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Article.fromJson(_decode(response));
+  }
+
+  Future<void> deleteArticle({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/articles/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

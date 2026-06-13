@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import 'articles_screen.dart';
 import 'customers_screen.dart';
 import 'suppliers_screen.dart';
 
@@ -122,6 +123,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SuppliersScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Artikel'),
+                subtitle: const Text('Artikelstamm verwalten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ArticlesScreen()),
                 ),
               ),
             ),
