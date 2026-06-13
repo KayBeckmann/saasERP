@@ -42,6 +42,7 @@ class QuoteItem {
     this.unit,
     this.unitPrice = 0,
     this.vatRate = 19.0,
+    this.groupLabel,
   });
 
   final String? id;
@@ -53,6 +54,11 @@ class QuoteItem {
   final String? unit;
   final double unitPrice;
   final double vatRate;
+
+  /// Optionale Gruppenbezeichnung für Zwischensummen (z. B.
+  /// "Elektroinstallation"). Positionen mit gleichem Label werden im
+  /// Angebot als Gruppe mit eigener Zwischensumme dargestellt.
+  final String? groupLabel;
 
   double get totalNet => quantity * unitPrice;
 
@@ -68,6 +74,7 @@ class QuoteItem {
         unit: json['unit'] as String?,
         unitPrice: (json['unit_price'] as num).toDouble(),
         vatRate: (json['vat_rate'] as num).toDouble(),
+        groupLabel: json['group_label'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -80,7 +87,22 @@ class QuoteItem {
         'unit': unit,
         'unit_price': unitPrice,
         'vat_rate': vatRate,
+        'group_label': groupLabel,
       };
+}
+
+/// Zwischensumme einer Gruppe von Angebotspositionen mit gleichem
+/// [QuoteItem.groupLabel]. `label == null` fasst alle Positionen ohne
+/// Gruppenzuordnung zusammen.
+class QuoteGroupSummary {
+  const QuoteGroupSummary({this.label, required this.items});
+
+  final String? label;
+  final List<QuoteItem> items;
+
+  double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
+
+  double get totalGross => items.fold(0, (sum, item) => sum + item.totalGross);
 }
 
 /// Angebot eines Mandanten an einen Kunden — `quoteNumber` wird über den
@@ -113,6 +135,37 @@ class Quote {
   double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
 
   double get totalGross => items.fold(0, (sum, item) => sum + item.totalGross);
+
+  /// Positionen gruppiert nach [QuoteItem.groupLabel] — Reihenfolge der
+  /// Gruppen ergibt sich aus dem ersten Auftreten des Labels in [items].
+  /// Ungruppierte Positionen (`groupLabel == null`) bilden eine
+  /// abschließende Gruppe mit `label == null`.
+  List<QuoteGroupSummary> get groupedItems {
+    final byLabel = <String, List<QuoteItem>>{};
+    final order = <String>[];
+    final ungrouped = <QuoteItem>[];
+
+    for (final item in items) {
+      final label = item.groupLabel;
+      if (label == null || label.trim().isEmpty) {
+        ungrouped.add(item);
+        continue;
+      }
+      if (!byLabel.containsKey(label)) {
+        byLabel[label] = [];
+        order.add(label);
+      }
+      byLabel[label]!.add(item);
+    }
+
+    final result = [
+      for (final label in order) QuoteGroupSummary(label: label, items: byLabel[label]!),
+    ];
+    if (ungrouped.isNotEmpty) {
+      result.add(QuoteGroupSummary(items: ungrouped));
+    }
+    return result;
+  }
 
   factory Quote.fromJson(Map<String, dynamic> json) => Quote(
         id: json['id'] as String,
