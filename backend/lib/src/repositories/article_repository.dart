@@ -105,6 +105,23 @@ class ArticleRepository {
     return _fromRow(result.first.toColumnMap());
   }
 
+  /// Verändert `stock_quantity` um `delta` (negativ für Lagerentnahme,
+  /// positiv für Wareneingang/Korrektur). Keine Untergrenze bei 0 — ein
+  /// negativer Bestand ist möglich und zeigt eine Überverbrauchssituation an.
+  Future<void> adjustStock({
+    required String tenantId,
+    required String id,
+    required double delta,
+  }) async {
+    await _pool.execute(
+      Sql.named(
+        'UPDATE articles SET stock_quantity = stock_quantity + @delta '
+        'WHERE tenant_id = @tenant_id AND id = @id',
+      ),
+      parameters: {'tenant_id': tenantId, 'id': id, 'delta': delta},
+    );
+  }
+
   Future<bool> delete({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('DELETE FROM articles WHERE tenant_id = @tenant_id AND id = @id'),

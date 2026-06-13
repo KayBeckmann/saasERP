@@ -148,10 +148,13 @@ class PurchaseOrderRepository {
       if (orderResult.isEmpty) return null;
 
       for (final item in req.items) {
-        await session.execute(
+        if (item.delivered == 0) continue;
+
+        final itemResult = await session.execute(
           Sql.named(
             'UPDATE purchase_order_items SET quantity_delivered = quantity_delivered + @delivered '
-            'WHERE tenant_id = @tenant_id AND id = @id AND purchase_order_id = @purchase_order_id',
+            'WHERE tenant_id = @tenant_id AND id = @id AND purchase_order_id = @purchase_order_id '
+            'RETURNING article_id',
           ),
           parameters: {
             'tenant_id': tenantId,
@@ -160,6 +163,19 @@ class PurchaseOrderRepository {
             'delivered': item.delivered,
           },
         );
+        if (itemResult.isEmpty) continue;
+
+        // Wareneingang bucht den Lagerbestand des Artikels direkt zu.
+        final articleId = itemResult.first.toColumnMap()['article_id'] as String?;
+        if (articleId != null) {
+          await session.execute(
+            Sql.named(
+              'UPDATE articles SET stock_quantity = stock_quantity + @delivered '
+              'WHERE tenant_id = @tenant_id AND id = @article_id',
+            ),
+            parameters: {'tenant_id': tenantId, 'article_id': articleId, 'delivered': item.delivered},
+          );
+        }
       }
 
       final items = await _loadItems(session, purchaseOrderId: id);
