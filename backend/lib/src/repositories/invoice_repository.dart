@@ -14,7 +14,7 @@ class InvoiceRepository {
 
   static const _invoiceColumns =
       'id, tenant_id, invoice_number, order_id, customer_id, title, status, due_date, notes, created_at, '
-      'invoice_type, prior_invoiced_total';
+      'invoice_type, prior_invoiced_total, dunning_level, dunning_fee_total, last_dunned_at';
 
   static const _itemColumns = 'id, invoice_id, kind, article_id, product_id, description, quantity, unit, '
       'unit_price, vat_rate, group_label, order_item_id';
@@ -214,6 +214,9 @@ class InvoiceRepository {
         items: items,
         invoiceType: InvoiceType.fromJson(row['invoice_type'] as String),
         priorInvoicedTotal: (row['prior_invoiced_total'] as num?)?.toDouble(),
+        dunningLevel: (row['dunning_level'] as num).toInt(),
+        dunningFeeTotal: (row['dunning_fee_total'] as num).toDouble(),
+        lastDunnedAt: (row['last_dunned_at'] as DateTime?)?.toUtc(),
       );
 
   /// IDs der Auftragspositionen, die bereits über eine nicht-stornierte
@@ -245,5 +248,64 @@ class InvoiceRepository {
       parameters: {'tenant_id': tenantId, 'order_id': orderId},
     );
     return (result.first.toColumnMap()['total'] as num).toDouble();
+  }
+
+  /// Überfällige Rechnungen eines Mandanten: `due_date` liegt in der
+  /// Vergangenheit, Status ist weder `paid` noch `cancelled`. Grundlage für
+  /// den Mahnlauf.
+  Future<List<Invoice>> listOverdue(String tenantId) async {
+    final invoiceRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_invoiceColumns FROM invoices '
+        "WHERE tenant_id = @tenant_id AND due_date < CURRENT_DATE AND status NOT IN ('paid', 'cancelled') "
+        'ORDER BY due_date ASC',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    if (invoiceRows.isEmpty) return [];
+
+    final itemRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_itemColumns FROM invoice_items '
+        'WHERE tenant_id = @tenant_id ORDER BY invoice_id, sort_order',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+
+    final itemsByInvoice = <String, List<InvoiceItem>>{};
+    for (final row in itemRows) {
+      final map = row.toColumnMap();
+      final invoiceId = map['invoice_id'] as String;
+      itemsByInvoice.putIfAbsent(invoiceId, () => []).add(_itemFromRow(map));
+    }
+
+    return invoiceRows
+        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .toList();
+  }
+
+  /// Erhöht die Mahnstufe einer Rechnung um eine Stufe (max. 3), addiert die
+  /// übergebene Mahngebühr auf [Invoice.dunningFeeTotal] und setzt
+  /// [Invoice.lastDunnedAt] auf den aktuellen Zeitpunkt.
+  Future<Invoice?> recordDunning({
+    required String tenantId,
+    required String id,
+    required double fee,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'UPDATE invoices SET '
+        'dunning_level = LEAST(dunning_level + 1, 3), '
+        'dunning_fee_total = dunning_fee_total + @fee, '
+        'last_dunned_at = now() '
+        'WHERE tenant_id = @tenant_id AND id = @id '
+        'RETURNING $_invoiceColumns',
+      ),
+      parameters: {'tenant_id': tenantId, 'id': id, 'fee': fee},
+    );
+    if (result.isEmpty) return null;
+
+    final items = await _loadItems(_pool, invoiceId: id);
+    return _fromRow(result.first.toColumnMap(), items);
   }
 }

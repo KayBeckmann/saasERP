@@ -8,7 +8,8 @@ class TenantRepository {
 
   static const _columns = 'id, name, created_at, branding_color, '
       'company_address, company_tax_id, logo_url, '
-      'default_vat_rate, reduced_vat_rate';
+      'default_vat_rate, reduced_vat_rate, '
+      'dunning_fee_level1, dunning_fee_level2, dunning_fee_level3';
 
   Future<Tenant> create(String name) async {
     final result = await _pool.execute(
@@ -55,7 +56,10 @@ class TenantRepository {
         'company_tax_id = @company_tax_id, '
         'logo_url = @logo_url, '
         'default_vat_rate = @default_vat_rate, '
-        'reduced_vat_rate = @reduced_vat_rate '
+        'reduced_vat_rate = @reduced_vat_rate, '
+        'dunning_fee_level1 = @dunning_fee_level1, '
+        'dunning_fee_level2 = @dunning_fee_level2, '
+        'dunning_fee_level3 = @dunning_fee_level3 '
         'WHERE id = @id '
         'RETURNING $_columns',
       ),
@@ -66,6 +70,9 @@ class TenantRepository {
         'logo_url': config.logoUrl,
         'default_vat_rate': config.defaultVatRate,
         'reduced_vat_rate': config.reducedVatRate,
+        'dunning_fee_level1': config.dunningFeeLevel1,
+        'dunning_fee_level2': config.dunningFeeLevel2,
+        'dunning_fee_level3': config.dunningFeeLevel3,
       },
     );
     return _fromRow(result.first.toColumnMap());
@@ -81,5 +88,8 @@ class TenantRepository {
         logoUrl: row['logo_url'] as String?,
         defaultVatRate: (row['default_vat_rate'] as num).toDouble(),
         reducedVatRate: (row['reduced_vat_rate'] as num).toDouble(),
+        dunningFeeLevel1: (row['dunning_fee_level1'] as num).toDouble(),
+        dunningFeeLevel2: (row['dunning_fee_level2'] as num).toDouble(),
+        dunningFeeLevel3: (row['dunning_fee_level3'] as num).toDouble(),
       );
 }
