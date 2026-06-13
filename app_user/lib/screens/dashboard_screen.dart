@@ -6,6 +6,7 @@ import '../state/auth_controller.dart';
 import '../theme.dart';
 import 'articles_screen.dart';
 import 'customers_screen.dart';
+import 'dunning_screen.dart';
 import 'invoices_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
@@ -194,6 +195,18 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Card(
               child: ListTile(
+                leading: const Icon(Icons.warning_amber_outlined),
+                title: const Text('Mahnwesen'),
+                subtitle: const Text('Überfällige Rechnungen mahnen'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const DunningScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
                 leading: const Icon(Icons.timer_outlined),
                 title: const Text('Stundenerfassung'),
                 subtitle: const Text('Arbeitszeit mit Wochenansicht erfassen'),
@@ -321,6 +334,12 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
       TextEditingController(text: _formatRate(widget.tenant?.defaultVatRate ?? 19.0));
   late final TextEditingController _reducedVatController =
       TextEditingController(text: _formatRate(widget.tenant?.reducedVatRate ?? 7.0));
+  late final TextEditingController _dunningFee1Controller =
+      TextEditingController(text: _formatRate(widget.tenant?.dunningFeeLevel1 ?? 0));
+  late final TextEditingController _dunningFee2Controller =
+      TextEditingController(text: _formatRate(widget.tenant?.dunningFeeLevel2 ?? 5.0));
+  late final TextEditingController _dunningFee3Controller =
+      TextEditingController(text: _formatRate(widget.tenant?.dunningFeeLevel3 ?? 10.0));
 
   static String _formatRate(double value) =>
       value == value.roundToDouble() ? value.toInt().toString() : value.toString();
@@ -332,6 +351,9 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
     _logoUrlController.dispose();
     _defaultVatController.dispose();
     _reducedVatController.dispose();
+    _dunningFee1Controller.dispose();
+    _dunningFee2Controller.dispose();
+    _dunningFee3Controller.dispose();
     super.dispose();
   }
 
@@ -393,13 +415,56 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
           ],
         ),
         const SizedBox(height: 8),
+        Text('Mahngebühren (EUR)', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _dunningFee1Controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Zahlungserinnerung',
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _dunningFee2Controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: '1. Mahnung',
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _dunningFee3Controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: '2. Mahnung',
+                  isDense: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
             onPressed: () {
               final defaultVat = double.tryParse(_defaultVatController.text.replaceAll(',', '.'));
               final reducedVat = double.tryParse(_reducedVatController.text.replaceAll(',', '.'));
+              final dunningFee1 = double.tryParse(_dunningFee1Controller.text.replaceAll(',', '.'));
+              final dunningFee2 = double.tryParse(_dunningFee2Controller.text.replaceAll(',', '.'));
+              final dunningFee3 = double.tryParse(_dunningFee3Controller.text.replaceAll(',', '.'));
               if (defaultVat == null || reducedVat == null) return;
+              if (dunningFee1 == null || dunningFee2 == null || dunningFee3 == null) return;
               auth.updateTenantConfig(
                 UpdateTenantConfigRequest(
                   companyAddress: _addressController.text.trim().isEmpty
@@ -413,6 +478,9 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
                       : _logoUrlController.text.trim(),
                   defaultVatRate: defaultVat,
                   reducedVatRate: reducedVat,
+                  dunningFeeLevel1: dunningFee1,
+                  dunningFeeLevel2: dunningFee2,
+                  dunningFeeLevel3: dunningFee3,
                 ),
               );
             },

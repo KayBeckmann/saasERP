@@ -662,6 +662,40 @@ class ApiClient {
     }
   }
 
+  Future<List<Invoice>> listOverdueInvoices(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/invoices/overdue'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['invoices'] as List)
+        .map((e) => Invoice.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Invoice> dunInvoice({required String token, required String id}) async {
+    final response = await _httpClient.post(
+      _uri('/api/invoices/$id/dun'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return Invoice.fromJson(_decode(response));
+  }
+
+  Future<Uint8List> getDunningPdf({required String token, required String id}) async {
+    final response = await _httpClient.get(
+      _uri('/api/invoices/$id/dunning-pdf'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
