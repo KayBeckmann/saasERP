@@ -170,6 +170,62 @@ class ApiClient {
     }
   }
 
+  Future<List<Supplier>> listSuppliers(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/suppliers'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['suppliers'] as List)
+        .map((e) => Supplier.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Supplier> createSupplier({
+    required String token,
+    required CreateSupplierRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/suppliers'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Supplier.fromJson(_decode(response));
+  }
+
+  Future<Supplier> updateSupplier({
+    required String token,
+    required String id,
+    required UpdateSupplierRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/suppliers/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Supplier.fromJson(_decode(response));
+  }
+
+  Future<void> deleteSupplier({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/suppliers/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

@@ -7,6 +7,7 @@ export 'src/encryption/field_cipher.dart';
 export 'src/models/app_user.dart';
 export 'src/models/auth.dart';
 export 'src/models/customer.dart';
+export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
 export 'src/models/tenant_access.dart';
 export 'src/models/user_role.dart';
