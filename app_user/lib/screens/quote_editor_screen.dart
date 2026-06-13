@@ -28,11 +28,13 @@ class _ItemDraft {
     String unit = '',
     double unitPrice = 0,
     double vatRate = 19.0,
+    String groupLabel = '',
   })  : descriptionController = TextEditingController(text: description),
         quantityController = TextEditingController(text: _formatNumber(quantity)),
         unitController = TextEditingController(text: unit),
         unitPriceController = TextEditingController(text: _formatNumber(unitPrice)),
-        vatRateController = TextEditingController(text: _formatNumber(vatRate));
+        vatRateController = TextEditingController(text: _formatNumber(vatRate)),
+        groupLabelController = TextEditingController(text: groupLabel);
 
   factory _ItemDraft.fromItem(QuoteItem item) => _ItemDraft(
         kind: item.kind,
@@ -43,6 +45,7 @@ class _ItemDraft {
         unit: item.unit ?? '',
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
+        groupLabel: item.groupLabel ?? '',
       );
 
   QuoteItemKind kind;
@@ -53,6 +56,7 @@ class _ItemDraft {
   final TextEditingController unitController;
   final TextEditingController unitPriceController;
   final TextEditingController vatRateController;
+  final TextEditingController groupLabelController;
 
   static String _formatNumber(double value) =>
       value == value.roundToDouble() ? value.toInt().toString() : value.toString();
@@ -67,6 +71,9 @@ class _ItemDraft {
 
   double get totalGross => totalNet * (1 + vatRate / 100);
 
+  String? get groupLabel =>
+      groupLabelController.text.trim().isEmpty ? null : groupLabelController.text.trim();
+
   QuoteItem toItem() => QuoteItem(
         kind: kind,
         articleId: articleId,
@@ -76,6 +83,7 @@ class _ItemDraft {
         unit: unitController.text.trim().isEmpty ? null : unitController.text.trim(),
         unitPrice: unitPrice,
         vatRate: vatRate,
+        groupLabel: groupLabel,
       );
 
   void dispose() {
@@ -84,6 +92,7 @@ class _ItemDraft {
     unitController.dispose();
     unitPriceController.dispose();
     vatRateController.dispose();
+    groupLabelController.dispose();
   }
 }
 
@@ -137,6 +146,23 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   double get _totalNet => _items.fold(0, (sum, item) => sum + item.totalNet);
 
   double get _totalGross => _items.fold(0, (sum, item) => sum + item.totalGross);
+
+  /// Zwischensummen je [_ItemDraft.groupLabel], in Reihenfolge des ersten
+  /// Auftretens. Positionen ohne Gruppe werden hier nicht aufgeführt.
+  List<QuoteGroupSummary> _groupSubtotals() {
+    final byLabel = <String, List<QuoteItem>>{};
+    final order = <String>[];
+    for (final item in _items) {
+      final label = item.groupLabel;
+      if (label == null) continue;
+      if (!byLabel.containsKey(label)) {
+        byLabel[label] = [];
+        order.add(label);
+      }
+      byLabel[label]!.add(item.toItem());
+    }
+    return [for (final label in order) QuoteGroupSummary(label: label, items: byLabel[label]!)];
+  }
 
   void _addTextItem() {
     setState(() => _items.add(_ItemDraft(kind: QuoteItemKind.text)));
@@ -363,6 +389,25 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                     ],
                   ),
                   const Divider(height: 32),
+                  if (_groupSubtotals().isNotEmpty) ...[
+                    Text('Zwischensummen', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    for (final group in _groupSubtotals())
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(group.label!),
+                            Text(
+                              '${group.totalNet.toStringAsFixed(2)} € netto '
+                              '/ ${group.totalGross.toStringAsFixed(2)} € brutto',
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Divider(height: 24),
+                  ],
                   Align(
                     alignment: Alignment.centerRight,
                     child: Column(
@@ -458,6 +503,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                   onPressed: () => _removeItem(index),
                 ),
               ],
+            ),
+            TextFormField(
+              controller: item.groupLabelController,
+              decoration: const InputDecoration(
+                labelText: 'Gruppe (optional)',
+                hintText: 'z. B. Elektroinstallation — für Zwischensummen',
+              ),
+              onChanged: (_) => setState(() {}),
             ),
             Row(
               children: [
