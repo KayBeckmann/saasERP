@@ -546,12 +546,38 @@ class ApiClient {
     }
   }
 
-  Future<Invoice> convertOrderToInvoice({required String token, required String orderId}) async {
+  Future<Invoice> convertOrderToInvoice({
+    required String token,
+    required String orderId,
+    InvoiceType invoiceType = InvoiceType.standard,
+    List<String>? itemIds,
+  }) async {
     final response = await _httpClient.post(
       _uri('/api/orders/$orderId/to-invoice'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'invoice_type': invoiceType.toJson(),
+        if (itemIds != null) 'item_ids': itemIds,
+      }),
     );
     return Invoice.fromJson(_decode(response));
+  }
+
+  /// Liefert die Positionen eines Auftrags inkl. `already_invoiced`-Flag —
+  /// Basis für die Positions-Checkliste bei Teil-/Abschlags-/Schlussrechnungen.
+  Future<List<Map<String, dynamic>>> getBillableOrderItems({
+    required String token,
+    required String orderId,
+  }) async {
+    final response = await _httpClient.get(
+      _uri('/api/orders/$orderId/billable-items'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['items'] as List).cast<Map<String, dynamic>>();
   }
 
   Future<ArticlePriceImportResult> importArticlePrices({

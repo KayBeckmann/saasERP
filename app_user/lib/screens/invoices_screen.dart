@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/invoice_conversion_dialog.dart';
 import 'invoice_editor_screen.dart';
 
 /// Listet die Rechnungen des Mandanten und erlaubt Anlegen/Bearbeiten/Löschen.
@@ -114,6 +115,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                 subtitle: Text(
                   [
                     ?customerName,
+                    if (invoice.invoiceType != InvoiceType.standard) invoiceTypeLabel(invoice.invoiceType),
                     '${invoice.totalGross.toStringAsFixed(2)} €',
                   ].join(' · '),
                 ),

@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/invoice_conversion_dialog.dart';
 
 /// Anlegen/Bearbeiten einer Rechnung: Stammdaten (Kunde, Titel, Status,
 /// Fälligkeitsdatum, Notizen) plus Positions-Editor (Freitext, Artikel,
@@ -29,6 +30,7 @@ class _ItemDraft {
     double unitPrice = 0,
     double vatRate = 19.0,
     String groupLabel = '',
+    this.orderItemId,
   })  : descriptionController = TextEditingController(text: description),
         quantityController = TextEditingController(text: _formatNumber(quantity)),
         unitController = TextEditingController(text: unit),
@@ -46,11 +48,16 @@ class _ItemDraft {
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
         groupLabel: item.groupLabel ?? '',
+        orderItemId: item.orderItemId,
       );
 
   InvoiceItemKind kind;
   String? articleId;
   String? productId;
+
+  /// Verweist auf die Auftragsposition, aus der diese Position übernommen
+  /// wurde (Doppelabrechnungsschutz) — bleibt beim Speichern erhalten.
+  final String? orderItemId;
   final TextEditingController descriptionController;
   final TextEditingController quantityController;
   final TextEditingController unitController;
@@ -84,6 +91,7 @@ class _ItemDraft {
         unitPrice: unitPrice,
         vatRate: vatRate,
         groupLabel: groupLabel,
+        orderItemId: orderItemId,
       );
 
   void dispose() {
@@ -258,6 +266,8 @@ class _InvoiceEditorScreenState extends State<InvoiceEditorScreen> {
             dueDate: _dueDate,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
+            invoiceType: widget.invoice!.invoiceType,
+            priorInvoicedTotal: widget.invoice!.priorInvoicedTotal,
           ),
         );
       }
@@ -304,10 +314,15 @@ class _InvoiceEditorScreenState extends State<InvoiceEditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.invoice?.orderId != null) ...[
-                    Text(
-                      'Erzeugt aus Auftrag',
-                      style: Theme.of(context).textTheme.labelMedium,
+                  if (widget.invoice != null) ...[
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        if (widget.invoice!.orderId != null)
+                          const Chip(label: Text('Erzeugt aus Auftrag')),
+                        if (widget.invoice!.invoiceType != InvoiceType.standard)
+                          Chip(label: Text(invoiceTypeLabel(widget.invoice!.invoiceType))),
+                      ],
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -427,6 +442,17 @@ class _InvoiceEditorScreenState extends State<InvoiceEditorScreen> {
                           'Brutto: ${_totalGross.toStringAsFixed(2)} €',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
+                        if (widget.invoice?.priorInvoicedTotal != null) ...[
+                          Text(
+                            'Abzgl. bereits gestellter Rechnungen: '
+                            '-${widget.invoice!.priorInvoicedTotal!.toStringAsFixed(2)} €',
+                          ),
+                          Text(
+                            'Zu zahlen: '
+                            '${(_totalGross - widget.invoice!.priorInvoicedTotal!).toStringAsFixed(2)} €',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
                       ],
                     ),
                   ),

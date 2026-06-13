@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/invoice_conversion_dialog.dart';
 
 /// Anlegen/Bearbeiten eines Auftrags: Stammdaten (Kunde, Titel, Status,
 /// Notizen) plus Positions-Editor (Freitext, Artikel, Produkt, Stunden)
@@ -254,23 +255,23 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   }
 
   Future<void> _convertToInvoice() async {
-    final confirmed = await showDialog<bool>(
+    final auth = context.read<AuthController>();
+    final choice = await showInvoiceConversionDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rechnung erstellen?'),
-        content: Text('Aus Auftrag ${widget.order!.orderNumber} eine neue Rechnung erzeugen?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Erstellen')),
-        ],
-      ),
+      apiClient: auth.apiClient,
+      token: auth.token!,
+      orderId: widget.order!.id,
     );
-    if (confirmed != true) return;
+    if (choice == null) return;
     if (!mounted) return;
 
-    final auth = context.read<AuthController>();
     try {
-      final invoice = await auth.apiClient.convertOrderToInvoice(token: auth.token!, orderId: widget.order!.id);
+      final invoice = await auth.apiClient.convertOrderToInvoice(
+        token: auth.token!,
+        orderId: widget.order!.id,
+        invoiceType: choice.invoiceType,
+        itemIds: choice.itemIds,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Rechnung ${invoice.invoiceNumber} erstellt.')),
