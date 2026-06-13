@@ -12,6 +12,7 @@ import 'package:backend/src/repositories/supplier_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
+import 'package:backend/src/repositories/time_entry_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -33,6 +34,7 @@ final _productRepository = ProductRepository(_pool);
 final _quoteRepository = QuoteRepository(_pool, _numberSequenceRepository);
 final _orderRepository = OrderRepository(_pool, _numberSequenceRepository);
 final _invoiceRepository = InvoiceRepository(_pool, _numberSequenceRepository);
+final _timeEntryRepository = TimeEntryRepository(_pool);
 
 Handler middleware(Handler handler) {
   return handler
@@ -52,7 +54,8 @@ Handler middleware(Handler handler) {
       .use(provider<ProductRepository>((_) => _productRepository))
       .use(provider<QuoteRepository>((_) => _quoteRepository))
       .use(provider<OrderRepository>((_) => _orderRepository))
-      .use(provider<InvoiceRepository>((_) => _invoiceRepository));
+      .use(provider<InvoiceRepository>((_) => _invoiceRepository))
+      .use(provider<TimeEntryRepository>((_) => _timeEntryRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.
