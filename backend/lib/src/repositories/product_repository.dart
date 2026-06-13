@@ -169,6 +169,88 @@ class ProductRepository {
     return _fromRow(result.first.toColumnMap(), components);
   }
 
+  /// Berechnet für alle Produkte, die einen der [articleIds] als
+  /// Artikel-Position enthalten, einen neuen Verkaufspreis-Vorschlag
+  /// (`pending_sale_price`): Der bestehende `sale_price` wird proportional
+  /// zur Kostenänderung skaliert (Marge bleibt erhalten); ist der bisherige
+  /// Kostenstand 0, wird der neue Kostenstand direkt als Vorschlag gesetzt.
+  Future<List<ProductPriceSuggestion>> recalculatePendingPrices({
+    required String tenantId,
+    required Set<String> articleIds,
+  }) async {
+    if (articleIds.isEmpty) return [];
+
+    final productIds = <String>{};
+    for (final articleId in articleIds) {
+      final result = await _pool.execute(
+        Sql.named(
+          'SELECT DISTINCT product_id FROM product_components '
+          "WHERE tenant_id = @tenant_id AND kind = 'article' AND article_id = @article_id",
+        ),
+        parameters: {'tenant_id': tenantId, 'article_id': articleId},
+      );
+      for (final row in result) {
+        productIds.add(row.toColumnMap()['product_id'] as String);
+      }
+    }
+
+    final suggestions = <ProductPriceSuggestion>[];
+    for (final productId in productIds) {
+      final productResult = await _pool.execute(
+        Sql.named('SELECT id, name, sale_price FROM products WHERE tenant_id = @tenant_id AND id = @id'),
+        parameters: {'tenant_id': tenantId, 'id': productId},
+      );
+      if (productResult.isEmpty) continue;
+      final productRow = productResult.first.toColumnMap();
+      final salePrice = (productRow['sale_price'] as num).toDouble();
+
+      final componentResult = await _pool.execute(
+        Sql.named(
+          'SELECT pc.kind, pc.quantity, pc.unit_cost, a.purchase_price AS current_purchase_price '
+          'FROM product_components pc LEFT JOIN articles a ON a.id = pc.article_id '
+          'WHERE pc.product_id = @product_id',
+        ),
+        parameters: {'product_id': productId},
+      );
+
+      var oldCost = 0.0;
+      var newCost = 0.0;
+      for (final row in componentResult) {
+        final map = row.toColumnMap();
+        final kind = map['kind'] as String;
+        final quantity = (map['quantity'] as num).toDouble();
+        final unitCost = (map['unit_cost'] as num).toDouble();
+        oldCost += quantity * unitCost;
+        if (kind == 'article' && map['current_purchase_price'] != null) {
+          newCost += quantity * (map['current_purchase_price'] as num).toDouble();
+        } else {
+          newCost += quantity * unitCost;
+        }
+      }
+
+      if ((newCost - oldCost).abs() < 0.0001) continue;
+
+      final pendingSalePrice = oldCost > 0 ? salePrice * (newCost / oldCost) : newCost;
+      final rounded = (pendingSalePrice * 100).round() / 100;
+
+      await _pool.execute(
+        Sql.named('UPDATE products SET pending_sale_price = @pending WHERE id = @id'),
+        parameters: {'pending': rounded, 'id': productId},
+      );
+
+      suggestions.add(
+        ProductPriceSuggestion(
+          productId: productId,
+          name: productRow['name'] as String,
+          oldSalePrice: salePrice,
+          pendingSalePrice: rounded,
+        ),
+      );
+    }
+
+    return suggestions;
+  }
+
   Future<void> _insertComponents(
     Session session, {
     required String tenantId,

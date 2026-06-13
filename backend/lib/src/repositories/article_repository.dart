@@ -90,6 +90,40 @@ class ArticleRepository {
     return result.affectedRows > 0;
   }
 
+  /// Aktualisiert `purchase_price` für jeden Artikel, dessen `sku` zu
+  /// `rows` passt. Artikel ohne Treffer landen nicht im Ergebnis — die
+  /// SKUs ohne Treffer ermittelt der Aufrufer per Differenzbildung.
+  Future<List<ArticlePriceUpdate>> importPurchasePrices({
+    required String tenantId,
+    required Map<String, double> pricesBySku,
+  }) async {
+    final updates = <ArticlePriceUpdate>[];
+    for (final entry in pricesBySku.entries) {
+      final result = await _pool.execute(
+        Sql.named(
+          'WITH old AS (SELECT id, purchase_price FROM articles '
+          'WHERE tenant_id = @tenant_id AND sku = @sku) '
+          'UPDATE articles a SET purchase_price = @new_price '
+          'FROM old WHERE a.id = old.id '
+          'RETURNING a.id, a.sku, a.name, old.purchase_price AS old_price, a.purchase_price AS new_price',
+        ),
+        parameters: {'tenant_id': tenantId, 'sku': entry.key, 'new_price': entry.value},
+      );
+      if (result.isEmpty) continue;
+      final row = result.first.toColumnMap();
+      updates.add(
+        ArticlePriceUpdate(
+          articleId: row['id'] as String,
+          sku: row['sku'] as String,
+          name: row['name'] as String,
+          oldPurchasePrice: (row['old_price'] as num?)?.toDouble(),
+          newPurchasePrice: (row['new_price'] as num).toDouble(),
+        ),
+      );
+    }
+    return updates;
+  }
+
   Article _fromRow(Map<String, dynamic> row) => Article(
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,
