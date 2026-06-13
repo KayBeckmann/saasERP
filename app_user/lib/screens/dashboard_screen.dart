@@ -6,6 +6,7 @@ import '../state/auth_controller.dart';
 import '../theme.dart';
 import 'articles_screen.dart';
 import 'customers_screen.dart';
+import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'quotes_screen.dart';
 import 'suppliers_screen.dart';
@@ -161,6 +162,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const QuotesScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.assignment_outlined),
+                title: const Text('Aufträge'),
+                subtitle: const Text('Aufträge erstellen und verwalten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OrdersScreen()),
                 ),
               ),
             ),

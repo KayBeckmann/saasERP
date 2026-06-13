@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 
-/// Anlegen/Bearbeiten eines Angebots: Stammdaten (Kunde, Titel, Gültigkeit,
-/// Status, Notizen) plus Positions-Editor (Freitext, Artikel, Produkt,
-/// Stunden) mit Live-Summen.
-class QuoteEditorScreen extends StatefulWidget {
-  const QuoteEditorScreen({super.key, this.quote});
+/// Anlegen/Bearbeiten eines Auftrags: Stammdaten (Kunde, Titel, Status,
+/// Notizen) plus Positions-Editor (Freitext, Artikel, Produkt, Stunden)
+/// mit Live-Summen — analog zu `QuoteEditorScreen`.
+class OrderEditorScreen extends StatefulWidget {
+  const OrderEditorScreen({super.key, this.order});
 
-  final Quote? quote;
+  final Order? order;
 
   @override
-  State<QuoteEditorScreen> createState() => _QuoteEditorScreenState();
+  State<OrderEditorScreen> createState() => _OrderEditorScreenState();
 }
 
-/// Hält die Eingaben einer einzelnen Angebotsposition.
+/// Hält die Eingaben einer einzelnen Auftragsposition.
 class _ItemDraft {
   _ItemDraft({
     required this.kind,
@@ -37,7 +36,7 @@ class _ItemDraft {
         vatRateController = TextEditingController(text: _formatNumber(vatRate)),
         groupLabelController = TextEditingController(text: groupLabel);
 
-  factory _ItemDraft.fromItem(QuoteItem item) => _ItemDraft(
+  factory _ItemDraft.fromItem(OrderItem item) => _ItemDraft(
         kind: item.kind,
         articleId: item.articleId,
         productId: item.productId,
@@ -49,7 +48,7 @@ class _ItemDraft {
         groupLabel: item.groupLabel ?? '',
       );
 
-  QuoteItemKind kind;
+  OrderItemKind kind;
   String? articleId;
   String? productId;
   final TextEditingController descriptionController;
@@ -75,7 +74,7 @@ class _ItemDraft {
   String? get groupLabel =>
       groupLabelController.text.trim().isEmpty ? null : groupLabelController.text.trim();
 
-  QuoteItem toItem() => QuoteItem(
+  OrderItem toItem() => OrderItem(
         kind: kind,
         articleId: articleId,
         productId: productId,
@@ -97,13 +96,12 @@ class _ItemDraft {
   }
 }
 
-class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
+class _OrderEditorScreenState extends State<OrderEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _notesController;
   String? _customerId;
-  QuoteStatus _status = QuoteStatus.draft;
-  DateTime? _validUntil;
+  OrderStatus _status = OrderStatus.open;
   final List<_ItemDraft> _items = [];
 
   late Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _refsFuture;
@@ -114,14 +112,13 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   @override
   void initState() {
     super.initState();
-    final q = widget.quote;
-    _titleController = TextEditingController(text: q?.title ?? '');
-    _notesController = TextEditingController(text: q?.notes ?? '');
-    _customerId = q?.customerId;
-    _status = q?.status ?? QuoteStatus.draft;
-    _validUntil = q?.validUntil;
-    if (q != null) {
-      _items.addAll(q.items.map(_ItemDraft.fromItem));
+    final o = widget.order;
+    _titleController = TextEditingController(text: o?.title ?? '');
+    _notesController = TextEditingController(text: o?.notes ?? '');
+    _customerId = o?.customerId;
+    _status = o?.status ?? OrderStatus.open;
+    if (o != null) {
+      _items.addAll(o.items.map(_ItemDraft.fromItem));
     }
     _refsFuture = _loadReferences();
   }
@@ -150,8 +147,8 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
 
   /// Zwischensummen je [_ItemDraft.groupLabel], in Reihenfolge des ersten
   /// Auftretens. Positionen ohne Gruppe werden hier nicht aufgeführt.
-  List<QuoteGroupSummary> _groupSubtotals() {
-    final byLabel = <String, List<QuoteItem>>{};
+  List<OrderGroupSummary> _groupSubtotals() {
+    final byLabel = <String, List<OrderItem>>{};
     final order = <String>[];
     for (final item in _items) {
       final label = item.groupLabel;
@@ -162,15 +159,15 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       }
       byLabel[label]!.add(item.toItem());
     }
-    return [for (final label in order) QuoteGroupSummary(label: label, items: byLabel[label]!)];
+    return [for (final label in order) OrderGroupSummary(label: label, items: byLabel[label]!)];
   }
 
   void _addTextItem() {
-    setState(() => _items.add(_ItemDraft(kind: QuoteItemKind.text)));
+    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.text)));
   }
 
   void _addHoursItem() {
-    setState(() => _items.add(_ItemDraft(kind: QuoteItemKind.hours, unit: 'h')));
+    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.hours, unit: 'h')));
   }
 
   void _addArticleItem(List<Article> articles) {
@@ -179,7 +176,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       final article = articles.first;
       _items.add(
         _ItemDraft(
-          kind: QuoteItemKind.article,
+          kind: OrderItemKind.article,
           articleId: article.id,
           description: article.name,
           unit: article.unit ?? '',
@@ -196,7 +193,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       final product = products.first;
       _items.add(
         _ItemDraft(
-          kind: QuoteItemKind.product,
+          kind: OrderItemKind.product,
           productId: product.id,
           description: product.name,
           unitPrice: product.salePrice,
@@ -225,26 +222,24 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     final items = _items.map((draft) => draft.toItem()).toList();
 
     try {
-      if (widget.quote == null) {
-        await auth.apiClient.createQuote(
+      if (widget.order == null) {
+        await auth.apiClient.createOrder(
           token: auth.token!,
-          req: CreateQuoteRequest(
+          req: CreateOrderRequest(
             customerId: _customerId,
             title: _titleController.text.trim(),
-            validUntil: _validUntil,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
           ),
         );
       } else {
-        await auth.apiClient.updateQuote(
+        await auth.apiClient.updateOrder(
           token: auth.token!,
-          id: widget.quote!.id,
-          req: UpdateQuoteRequest(
+          id: widget.order!.id,
+          req: UpdateOrderRequest(
             customerId: _customerId,
             title: _titleController.text.trim(),
             status: _status,
-            validUntil: _validUntil,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
           ),
@@ -258,75 +253,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     }
   }
 
-  Future<void> _convertToOrder() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('In Auftrag wandeln?'),
-        content: Text('Aus Angebot ${widget.quote!.quoteNumber} einen neuen Auftrag erzeugen?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Wandeln')),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    if (!mounted) return;
-
-    final auth = context.read<AuthController>();
-    try {
-      final order = await auth.apiClient.convertQuoteToOrder(token: auth.token!, quoteId: widget.quote!.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Auftrag ${order.orderNumber} erstellt.')),
-      );
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
-    }
-  }
-
-  Future<void> _showPdf() async {
-    final auth = context.read<AuthController>();
-    try {
-      final bytes = await auth.apiClient.getQuotePdf(token: auth.token!, id: widget.quote!.id);
-      await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${widget.quote!.quoteNumber}.pdf');
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
-    }
-  }
-
-  Future<void> _pickValidUntil() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _validUntil ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) setState(() => _validUntil = picked);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.quote != null;
+    final isEdit = widget.order != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Angebot ${widget.quote!.quoteNumber}' : 'Neues Angebot'),
+        title: Text(isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag'),
         actions: [
-          if (isEdit) ...[
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              tooltip: 'PDF',
-              onPressed: _showPdf,
-            ),
-            IconButton(
-              icon: const Icon(Icons.assignment_turned_in_outlined),
-              tooltip: 'In Auftrag wandeln',
-              onPressed: _convertToOrder,
-            ),
-          ],
           IconButton(
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -354,51 +288,44 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (widget.order?.quoteId != null) ...[
+                    Text(
+                      'Erzeugt aus Angebot',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(labelText: 'Titel *'),
                     validator: (value) => (value == null || value.trim().isEmpty) ? 'Pflichtfeld' : null,
                   ),
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _customerId,
-                    decoration: const InputDecoration(labelText: 'Kunde'),
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('— kein Kunde —')),
-                      for (final customer in refs.customers)
-                        DropdownMenuItem<String?>(value: customer.id, child: Text(customer.name)),
-                    ],
-                    onChanged: (value) => setState(() => _customerId = value),
-                  ),
-                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
-                        child: InkWell(
-                          onTap: _pickValidUntil,
-                          child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Gültig bis'),
-                            child: Text(
-                              _validUntil == null
-                                  ? '—'
-                                  : '${_validUntil!.day.toString().padLeft(2, '0')}.'
-                                      '${_validUntil!.month.toString().padLeft(2, '0')}.'
-                                      '${_validUntil!.year}',
-                            ),
-                          ),
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: _customerId,
+                          decoration: const InputDecoration(labelText: 'Kunde'),
+                          items: [
+                            const DropdownMenuItem<String?>(value: null, child: Text('— kein Kunde —')),
+                            for (final customer in refs.customers)
+                              DropdownMenuItem<String?>(value: customer.id, child: Text(customer.name)),
+                          ],
+                          onChanged: (value) => setState(() => _customerId = value),
                         ),
                       ),
                       if (isEdit) ...[
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<QuoteStatus>(
+                          child: DropdownButtonFormField<OrderStatus>(
                             initialValue: _status,
                             decoration: const InputDecoration(labelText: 'Status'),
                             items: [
-                              for (final status in QuoteStatus.values)
+                              for (final status in OrderStatus.values)
                                 DropdownMenuItem(value: status, child: Text(_statusLabel(status))),
                             ],
-                            onChanged: (value) => setState(() => _status = value ?? QuoteStatus.draft),
+                            onChanged: (value) => setState(() => _status = value ?? OrderStatus.open),
                           ),
                         ),
                       ],
@@ -495,7 +422,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
 
     Widget descriptionField;
     switch (item.kind) {
-      case QuoteItemKind.article:
+      case OrderItemKind.article:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.articleId,
           decoration: const InputDecoration(labelText: 'Artikel'),
@@ -514,7 +441,7 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             });
           },
         );
-      case QuoteItemKind.product:
+      case OrderItemKind.product:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.productId,
           decoration: const InputDecoration(labelText: 'Produkt'),
@@ -532,8 +459,8 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             });
           },
         );
-      case QuoteItemKind.text:
-      case QuoteItemKind.hours:
+      case OrderItemKind.text:
+      case OrderItemKind.hours:
         descriptionField = TextFormField(
           controller: item.descriptionController,
           decoration: const InputDecoration(labelText: 'Beschreibung'),
@@ -611,10 +538,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     );
   }
 
-  String _statusLabel(QuoteStatus status) => switch (status) {
-        QuoteStatus.draft => 'Entwurf',
-        QuoteStatus.sent => 'Versendet',
-        QuoteStatus.accepted => 'Angenommen',
-        QuoteStatus.rejected => 'Abgelehnt',
+  String _statusLabel(OrderStatus status) => switch (status) {
+        OrderStatus.open => 'Offen',
+        OrderStatus.inProgress => 'In Bearbeitung',
+        OrderStatus.completed => 'Abgeschlossen',
+        OrderStatus.cancelled => 'Storniert',
       };
 }

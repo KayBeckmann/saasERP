@@ -426,6 +426,70 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  Future<List<Order>> listOrders(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/orders'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['orders'] as List)
+        .map((e) => Order.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Order> createOrder({
+    required String token,
+    required CreateOrderRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/orders'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Order.fromJson(_decode(response));
+  }
+
+  Future<Order> updateOrder({
+    required String token,
+    required String id,
+    required UpdateOrderRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/orders/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Order.fromJson(_decode(response));
+  }
+
+  Future<void> deleteOrder({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/orders/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<Order> convertQuoteToOrder({required String token, required String quoteId}) async {
+    final response = await _httpClient.post(
+      _uri('/api/quotes/$quoteId/to-order'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return Order.fromJson(_decode(response));
+  }
+
   Future<ArticlePriceImportResult> importArticlePrices({
     required String token,
     required String csv,

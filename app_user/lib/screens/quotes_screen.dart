@@ -64,6 +64,34 @@ class _QuotesScreenState extends State<QuotesScreen> {
     _reload();
   }
 
+  Future<void> _convertToOrder(Quote quote) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('In Auftrag wandeln?'),
+        content: Text('Aus Angebot ${quote.quoteNumber} einen neuen Auftrag erzeugen?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Wandeln')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final auth = context.read<AuthController>();
+    try {
+      final order = await auth.apiClient.convertQuoteToOrder(token: auth.token!, quoteId: quote.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Auftrag ${order.orderNumber} erstellt.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+    }
+  }
+
   Future<void> _showPdf(Quote quote) async {
     final auth = context.read<AuthController>();
     try {
@@ -144,6 +172,11 @@ class _QuotesScreenState extends State<QuotesScreen> {
                       icon: const Icon(Icons.picture_as_pdf_outlined),
                       tooltip: 'PDF',
                       onPressed: () => _showPdf(quote),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.assignment_turned_in_outlined),
+                      tooltip: 'In Auftrag wandeln',
+                      onPressed: () => _convertToOrder(quote),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),
