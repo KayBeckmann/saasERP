@@ -282,6 +282,78 @@ class ApiClient {
     }
   }
 
+  Future<List<Product>> listProducts(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/products'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['products'] as List)
+        .map((e) => Product.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Product> createProduct({
+    required String token,
+    required CreateProductRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/products'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Product.fromJson(_decode(response));
+  }
+
+  Future<Product> updateProduct({
+    required String token,
+    required String id,
+    required UpdateProductRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/products/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Product.fromJson(_decode(response));
+  }
+
+  Future<void> deleteProduct({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/products/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<Product> confirmProductPrice({required String token, required String id}) async {
+    final response = await _httpClient.post(
+      _uri('/api/products/$id/confirm-price'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return Product.fromJson(_decode(response));
+  }
+
+  Future<Product> rejectProductPrice({required String token, required String id}) async {
+    final response = await _httpClient.post(
+      _uri('/api/products/$id/reject-price'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return Product.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
