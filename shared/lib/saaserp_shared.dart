@@ -16,4 +16,5 @@ export 'src/models/quote.dart';
 export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
 export 'src/models/tenant_access.dart';
+export 'src/models/time_entry.dart';
 export 'src/models/user_role.dart';
