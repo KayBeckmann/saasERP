@@ -9,6 +9,9 @@ class Tenant {
     this.logoUrl,
     this.defaultVatRate = 19.0,
     this.reducedVatRate = 7.0,
+    this.dunningFeeLevel1 = 0,
+    this.dunningFeeLevel2 = 5.0,
+    this.dunningFeeLevel3 = 10.0,
   });
 
   final String id;
@@ -35,6 +38,15 @@ class Tenant {
   /// Ermäßigter Umsatzsteuersatz in Prozent (z. B. 7.0).
   final double reducedVatRate;
 
+  /// Mahngebühr für die 1. Mahnstufe (Zahlungserinnerung) — meist 0.
+  final double dunningFeeLevel1;
+
+  /// Mahngebühr für die 2. Mahnstufe (1. Mahnung).
+  final double dunningFeeLevel2;
+
+  /// Mahngebühr für die 3. Mahnstufe (2. Mahnung).
+  final double dunningFeeLevel3;
+
   factory Tenant.fromJson(Map<String, dynamic> json) => Tenant(
         id: json['id'] as String,
         name: json['name'] as String,
@@ -45,6 +57,9 @@ class Tenant {
         logoUrl: json['logo_url'] as String?,
         defaultVatRate: (json['default_vat_rate'] as num?)?.toDouble() ?? 19.0,
         reducedVatRate: (json['reduced_vat_rate'] as num?)?.toDouble() ?? 7.0,
+        dunningFeeLevel1: (json['dunning_fee_level1'] as num?)?.toDouble() ?? 0,
+        dunningFeeLevel2: (json['dunning_fee_level2'] as num?)?.toDouble() ?? 5.0,
+        dunningFeeLevel3: (json['dunning_fee_level3'] as num?)?.toDouble() ?? 10.0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -57,6 +72,9 @@ class Tenant {
         'logo_url': logoUrl,
         'default_vat_rate': defaultVatRate,
         'reduced_vat_rate': reducedVatRate,
+        'dunning_fee_level1': dunningFeeLevel1,
+        'dunning_fee_level2': dunningFeeLevel2,
+        'dunning_fee_level3': dunningFeeLevel3,
       };
 }
 
@@ -69,6 +87,9 @@ class UpdateTenantConfigRequest {
     this.logoUrl,
     required this.defaultVatRate,
     required this.reducedVatRate,
+    this.dunningFeeLevel1 = 0,
+    this.dunningFeeLevel2 = 5.0,
+    this.dunningFeeLevel3 = 10.0,
   });
 
   final String? companyAddress;
@@ -76,6 +97,9 @@ class UpdateTenantConfigRequest {
   final String? logoUrl;
   final double defaultVatRate;
   final double reducedVatRate;
+  final double dunningFeeLevel1;
+  final double dunningFeeLevel2;
+  final double dunningFeeLevel3;
 
   factory UpdateTenantConfigRequest.fromJson(Map<String, dynamic> json) =>
       UpdateTenantConfigRequest(
@@ -84,6 +108,9 @@ class UpdateTenantConfigRequest {
         logoUrl: json['logo_url'] as String?,
         defaultVatRate: (json['default_vat_rate'] as num).toDouble(),
         reducedVatRate: (json['reduced_vat_rate'] as num).toDouble(),
+        dunningFeeLevel1: (json['dunning_fee_level1'] as num?)?.toDouble() ?? 0,
+        dunningFeeLevel2: (json['dunning_fee_level2'] as num?)?.toDouble() ?? 5.0,
+        dunningFeeLevel3: (json['dunning_fee_level3'] as num?)?.toDouble() ?? 10.0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -92,6 +119,9 @@ class UpdateTenantConfigRequest {
         'logo_url': logoUrl,
         'default_vat_rate': defaultVatRate,
         'reduced_vat_rate': reducedVatRate,
+        'dunning_fee_level1': dunningFeeLevel1,
+        'dunning_fee_level2': dunningFeeLevel2,
+        'dunning_fee_level3': dunningFeeLevel3,
       };
 }
 

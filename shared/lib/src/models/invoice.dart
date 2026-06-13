@@ -157,6 +157,9 @@ class Invoice {
     this.items = const [],
     this.invoiceType = InvoiceType.standard,
     this.priorInvoicedTotal,
+    this.dunningLevel = 0,
+    this.dunningFeeTotal = 0,
+    this.lastDunnedAt,
   });
 
   final String id;
@@ -178,6 +181,16 @@ class Invoice {
   /// vorherigen, nicht-stornierten Rechnungen desselben Auftrags.
   final double? priorInvoicedTotal;
 
+  /// Mahnstufe: 0 = noch nicht gemahnt, 1 = Zahlungserinnerung,
+  /// 2 = 1. Mahnung, 3 = 2. Mahnung.
+  final int dunningLevel;
+
+  /// Summe der bisher für diese Rechnung berechneten Mahngebühren.
+  final double dunningFeeTotal;
+
+  /// Zeitpunkt der letzten Mahnung, `null` falls noch nicht gemahnt.
+  final DateTime? lastDunnedAt;
+
   double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
 
   double get totalGross => items.fold(0, (sum, item) => sum + item.totalGross);
@@ -186,6 +199,9 @@ class Invoice {
   /// ([priorInvoicedTotal]) — bei allen Rechnungstypen außer
   /// [InvoiceType.closingInvoice] identisch zu [totalGross].
   double get amountDue => totalGross - (priorInvoicedTotal ?? 0);
+
+  /// Offener Betrag inklusive bisheriger Mahngebühren.
+  double get totalDue => amountDue + dunningFeeTotal;
 
   /// Positionen gruppiert nach [InvoiceItem.groupLabel] — Reihenfolge der
   /// Gruppen ergibt sich aus dem ersten Auftreten des Labels in [items].
@@ -234,6 +250,11 @@ class Invoice {
             .toList(),
         invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
         priorInvoicedTotal: (json['prior_invoiced_total'] as num?)?.toDouble(),
+        dunningLevel: (json['dunning_level'] as num?)?.toInt() ?? 0,
+        dunningFeeTotal: (json['dunning_fee_total'] as num?)?.toDouble() ?? 0,
+        lastDunnedAt: json['last_dunned_at'] == null
+            ? null
+            : DateTime.parse(json['last_dunned_at'] as String),
       );
 
   Map<String, dynamic> toJson() => {
@@ -250,6 +271,9 @@ class Invoice {
         'items': items.map((item) => item.toJson()).toList(),
         'invoice_type': invoiceType.toJson(),
         'prior_invoiced_total': priorInvoicedTotal,
+        'dunning_level': dunningLevel,
+        'dunning_fee_total': dunningFeeTotal,
+        'last_dunned_at': lastDunnedAt?.toIso8601String(),
       };
 }
 
