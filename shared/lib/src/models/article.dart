@@ -14,6 +14,8 @@ class Article {
     this.salePrice,
     this.vatRate = 19.0,
     this.usageCount = 0,
+    this.stockQuantity = 0,
+    this.defaultSupplierId,
     this.notes,
     required this.createdAt,
   });
@@ -35,6 +37,14 @@ class Article {
 
   /// Zähler, wie oft der Artikel bereits in Belegen verwendet wurde.
   final int usageCount;
+
+  /// Aktueller Lagerbestand — Basis für den Bestellvorschlag
+  /// (Fehlmenge = Bedarf − Bestand) und die spätere Lagerverwaltung.
+  final double stockQuantity;
+
+  /// Bevorzugter Lieferant für diesen Artikel — Basis für die Gruppierung
+  /// des Bestellvorschlags je Lieferant.
+  final String? defaultSupplierId;
   final String? notes;
   final DateTime createdAt;
 
@@ -48,6 +58,8 @@ class Article {
         salePrice: (json['sale_price'] as num?)?.toDouble(),
         vatRate: (json['vat_rate'] as num).toDouble(),
         usageCount: json['usage_count'] as int,
+        stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
@@ -62,6 +74,8 @@ class Article {
         'sale_price': salePrice,
         'vat_rate': vatRate,
         'usage_count': usageCount,
+        'stock_quantity': stockQuantity,
+        'default_supplier_id': defaultSupplierId,
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
       };
@@ -76,6 +90,8 @@ class CreateArticleRequest {
     this.purchasePrice,
     this.salePrice,
     this.vatRate = 19.0,
+    this.stockQuantity = 0,
+    this.defaultSupplierId,
     this.notes,
   });
 
@@ -85,6 +101,8 @@ class CreateArticleRequest {
   final double? purchasePrice;
   final double? salePrice;
   final double vatRate;
+  final double stockQuantity;
+  final String? defaultSupplierId;
   final String? notes;
 
   factory CreateArticleRequest.fromJson(Map<String, dynamic> json) => CreateArticleRequest(
@@ -94,6 +112,8 @@ class CreateArticleRequest {
         purchasePrice: (json['purchase_price'] as num?)?.toDouble(),
         salePrice: (json['sale_price'] as num?)?.toDouble(),
         vatRate: json['vat_rate'] == null ? 19.0 : (json['vat_rate'] as num).toDouble(),
+        stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
       );
 
@@ -104,6 +124,8 @@ class CreateArticleRequest {
         'purchase_price': purchasePrice,
         'sale_price': salePrice,
         'vat_rate': vatRate,
+        'stock_quantity': stockQuantity,
+        'default_supplier_id': defaultSupplierId,
         'notes': notes,
       };
 }
@@ -118,6 +140,8 @@ class UpdateArticleRequest {
     this.purchasePrice,
     this.salePrice,
     this.vatRate = 19.0,
+    this.stockQuantity = 0,
+    this.defaultSupplierId,
     this.notes,
   });
 
@@ -127,6 +151,8 @@ class UpdateArticleRequest {
   final double? purchasePrice;
   final double? salePrice;
   final double vatRate;
+  final double stockQuantity;
+  final String? defaultSupplierId;
   final String? notes;
 
   factory UpdateArticleRequest.fromJson(Map<String, dynamic> json) => UpdateArticleRequest(
@@ -136,6 +162,8 @@ class UpdateArticleRequest {
         purchasePrice: (json['purchase_price'] as num?)?.toDouble(),
         salePrice: (json['sale_price'] as num?)?.toDouble(),
         vatRate: json['vat_rate'] == null ? 19.0 : (json['vat_rate'] as num).toDouble(),
+        stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
       );
 
@@ -146,6 +174,8 @@ class UpdateArticleRequest {
         'purchase_price': purchasePrice,
         'sale_price': salePrice,
         'vat_rate': vatRate,
+        'stock_quantity': stockQuantity,
+        'default_supplier_id': defaultSupplierId,
         'notes': notes,
       };
 }

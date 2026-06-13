@@ -12,6 +12,7 @@ export 'src/models/invoice.dart';
 export 'src/models/order.dart';
 export 'src/models/price_import.dart';
 export 'src/models/product.dart';
+export 'src/models/purchase_order.dart';
 export 'src/models/quote.dart';
 export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
