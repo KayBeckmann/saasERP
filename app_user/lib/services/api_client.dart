@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -408,6 +409,21 @@ class ApiClient {
         (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
       );
     }
+  }
+
+  Future<Uint8List> getQuotePdf({required String token, required String id}) async {
+    final response = await _httpClient.get(
+      _uri('/api/quotes/$id/pdf'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
   }
 
   Future<ArticlePriceImportResult> importArticlePrices({

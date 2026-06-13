@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
+
+import '../services/api_client.dart';
 
 import '../state/auth_controller.dart';
 import 'quote_editor_screen.dart';
@@ -59,6 +62,17 @@ class _QuotesScreenState extends State<QuotesScreen> {
     final auth = context.read<AuthController>();
     await auth.apiClient.deleteQuote(token: auth.token!, id: quote.id);
     _reload();
+  }
+
+  Future<void> _showPdf(Quote quote) async {
+    final auth = context.read<AuthController>();
+    try {
+      final bytes = await auth.apiClient.getQuotePdf(token: auth.token!, id: quote.id);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${quote.quoteNumber}.pdf');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
+    }
   }
 
   String? _customerName(String? customerId, List<Customer> customers) {
@@ -125,6 +139,11 @@ class _QuotesScreenState extends State<QuotesScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(_statusLabel(quote.status)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      tooltip: 'PDF',
+                      onPressed: () => _showPdf(quote),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),
