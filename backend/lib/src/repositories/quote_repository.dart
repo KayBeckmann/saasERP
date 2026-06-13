@@ -16,7 +16,7 @@ class QuoteRepository {
       'id, tenant_id, quote_number, customer_id, title, status, valid_until, notes, created_at';
 
   static const _itemColumns =
-      'id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate';
+      'id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
 
   Future<Quote> create({
     required String tenantId,
@@ -146,8 +146,8 @@ class QuoteRepository {
       await session.execute(
         Sql.named(
           'INSERT INTO quote_items '
-          '(tenant_id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, sort_order) '
-          'VALUES (@tenant_id, @quote_id, @kind, @article_id, @product_id, @description, @quantity, @unit, @unit_price, @vat_rate, @sort_order)',
+          '(tenant_id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label, sort_order) '
+          'VALUES (@tenant_id, @quote_id, @kind, @article_id, @product_id, @description, @quantity, @unit, @unit_price, @vat_rate, @group_label, @sort_order)',
         ),
         parameters: {
           'tenant_id': tenantId,
@@ -160,6 +160,7 @@ class QuoteRepository {
           'unit': item.unit,
           'unit_price': item.unitPrice,
           'vat_rate': item.vatRate,
+          'group_label': item.groupLabel,
           'sort_order': i,
         },
       );
@@ -184,6 +185,7 @@ class QuoteRepository {
         unit: row['unit'] as String?,
         unitPrice: (row['unit_price'] as num).toDouble(),
         vatRate: (row['vat_rate'] as num).toDouble(),
+        groupLabel: row['group_label'] as String?,
       );
 
   Quote _fromRow(Map<String, dynamic> row, List<QuoteItem> items) => Quote(
