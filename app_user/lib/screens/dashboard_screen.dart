@@ -7,6 +7,7 @@ import '../theme.dart';
 import 'articles_screen.dart';
 import 'customers_screen.dart';
 import 'products_screen.dart';
+import 'quotes_screen.dart';
 import 'suppliers_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -148,6 +149,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ProductsScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('Angebote'),
+                subtitle: const Text('Angebote erstellen und verwalten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QuotesScreen()),
                 ),
               ),
             ),

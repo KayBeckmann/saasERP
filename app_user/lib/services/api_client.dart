@@ -354,6 +354,62 @@ class ApiClient {
     return Product.fromJson(_decode(response));
   }
 
+  Future<List<Quote>> listQuotes(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/quotes'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['quotes'] as List)
+        .map((e) => Quote.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Quote> createQuote({
+    required String token,
+    required CreateQuoteRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/quotes'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Quote.fromJson(_decode(response));
+  }
+
+  Future<Quote> updateQuote({
+    required String token,
+    required String id,
+    required UpdateQuoteRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/quotes/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Quote.fromJson(_decode(response));
+  }
+
+  Future<void> deleteQuote({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/quotes/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<ArticlePriceImportResult> importArticlePrices({
     required String token,
     required String csv,
