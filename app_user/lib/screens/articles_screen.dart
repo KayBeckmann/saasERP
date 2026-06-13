@@ -148,6 +148,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
   late final TextEditingController _salePriceController;
   late final TextEditingController _vatRateController;
   late final TextEditingController _stockQuantityController;
+  late final TextEditingController _minimumStockController;
   late final TextEditingController _notesController;
   String? _defaultSupplierId;
   List<Supplier> _suppliers = [];
@@ -165,6 +166,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     _salePriceController = TextEditingController(text: a?.salePrice?.toString() ?? '');
     _vatRateController = TextEditingController(text: (a?.vatRate ?? 19.0).toString());
     _stockQuantityController = TextEditingController(text: (a?.stockQuantity ?? 0).toString());
+    _minimumStockController = TextEditingController(text: (a?.minimumStock ?? 0).toString());
     _notesController = TextEditingController(text: a?.notes ?? '');
     _defaultSupplierId = a?.defaultSupplierId;
     _loadSuppliers();
@@ -185,6 +187,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     _salePriceController.dispose();
     _vatRateController.dispose();
     _stockQuantityController.dispose();
+    _minimumStockController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -203,6 +206,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     final salePrice = double.tryParse(_salePriceController.text.trim().replaceAll(',', '.'));
     final vatRate = double.tryParse(_vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
     final stockQuantity = double.tryParse(_stockQuantityController.text.trim().replaceAll(',', '.')) ?? 0;
+    final minimumStock = double.tryParse(_minimumStockController.text.trim().replaceAll(',', '.')) ?? 0;
 
     final auth = context.read<AuthController>();
     try {
@@ -217,6 +221,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
             salePrice: salePrice,
             vatRate: vatRate,
             stockQuantity: stockQuantity,
+            minimumStock: minimumStock,
             defaultSupplierId: _defaultSupplierId,
             notes: _orNull(_notesController.text),
           ),
@@ -233,6 +238,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
             salePrice: salePrice,
             vatRate: vatRate,
             stockQuantity: stockQuantity,
+            minimumStock: minimumStock,
             defaultSupplierId: _defaultSupplierId,
             notes: _orNull(_notesController.text),
           ),
@@ -297,6 +303,12 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
               TextFormField(
                 controller: _stockQuantityController,
                 decoration: const InputDecoration(labelText: 'Lagerbestand'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _minimumStockController,
+                decoration: const InputDecoration(labelText: 'Mindestbestand'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 8),
