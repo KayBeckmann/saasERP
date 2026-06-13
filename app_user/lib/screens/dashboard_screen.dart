@@ -6,6 +6,7 @@ import '../state/auth_controller.dart';
 import '../theme.dart';
 import 'articles_screen.dart';
 import 'customers_screen.dart';
+import 'invoices_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'quotes_screen.dart';
@@ -174,6 +175,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: const Text('Rechnungen'),
+                subtitle: const Text('Rechnungen erstellen und verwalten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const InvoicesScreen()),
                 ),
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
+import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import 'order_editor_screen.dart';
 
@@ -59,6 +60,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final auth = context.read<AuthController>();
     await auth.apiClient.deleteOrder(token: auth.token!, id: order.id);
     _reload();
+  }
+
+  Future<void> _convertToInvoice(Order order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rechnung erstellen?'),
+        content: Text('Aus Auftrag ${order.orderNumber} eine neue Rechnung erzeugen?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Erstellen')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    final auth = context.read<AuthController>();
+    try {
+      final invoice = await auth.apiClient.convertOrderToInvoice(token: auth.token!, orderId: order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Rechnung ${invoice.invoiceNumber} erstellt.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+    }
   }
 
   String? _customerName(String? customerId, List<Customer> customers) {
@@ -125,6 +154,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(_statusLabel(order.status)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      tooltip: 'Rechnung erstellen',
+                      onPressed: () => _convertToInvoice(order),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),

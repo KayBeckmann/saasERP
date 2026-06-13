@@ -5,19 +5,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 
-/// Anlegen/Bearbeiten eines Auftrags: Stammdaten (Kunde, Titel, Status,
-/// Notizen) plus Positions-Editor (Freitext, Artikel, Produkt, Stunden)
-/// mit Live-Summen — analog zu `QuoteEditorScreen`.
-class OrderEditorScreen extends StatefulWidget {
-  const OrderEditorScreen({super.key, this.order});
+/// Anlegen/Bearbeiten einer Rechnung: Stammdaten (Kunde, Titel, Status,
+/// Fälligkeitsdatum, Notizen) plus Positions-Editor (Freitext, Artikel,
+/// Produkt, Stunden) mit Live-Summen — analog zu `OrderEditorScreen`.
+class InvoiceEditorScreen extends StatefulWidget {
+  const InvoiceEditorScreen({super.key, this.invoice});
 
-  final Order? order;
+  final Invoice? invoice;
 
   @override
-  State<OrderEditorScreen> createState() => _OrderEditorScreenState();
+  State<InvoiceEditorScreen> createState() => _InvoiceEditorScreenState();
 }
 
-/// Hält die Eingaben einer einzelnen Auftragsposition.
+/// Hält die Eingaben einer einzelnen Rechnungsposition.
 class _ItemDraft {
   _ItemDraft({
     required this.kind,
@@ -36,7 +36,7 @@ class _ItemDraft {
         vatRateController = TextEditingController(text: _formatNumber(vatRate)),
         groupLabelController = TextEditingController(text: groupLabel);
 
-  factory _ItemDraft.fromItem(OrderItem item) => _ItemDraft(
+  factory _ItemDraft.fromItem(InvoiceItem item) => _ItemDraft(
         kind: item.kind,
         articleId: item.articleId,
         productId: item.productId,
@@ -48,7 +48,7 @@ class _ItemDraft {
         groupLabel: item.groupLabel ?? '',
       );
 
-  OrderItemKind kind;
+  InvoiceItemKind kind;
   String? articleId;
   String? productId;
   final TextEditingController descriptionController;
@@ -74,7 +74,7 @@ class _ItemDraft {
   String? get groupLabel =>
       groupLabelController.text.trim().isEmpty ? null : groupLabelController.text.trim();
 
-  OrderItem toItem() => OrderItem(
+  InvoiceItem toItem() => InvoiceItem(
         kind: kind,
         articleId: articleId,
         productId: productId,
@@ -96,12 +96,13 @@ class _ItemDraft {
   }
 }
 
-class _OrderEditorScreenState extends State<OrderEditorScreen> {
+class _InvoiceEditorScreenState extends State<InvoiceEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _titleController;
   late final TextEditingController _notesController;
   String? _customerId;
-  OrderStatus _status = OrderStatus.open;
+  InvoiceStatus _status = InvoiceStatus.draft;
+  DateTime? _dueDate;
   final List<_ItemDraft> _items = [];
 
   late Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _refsFuture;
@@ -112,13 +113,14 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   @override
   void initState() {
     super.initState();
-    final o = widget.order;
-    _titleController = TextEditingController(text: o?.title ?? '');
-    _notesController = TextEditingController(text: o?.notes ?? '');
-    _customerId = o?.customerId;
-    _status = o?.status ?? OrderStatus.open;
-    if (o != null) {
-      _items.addAll(o.items.map(_ItemDraft.fromItem));
+    final i = widget.invoice;
+    _titleController = TextEditingController(text: i?.title ?? '');
+    _notesController = TextEditingController(text: i?.notes ?? '');
+    _customerId = i?.customerId;
+    _status = i?.status ?? InvoiceStatus.draft;
+    _dueDate = i?.dueDate;
+    if (i != null) {
+      _items.addAll(i.items.map(_ItemDraft.fromItem));
     }
     _refsFuture = _loadReferences();
   }
@@ -147,8 +149,8 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
 
   /// Zwischensummen je [_ItemDraft.groupLabel], in Reihenfolge des ersten
   /// Auftretens. Positionen ohne Gruppe werden hier nicht aufgeführt.
-  List<OrderGroupSummary> _groupSubtotals() {
-    final byLabel = <String, List<OrderItem>>{};
+  List<InvoiceGroupSummary> _groupSubtotals() {
+    final byLabel = <String, List<InvoiceItem>>{};
     final order = <String>[];
     for (final item in _items) {
       final label = item.groupLabel;
@@ -159,15 +161,15 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       }
       byLabel[label]!.add(item.toItem());
     }
-    return [for (final label in order) OrderGroupSummary(label: label, items: byLabel[label]!)];
+    return [for (final label in order) InvoiceGroupSummary(label: label, items: byLabel[label]!)];
   }
 
   void _addTextItem() {
-    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.text)));
+    setState(() => _items.add(_ItemDraft(kind: InvoiceItemKind.text)));
   }
 
   void _addHoursItem() {
-    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.hours, unit: 'h')));
+    setState(() => _items.add(_ItemDraft(kind: InvoiceItemKind.hours, unit: 'h')));
   }
 
   void _addArticleItem(List<Article> articles) {
@@ -176,7 +178,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       final article = articles.first;
       _items.add(
         _ItemDraft(
-          kind: OrderItemKind.article,
+          kind: InvoiceItemKind.article,
           articleId: article.id,
           description: article.name,
           unit: article.unit ?? '',
@@ -193,7 +195,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       final product = products.first;
       _items.add(
         _ItemDraft(
-          kind: OrderItemKind.product,
+          kind: InvoiceItemKind.product,
           productId: product.id,
           description: product.name,
           unitPrice: product.salePrice,
@@ -210,6 +212,18 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     });
   }
 
+  Future<void> _pickDueDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _dueDate = picked);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -222,24 +236,26 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     final items = _items.map((draft) => draft.toItem()).toList();
 
     try {
-      if (widget.order == null) {
-        await auth.apiClient.createOrder(
+      if (widget.invoice == null) {
+        await auth.apiClient.createInvoice(
           token: auth.token!,
-          req: CreateOrderRequest(
+          req: CreateInvoiceRequest(
             customerId: _customerId,
             title: _titleController.text.trim(),
+            dueDate: _dueDate,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
           ),
         );
       } else {
-        await auth.apiClient.updateOrder(
+        await auth.apiClient.updateInvoice(
           token: auth.token!,
-          id: widget.order!.id,
-          req: UpdateOrderRequest(
+          id: widget.invoice!.id,
+          req: UpdateInvoiceRequest(
             customerId: _customerId,
             title: _titleController.text.trim(),
             status: _status,
+            dueDate: _dueDate,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
           ),
@@ -253,48 +269,14 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     }
   }
 
-  Future<void> _convertToInvoice() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rechnung erstellen?'),
-        content: Text('Aus Auftrag ${widget.order!.orderNumber} eine neue Rechnung erzeugen?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Erstellen')),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    if (!mounted) return;
-
-    final auth = context.read<AuthController>();
-    try {
-      final invoice = await auth.apiClient.convertOrderToInvoice(token: auth.token!, orderId: widget.order!.id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Rechnung ${invoice.invoiceNumber} erstellt.')),
-      );
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.order != null;
+    final isEdit = widget.invoice != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag'),
+        title: Text(isEdit ? 'Rechnung ${widget.invoice!.invoiceNumber}' : 'Neue Rechnung'),
         actions: [
-          if (isEdit)
-            IconButton(
-              icon: const Icon(Icons.receipt_long_outlined),
-              tooltip: 'Rechnung erstellen',
-              onPressed: _convertToInvoice,
-            ),
           IconButton(
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
@@ -322,9 +304,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.order?.quoteId != null) ...[
+                  if (widget.invoice?.orderId != null) ...[
                     Text(
-                      'Erzeugt aus Angebot',
+                      'Erzeugt aus Auftrag',
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                     const SizedBox(height: 8),
@@ -352,18 +334,32 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                       if (isEdit) ...[
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<OrderStatus>(
+                          child: DropdownButtonFormField<InvoiceStatus>(
                             initialValue: _status,
                             decoration: const InputDecoration(labelText: 'Status'),
                             items: [
-                              for (final status in OrderStatus.values)
+                              for (final status in InvoiceStatus.values)
                                 DropdownMenuItem(value: status, child: Text(_statusLabel(status))),
                             ],
-                            onChanged: (value) => setState(() => _status = value ?? OrderStatus.open),
+                            onChanged: (value) => setState(() => _status = value ?? InvoiceStatus.draft),
                           ),
                         ),
                       ],
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: _pickDueDate,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Fälligkeitsdatum'),
+                      child: Text(
+                        _dueDate == null
+                            ? '— kein Datum —'
+                            : '${_dueDate!.day.toString().padLeft(2, '0')}.'
+                                '${_dueDate!.month.toString().padLeft(2, '0')}.'
+                                '${_dueDate!.year}',
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
@@ -456,7 +452,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
 
     Widget descriptionField;
     switch (item.kind) {
-      case OrderItemKind.article:
+      case InvoiceItemKind.article:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.articleId,
           decoration: const InputDecoration(labelText: 'Artikel'),
@@ -475,7 +471,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             });
           },
         );
-      case OrderItemKind.product:
+      case InvoiceItemKind.product:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.productId,
           decoration: const InputDecoration(labelText: 'Produkt'),
@@ -493,8 +489,8 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             });
           },
         );
-      case OrderItemKind.text:
-      case OrderItemKind.hours:
+      case InvoiceItemKind.text:
+      case InvoiceItemKind.hours:
         descriptionField = TextFormField(
           controller: item.descriptionController,
           decoration: const InputDecoration(labelText: 'Beschreibung'),
@@ -572,10 +568,11 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     );
   }
 
-  String _statusLabel(OrderStatus status) => switch (status) {
-        OrderStatus.open => 'Offen',
-        OrderStatus.inProgress => 'In Bearbeitung',
-        OrderStatus.completed => 'Abgeschlossen',
-        OrderStatus.cancelled => 'Storniert',
+  String _statusLabel(InvoiceStatus status) => switch (status) {
+        InvoiceStatus.draft => 'Entwurf',
+        InvoiceStatus.sent => 'Versendet',
+        InvoiceStatus.paid => 'Bezahlt',
+        InvoiceStatus.overdue => 'Überfällig',
+        InvoiceStatus.cancelled => 'Storniert',
       };
 }

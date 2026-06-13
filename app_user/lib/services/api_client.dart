@@ -490,6 +490,70 @@ class ApiClient {
     return Order.fromJson(_decode(response));
   }
 
+  Future<List<Invoice>> listInvoices(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/invoices'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['invoices'] as List)
+        .map((e) => Invoice.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Invoice> createInvoice({
+    required String token,
+    required CreateInvoiceRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/invoices'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Invoice.fromJson(_decode(response));
+  }
+
+  Future<Invoice> updateInvoice({
+    required String token,
+    required String id,
+    required UpdateInvoiceRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/invoices/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Invoice.fromJson(_decode(response));
+  }
+
+  Future<void> deleteInvoice({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/invoices/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<Invoice> convertOrderToInvoice({required String token, required String orderId}) async {
+    final response = await _httpClient.post(
+      _uri('/api/orders/$orderId/to-invoice'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return Invoice.fromJson(_decode(response));
+  }
+
   Future<ArticlePriceImportResult> importArticlePrices({
     required String token,
     required String csv,
