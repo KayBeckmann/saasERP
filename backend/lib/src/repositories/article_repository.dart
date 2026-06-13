@@ -9,7 +9,7 @@ class ArticleRepository {
   final Pool<void> _pool;
 
   static const _columns = 'id, tenant_id, sku, name, unit, purchase_price, '
-      'sale_price, vat_rate, usage_count, notes, created_at';
+      'sale_price, vat_rate, usage_count, stock_quantity, default_supplier_id, notes, created_at';
 
   Future<Article> create({
     required String tenantId,
@@ -18,8 +18,8 @@ class ArticleRepository {
     final result = await _pool.execute(
       Sql.named(
         'INSERT INTO articles '
-        '(tenant_id, sku, name, unit, purchase_price, sale_price, vat_rate, notes) '
-        'VALUES (@tenant_id, @sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @notes) '
+        '(tenant_id, sku, name, unit, purchase_price, sale_price, vat_rate, stock_quantity, default_supplier_id, notes) '
+        'VALUES (@tenant_id, @sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @stock_quantity, @default_supplier_id, @notes) '
         'RETURNING $_columns',
       ),
       parameters: {
@@ -30,6 +30,8 @@ class ArticleRepository {
         'purchase_price': req.purchasePrice,
         'sale_price': req.salePrice,
         'vat_rate': req.vatRate,
+        'stock_quantity': req.stockQuantity,
+        'default_supplier_id': req.defaultSupplierId,
         'notes': req.notes,
       },
     );
@@ -53,6 +55,22 @@ class ArticleRepository {
     return _fromRow(result.first.toColumnMap());
   }
 
+  /// Lädt mehrere Artikel anhand ihrer IDs (z. B. für den Bestellvorschlag).
+  Future<List<Article>> findByIds({required String tenantId, required Set<String> ids}) async {
+    if (ids.isEmpty) return [];
+    final idList = ids.toList();
+    final placeholders = [for (var i = 0; i < idList.length; i++) '@id$i'].join(', ');
+    final parameters = <String, dynamic>{'tenant_id': tenantId};
+    for (var i = 0; i < idList.length; i++) {
+      parameters['id$i'] = idList[i];
+    }
+    final result = await _pool.execute(
+      Sql.named('SELECT $_columns FROM articles WHERE tenant_id = @tenant_id AND id IN ($placeholders)'),
+      parameters: parameters,
+    );
+    return result.map((row) => _fromRow(row.toColumnMap())).toList();
+  }
+
   Future<Article?> update({
     required String tenantId,
     required String id,
@@ -62,7 +80,8 @@ class ArticleRepository {
       Sql.named(
         'UPDATE articles SET '
         'sku = @sku, name = @name, unit = @unit, purchase_price = @purchase_price, '
-        'sale_price = @sale_price, vat_rate = @vat_rate, notes = @notes '
+        'sale_price = @sale_price, vat_rate = @vat_rate, stock_quantity = @stock_quantity, '
+        'default_supplier_id = @default_supplier_id, notes = @notes '
         'WHERE tenant_id = @tenant_id AND id = @id '
         'RETURNING $_columns',
       ),
@@ -75,6 +94,8 @@ class ArticleRepository {
         'purchase_price': req.purchasePrice,
         'sale_price': req.salePrice,
         'vat_rate': req.vatRate,
+        'stock_quantity': req.stockQuantity,
+        'default_supplier_id': req.defaultSupplierId,
         'notes': req.notes,
       },
     );
@@ -134,6 +155,8 @@ class ArticleRepository {
         salePrice: (row['sale_price'] as num?)?.toDouble(),
         vatRate: (row['vat_rate'] as num).toDouble(),
         usageCount: row['usage_count'] as int,
+        stockQuantity: (row['stock_quantity'] as num).toDouble(),
+        defaultSupplierId: row['default_supplier_id'] as String?,
         notes: row['notes'] as String?,
         createdAt: (row['created_at'] as DateTime).toUtc(),
       );
