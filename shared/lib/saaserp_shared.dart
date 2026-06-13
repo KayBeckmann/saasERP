@@ -8,6 +8,7 @@ export 'src/models/app_user.dart';
 export 'src/models/article.dart';
 export 'src/models/auth.dart';
 export 'src/models/customer.dart';
+export 'src/models/invoice.dart';
 export 'src/models/order.dart';
 export 'src/models/price_import.dart';
 export 'src/models/product.dart';
