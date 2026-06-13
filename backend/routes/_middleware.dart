@@ -4,6 +4,7 @@ import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
+import 'package:backend/src/repositories/product_repository.dart';
 import 'package:backend/src/repositories/supplier_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
@@ -25,6 +26,7 @@ final _numberSequenceRepository = NumberSequenceRepository(_pool);
 final _customerRepository = CustomerRepository(_pool, _tenantEncryptionService, _numberSequenceRepository);
 final _supplierRepository = SupplierRepository(_pool, _tenantEncryptionService);
 final _articleRepository = ArticleRepository(_pool);
+final _productRepository = ProductRepository(_pool);
 
 Handler middleware(Handler handler) {
   return handler
@@ -40,7 +42,8 @@ Handler middleware(Handler handler) {
       .use(provider<NumberSequenceRepository>((_) => _numberSequenceRepository))
       .use(provider<CustomerRepository>((_) => _customerRepository))
       .use(provider<SupplierRepository>((_) => _supplierRepository))
-      .use(provider<ArticleRepository>((_) => _articleRepository));
+      .use(provider<ArticleRepository>((_) => _articleRepository))
+      .use(provider<ProductRepository>((_) => _productRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.

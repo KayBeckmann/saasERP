@@ -8,6 +8,7 @@ export 'src/models/app_user.dart';
 export 'src/models/article.dart';
 export 'src/models/auth.dart';
 export 'src/models/customer.dart';
+export 'src/models/product.dart';
 export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
 export 'src/models/tenant_access.dart';
