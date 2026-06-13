@@ -354,6 +354,21 @@ class ApiClient {
     return Product.fromJson(_decode(response));
   }
 
+  Future<ArticlePriceImportResult> importArticlePrices({
+    required String token,
+    required String csv,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/articles/price-import'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(ArticlePriceImportRequest(csv: csv).toJson()),
+    );
+    return ArticlePriceImportResult.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

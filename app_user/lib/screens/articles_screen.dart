@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import 'price_import_screen.dart';
 
 /// Artikelliste des aktuellen Mandanten — Freitext-first: nur `name` ist
 /// Pflicht, alle anderen Felder sind optional.
@@ -63,7 +64,21 @@ class _ArticlesScreenState extends State<ArticlesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Artikel')),
+      appBar: AppBar(
+        title: const Text('Artikel'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file_outlined),
+            tooltip: 'Preisimport',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PriceImportScreen()),
+              );
+              _reload();
+            },
+          ),
+        ],
+      ),
       body: FutureBuilder<List<Article>>(
         future: _future,
         builder: (context, snapshot) {
