@@ -15,6 +15,7 @@ class Article {
     this.vatRate = 19.0,
     this.usageCount = 0,
     this.stockQuantity = 0,
+    this.minimumStock = 0,
     this.defaultSupplierId,
     this.notes,
     required this.createdAt,
@@ -42,6 +43,10 @@ class Article {
   /// (Fehlmenge = Bedarf − Bestand) und die spätere Lagerverwaltung.
   final double stockQuantity;
 
+  /// Mindestbestand — Basis für den Hinweis in der Bestandsübersicht,
+  /// wenn `stockQuantity` darunter fällt.
+  final double minimumStock;
+
   /// Bevorzugter Lieferant für diesen Artikel — Basis für die Gruppierung
   /// des Bestellvorschlags je Lieferant.
   final String? defaultSupplierId;
@@ -59,6 +64,7 @@ class Article {
         vatRate: (json['vat_rate'] as num).toDouble(),
         usageCount: json['usage_count'] as int,
         stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        minimumStock: (json['minimum_stock'] as num? ?? 0).toDouble(),
         defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
@@ -75,6 +81,7 @@ class Article {
         'vat_rate': vatRate,
         'usage_count': usageCount,
         'stock_quantity': stockQuantity,
+        'minimum_stock': minimumStock,
         'default_supplier_id': defaultSupplierId,
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
@@ -91,6 +98,7 @@ class CreateArticleRequest {
     this.salePrice,
     this.vatRate = 19.0,
     this.stockQuantity = 0,
+    this.minimumStock = 0,
     this.defaultSupplierId,
     this.notes,
   });
@@ -102,6 +110,7 @@ class CreateArticleRequest {
   final double? salePrice;
   final double vatRate;
   final double stockQuantity;
+  final double minimumStock;
   final String? defaultSupplierId;
   final String? notes;
 
@@ -113,6 +122,7 @@ class CreateArticleRequest {
         salePrice: (json['sale_price'] as num?)?.toDouble(),
         vatRate: json['vat_rate'] == null ? 19.0 : (json['vat_rate'] as num).toDouble(),
         stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        minimumStock: (json['minimum_stock'] as num? ?? 0).toDouble(),
         defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
       );
@@ -125,6 +135,7 @@ class CreateArticleRequest {
         'sale_price': salePrice,
         'vat_rate': vatRate,
         'stock_quantity': stockQuantity,
+        'minimum_stock': minimumStock,
         'default_supplier_id': defaultSupplierId,
         'notes': notes,
       };
@@ -141,6 +152,7 @@ class UpdateArticleRequest {
     this.salePrice,
     this.vatRate = 19.0,
     this.stockQuantity = 0,
+    this.minimumStock = 0,
     this.defaultSupplierId,
     this.notes,
   });
@@ -152,6 +164,7 @@ class UpdateArticleRequest {
   final double? salePrice;
   final double vatRate;
   final double stockQuantity;
+  final double minimumStock;
   final String? defaultSupplierId;
   final String? notes;
 
@@ -163,6 +176,7 @@ class UpdateArticleRequest {
         salePrice: (json['sale_price'] as num?)?.toDouble(),
         vatRate: json['vat_rate'] == null ? 19.0 : (json['vat_rate'] as num).toDouble(),
         stockQuantity: (json['stock_quantity'] as num? ?? 0).toDouble(),
+        minimumStock: (json['minimum_stock'] as num? ?? 0).toDouble(),
         defaultSupplierId: json['default_supplier_id'] as String?,
         notes: json['notes'] as String?,
       );
@@ -175,6 +189,7 @@ class UpdateArticleRequest {
         'sale_price': salePrice,
         'vat_rate': vatRate,
         'stock_quantity': stockQuantity,
+        'minimum_stock': minimumStock,
         'default_supplier_id': defaultSupplierId,
         'notes': notes,
       };

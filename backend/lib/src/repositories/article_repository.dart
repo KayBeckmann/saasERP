@@ -9,7 +9,7 @@ class ArticleRepository {
   final Pool<void> _pool;
 
   static const _columns = 'id, tenant_id, sku, name, unit, purchase_price, '
-      'sale_price, vat_rate, usage_count, stock_quantity, default_supplier_id, notes, created_at';
+      'sale_price, vat_rate, usage_count, stock_quantity, minimum_stock, default_supplier_id, notes, created_at';
 
   Future<Article> create({
     required String tenantId,
@@ -18,8 +18,8 @@ class ArticleRepository {
     final result = await _pool.execute(
       Sql.named(
         'INSERT INTO articles '
-        '(tenant_id, sku, name, unit, purchase_price, sale_price, vat_rate, stock_quantity, default_supplier_id, notes) '
-        'VALUES (@tenant_id, @sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @stock_quantity, @default_supplier_id, @notes) '
+        '(tenant_id, sku, name, unit, purchase_price, sale_price, vat_rate, stock_quantity, minimum_stock, default_supplier_id, notes) '
+        'VALUES (@tenant_id, @sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @stock_quantity, @minimum_stock, @default_supplier_id, @notes) '
         'RETURNING $_columns',
       ),
       parameters: {
@@ -31,6 +31,7 @@ class ArticleRepository {
         'sale_price': req.salePrice,
         'vat_rate': req.vatRate,
         'stock_quantity': req.stockQuantity,
+        'minimum_stock': req.minimumStock,
         'default_supplier_id': req.defaultSupplierId,
         'notes': req.notes,
       },
@@ -81,7 +82,7 @@ class ArticleRepository {
         'UPDATE articles SET '
         'sku = @sku, name = @name, unit = @unit, purchase_price = @purchase_price, '
         'sale_price = @sale_price, vat_rate = @vat_rate, stock_quantity = @stock_quantity, '
-        'default_supplier_id = @default_supplier_id, notes = @notes '
+        'minimum_stock = @minimum_stock, default_supplier_id = @default_supplier_id, notes = @notes '
         'WHERE tenant_id = @tenant_id AND id = @id '
         'RETURNING $_columns',
       ),
@@ -95,6 +96,7 @@ class ArticleRepository {
         'sale_price': req.salePrice,
         'vat_rate': req.vatRate,
         'stock_quantity': req.stockQuantity,
+        'minimum_stock': req.minimumStock,
         'default_supplier_id': req.defaultSupplierId,
         'notes': req.notes,
       },
@@ -156,6 +158,7 @@ class ArticleRepository {
         vatRate: (row['vat_rate'] as num).toDouble(),
         usageCount: row['usage_count'] as int,
         stockQuantity: (row['stock_quantity'] as num).toDouble(),
+        minimumStock: (row['minimum_stock'] as num).toDouble(),
         defaultSupplierId: row['default_supplier_id'] as String?,
         notes: row['notes'] as String?,
         createdAt: (row['created_at'] as DateTime).toUtc(),
