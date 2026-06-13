@@ -13,6 +13,31 @@ enum InvoiceItemKind {
       );
 }
 
+/// Art einer Rechnung: normale Rechnung, Teilrechnung (deckt einen Teil der
+/// Auftragspositionen ab), Abschlagsrechnung (Vorauszahlung) oder
+/// Schlussrechnung (rechnet die verbleibenden Positionen ab und zieht
+/// [Invoice.priorInvoicedTotal] als Vorleistung ab).
+enum InvoiceType {
+  standard,
+  partial,
+  downPayment,
+  closingInvoice;
+
+  String toJson() => switch (this) {
+        InvoiceType.standard => 'standard',
+        InvoiceType.partial => 'partial',
+        InvoiceType.downPayment => 'down_payment',
+        InvoiceType.closingInvoice => 'final',
+      };
+
+  static InvoiceType fromJson(String value) => switch (value) {
+        'partial' => InvoiceType.partial,
+        'down_payment' => InvoiceType.downPayment,
+        'final' => InvoiceType.closingInvoice,
+        _ => InvoiceType.standard,
+      };
+}
+
 /// Status einer Rechnung im Workflow `draft -> sent -> paid/overdue/cancelled`.
 enum InvoiceStatus {
   draft,
@@ -44,6 +69,7 @@ class InvoiceItem {
     this.unitPrice = 0,
     this.vatRate = 19.0,
     this.groupLabel,
+    this.orderItemId,
   });
 
   final String? id;
@@ -61,6 +87,11 @@ class InvoiceItem {
   /// Rechnung als Gruppe mit eigener Zwischensumme dargestellt.
   final String? groupLabel;
 
+  /// Verweist auf die Auftragsposition (`order_items.id`), aus der diese
+  /// Rechnungsposition übernommen wurde — Grundlage für den
+  /// Doppelabrechnungsschutz bei Teil-/Abschlags-/Schlussrechnungen.
+  final String? orderItemId;
+
   double get totalNet => quantity * unitPrice;
 
   double get totalGross => totalNet * (1 + vatRate / 100);
@@ -76,6 +107,7 @@ class InvoiceItem {
         unitPrice: (json['unit_price'] as num).toDouble(),
         vatRate: (json['vat_rate'] as num).toDouble(),
         groupLabel: json['group_label'] as String?,
+        orderItemId: json['order_item_id'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -89,6 +121,7 @@ class InvoiceItem {
         'unit_price': unitPrice,
         'vat_rate': vatRate,
         'group_label': groupLabel,
+        'order_item_id': orderItemId,
       };
 }
 
@@ -122,6 +155,8 @@ class Invoice {
     this.notes,
     required this.createdAt,
     this.items = const [],
+    this.invoiceType = InvoiceType.standard,
+    this.priorInvoicedTotal,
   });
 
   final String id;
@@ -136,9 +171,21 @@ class Invoice {
   final DateTime createdAt;
   final List<InvoiceItem> items;
 
+  /// Rechnungsart (Rechnung/Teilrechnung/Abschlagsrechnung/Schlussrechnung).
+  final InvoiceType invoiceType;
+
+  /// Nur bei [InvoiceType.closingInvoice]: Summe der Bruttobeträge aller
+  /// vorherigen, nicht-stornierten Rechnungen desselben Auftrags.
+  final double? priorInvoicedTotal;
+
   double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
 
   double get totalGross => items.fold(0, (sum, item) => sum + item.totalGross);
+
+  /// Brutto-Betrag abzüglich bereits gestellter Vorleistungen
+  /// ([priorInvoicedTotal]) — bei allen Rechnungstypen außer
+  /// [InvoiceType.closingInvoice] identisch zu [totalGross].
+  double get amountDue => totalGross - (priorInvoicedTotal ?? 0);
 
   /// Positionen gruppiert nach [InvoiceItem.groupLabel] — Reihenfolge der
   /// Gruppen ergibt sich aus dem ersten Auftreten des Labels in [items].
@@ -185,6 +232,8 @@ class Invoice {
         items: (json['items'] as List? ?? [])
             .map((e) => InvoiceItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
+        priorInvoicedTotal: (json['prior_invoiced_total'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -199,6 +248,8 @@ class Invoice {
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
         'items': items.map((item) => item.toJson()).toList(),
+        'invoice_type': invoiceType.toJson(),
+        'prior_invoiced_total': priorInvoicedTotal,
       };
 }
 
@@ -210,6 +261,8 @@ class CreateInvoiceRequest {
     this.dueDate,
     this.notes,
     this.items = const [],
+    this.invoiceType = InvoiceType.standard,
+    this.priorInvoicedTotal,
   });
 
   final String? customerId;
@@ -217,6 +270,8 @@ class CreateInvoiceRequest {
   final DateTime? dueDate;
   final String? notes;
   final List<InvoiceItem> items;
+  final InvoiceType invoiceType;
+  final double? priorInvoicedTotal;
 
   factory CreateInvoiceRequest.fromJson(Map<String, dynamic> json) => CreateInvoiceRequest(
         customerId: json['customer_id'] as String?,
@@ -226,6 +281,8 @@ class CreateInvoiceRequest {
         items: (json['items'] as List? ?? [])
             .map((e) => InvoiceItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
+        priorInvoicedTotal: (json['prior_invoiced_total'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -234,6 +291,8 @@ class CreateInvoiceRequest {
         'due_date': dueDate?.toIso8601String().split('T').first,
         'notes': notes,
         'items': items.map((item) => item.toJson()).toList(),
+        'invoice_type': invoiceType.toJson(),
+        'prior_invoiced_total': priorInvoicedTotal,
       };
 }
 
@@ -247,6 +306,8 @@ class UpdateInvoiceRequest {
     this.dueDate,
     this.notes,
     this.items = const [],
+    this.invoiceType = InvoiceType.standard,
+    this.priorInvoicedTotal,
   });
 
   final String? customerId;
@@ -255,6 +316,8 @@ class UpdateInvoiceRequest {
   final DateTime? dueDate;
   final String? notes;
   final List<InvoiceItem> items;
+  final InvoiceType invoiceType;
+  final double? priorInvoicedTotal;
 
   factory UpdateInvoiceRequest.fromJson(Map<String, dynamic> json) => UpdateInvoiceRequest(
         customerId: json['customer_id'] as String?,
@@ -265,6 +328,8 @@ class UpdateInvoiceRequest {
         items: (json['items'] as List? ?? [])
             .map((e) => InvoiceItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
+        priorInvoicedTotal: (json['prior_invoiced_total'] as num?)?.toDouble(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -273,6 +338,8 @@ class UpdateInvoiceRequest {
         'status': status.toJson(),
         'due_date': dueDate?.toIso8601String().split('T').first,
         'notes': notes,
+        'invoice_type': invoiceType.toJson(),
+        'prior_invoiced_total': priorInvoicedTotal,
         'items': items.map((item) => item.toJson()).toList(),
       };
 }
