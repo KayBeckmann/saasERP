@@ -10,6 +10,7 @@ import 'dunning_screen.dart';
 import 'invoices_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
+import 'purchase_orders_screen.dart';
 import 'quotes_screen.dart';
 import 'suppliers_screen.dart';
 import 'time_entries_screen.dart';
@@ -201,6 +202,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const DunningScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.shopping_cart_outlined),
+                title: const Text('Bestellungen'),
+                subtitle: const Text('Bestellwesen: Lieferanten-Bestellungen & Wareneingang'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PurchaseOrdersScreen()),
                 ),
               ),
             ),

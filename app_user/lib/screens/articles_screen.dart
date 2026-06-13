@@ -105,6 +105,7 @@ class _ArticlesScreenState extends State<ArticlesScreen> {
                     if (article.salePrice != null)
                       'VK ${article.salePrice!.toStringAsFixed(2)} €',
                     if (article.unit != null) article.unit!,
+                    'Bestand: ${article.stockQuantity.toStringAsFixed(article.stockQuantity == article.stockQuantity.roundToDouble() ? 0 : 2)}',
                   ].join(' · '),
                 ),
                 trailing: IconButton(
@@ -146,7 +147,10 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
   late final TextEditingController _purchasePriceController;
   late final TextEditingController _salePriceController;
   late final TextEditingController _vatRateController;
+  late final TextEditingController _stockQuantityController;
   late final TextEditingController _notesController;
+  String? _defaultSupplierId;
+  List<Supplier> _suppliers = [];
   bool _saving = false;
   String? _error;
 
@@ -160,7 +164,16 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     _purchasePriceController = TextEditingController(text: a?.purchasePrice?.toString() ?? '');
     _salePriceController = TextEditingController(text: a?.salePrice?.toString() ?? '');
     _vatRateController = TextEditingController(text: (a?.vatRate ?? 19.0).toString());
+    _stockQuantityController = TextEditingController(text: (a?.stockQuantity ?? 0).toString());
     _notesController = TextEditingController(text: a?.notes ?? '');
+    _defaultSupplierId = a?.defaultSupplierId;
+    _loadSuppliers();
+  }
+
+  Future<void> _loadSuppliers() async {
+    final auth = context.read<AuthController>();
+    final suppliers = await auth.apiClient.listSuppliers(auth.token!);
+    if (mounted) setState(() => _suppliers = suppliers);
   }
 
   @override
@@ -171,6 +184,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     _purchasePriceController.dispose();
     _salePriceController.dispose();
     _vatRateController.dispose();
+    _stockQuantityController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -188,6 +202,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     final purchasePrice = double.tryParse(_purchasePriceController.text.trim().replaceAll(',', '.'));
     final salePrice = double.tryParse(_salePriceController.text.trim().replaceAll(',', '.'));
     final vatRate = double.tryParse(_vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
+    final stockQuantity = double.tryParse(_stockQuantityController.text.trim().replaceAll(',', '.')) ?? 0;
 
     final auth = context.read<AuthController>();
     try {
@@ -201,6 +216,8 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
             purchasePrice: purchasePrice,
             salePrice: salePrice,
             vatRate: vatRate,
+            stockQuantity: stockQuantity,
+            defaultSupplierId: _defaultSupplierId,
             notes: _orNull(_notesController.text),
           ),
         );
@@ -215,6 +232,8 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
             purchasePrice: purchasePrice,
             salePrice: salePrice,
             vatRate: vatRate,
+            stockQuantity: stockQuantity,
+            defaultSupplierId: _defaultSupplierId,
             notes: _orNull(_notesController.text),
           ),
         );
@@ -273,6 +292,24 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
                 controller: _vatRateController,
                 decoration: const InputDecoration(labelText: 'MwSt.-Satz (%)'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _stockQuantityController,
+                decoration: const InputDecoration(labelText: 'Lagerbestand'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String?>(
+                initialValue: _defaultSupplierId,
+                decoration: const InputDecoration(labelText: 'Standard-Lieferant'),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('Kein Standard-Lieferant')),
+                  ..._suppliers.map(
+                    (supplier) => DropdownMenuItem<String?>(value: supplier.id, child: Text(supplier.name)),
+                  ),
+                ],
+                onChanged: (value) => setState(() => _defaultSupplierId = value),
               ),
               const SizedBox(height: 8),
               TextFormField(

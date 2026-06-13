@@ -5,7 +5,9 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../widgets/invoice_conversion_dialog.dart';
+import '../widgets/purchase_proposal_dialog.dart';
 import 'order_editor_screen.dart';
+import 'purchase_order_editor_screen.dart';
 
 /// Listet die Aufträge des Mandanten und erlaubt Anlegen/Bearbeiten/Löschen.
 class OrdersScreen extends StatefulWidget {
@@ -91,6 +93,58 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
+  Future<void> _createPurchaseOrderFromProposal(Order order) async {
+    final auth = context.read<AuthController>();
+    List<PurchaseProposalGroup> proposals;
+    try {
+      proposals = await auth.apiClient.getPurchaseProposal(token: auth.token!, orderId: order.id);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+      return;
+    }
+    if (!mounted) return;
+
+    if (proposals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein Bestellbedarf — Lagerbestand deckt den Auftrag.')),
+      );
+      return;
+    }
+
+    final group = await showPurchaseProposalDialog(context: context, proposals: proposals);
+    if (group == null) return;
+    if (!mounted) return;
+
+    final items = group.items
+        .map(
+          (item) => PurchaseOrderItem(
+            articleId: item.articleId,
+            description: item.description,
+            quantity: item.orderQuantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice ?? 0,
+          ),
+        )
+        .toList();
+
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PurchaseOrderEditorScreen(
+          initial: CreatePurchaseOrderRequest(
+            supplierId: group.supplierId,
+            orderId: order.id,
+            items: items,
+          ),
+        ),
+      ),
+    );
+    if ((changed ?? false) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bestellung erstellt.')));
+    }
+  }
+
   String? _customerName(String? customerId, List<Customer> customers) {
     if (customerId == null) return null;
     for (final customer in customers) {
@@ -160,6 +214,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       icon: const Icon(Icons.receipt_long_outlined),
                       tooltip: 'Rechnung erstellen',
                       onPressed: () => _convertToInvoice(order),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.local_shipping_outlined),
+                      tooltip: 'Bestellvorschlag',
+                      onPressed: () => _createPurchaseOrderFromProposal(order),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),

@@ -696,6 +696,89 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  Future<List<PurchaseOrder>> listPurchaseOrders(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/purchase-orders'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['purchase_orders'] as List)
+        .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PurchaseOrder> createPurchaseOrder({
+    required String token,
+    required CreatePurchaseOrderRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/purchase-orders'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return PurchaseOrder.fromJson(_decode(response));
+  }
+
+  Future<PurchaseOrder> updatePurchaseOrder({
+    required String token,
+    required String id,
+    required UpdatePurchaseOrderRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/purchase-orders/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return PurchaseOrder.fromJson(_decode(response));
+  }
+
+  Future<void> deletePurchaseOrder({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/purchase-orders/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<PurchaseOrder> receivePurchaseOrder({
+    required String token,
+    required String id,
+    required ReceivePurchaseOrderRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/purchase-orders/$id/receive'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return PurchaseOrder.fromJson(_decode(response));
+  }
+
+  Future<List<PurchaseProposalGroup>> getPurchaseProposal({required String token, required String orderId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/orders/$orderId/purchase-proposal'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['proposals'] as List)
+        .map((e) => PurchaseProposalGroup.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
