@@ -595,6 +595,73 @@ class ApiClient {
     return ArticlePriceImportResult.fromJson(_decode(response));
   }
 
+  /// Lädt die Stundenerfassungs-Einträge des angemeldeten Nutzers,
+  /// optional auf einen Zeitraum eingeschränkt (Wochenansicht: `from`/`to`
+  /// jeweils inklusiv, Format `YYYY-MM-DD`).
+  Future<List<TimeEntry>> listTimeEntries({
+    required String token,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final query = <String, String>{
+      if (from != null) 'from': _dateOnly(from),
+      if (to != null) 'to': _dateOnly(to),
+    };
+    final response = await _httpClient.get(
+      _uri('/api/time-entries').replace(queryParameters: query.isEmpty ? null : query),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['time_entries'] as List)
+        .map((e) => TimeEntry.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<TimeEntry> createTimeEntry({
+    required String token,
+    required CreateTimeEntryRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/time-entries'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return TimeEntry.fromJson(_decode(response));
+  }
+
+  Future<TimeEntry> updateTimeEntry({
+    required String token,
+    required String id,
+    required UpdateTimeEntryRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/time-entries/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return TimeEntry.fromJson(_decode(response));
+  }
+
+  Future<void> deleteTimeEntry({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/time-entries/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
@@ -606,6 +673,9 @@ class ApiClient {
       tenant: Tenant.fromJson(json['tenant'] as Map<String, dynamic>),
     );
   }
+
+  String _dateOnly(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Map<String, dynamic> _decode(http.Response response) {
     final json = jsonDecode(response.body) as Map<String, dynamic>;

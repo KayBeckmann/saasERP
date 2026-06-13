@@ -11,6 +11,7 @@ import 'orders_screen.dart';
 import 'products_screen.dart';
 import 'quotes_screen.dart';
 import 'suppliers_screen.dart';
+import 'time_entries_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -187,6 +188,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const InvoicesScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.timer_outlined),
+                title: const Text('Stundenerfassung'),
+                subtitle: const Text('Arbeitszeit mit Wochenansicht erfassen'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TimeEntriesScreen()),
                 ),
               ),
             ),
