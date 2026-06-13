@@ -15,6 +15,9 @@ class AuthController extends ChangeNotifier {
   final ApiClient _apiClient;
   final AuthStorage _authStorage;
 
+  /// Für Screens, die eigene API-Aufrufe (z. B. Stammdaten-CRUD) machen.
+  ApiClient get apiClient => _apiClient;
+
   AuthStatus status = AuthStatus.unknown;
   String? token;
   AppUser? user;

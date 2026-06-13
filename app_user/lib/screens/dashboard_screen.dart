@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import 'customers_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -99,6 +100,18 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.people_outline),
+                title: const Text('Kunden'),
+                subtitle: const Text('Kundenstamm verwalten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CustomersScreen()),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Card(
               child: Padding(
