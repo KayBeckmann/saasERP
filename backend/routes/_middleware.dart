@@ -4,6 +4,7 @@ import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
+import 'package:backend/src/repositories/order_repository.dart';
 import 'package:backend/src/repositories/product_repository.dart';
 import 'package:backend/src/repositories/quote_repository.dart';
 import 'package:backend/src/repositories/supplier_repository.dart';
@@ -29,6 +30,7 @@ final _supplierRepository = SupplierRepository(_pool, _tenantEncryptionService);
 final _articleRepository = ArticleRepository(_pool);
 final _productRepository = ProductRepository(_pool);
 final _quoteRepository = QuoteRepository(_pool, _numberSequenceRepository);
+final _orderRepository = OrderRepository(_pool, _numberSequenceRepository);
 
 Handler middleware(Handler handler) {
   return handler
@@ -46,7 +48,8 @@ Handler middleware(Handler handler) {
       .use(provider<SupplierRepository>((_) => _supplierRepository))
       .use(provider<ArticleRepository>((_) => _articleRepository))
       .use(provider<ProductRepository>((_) => _productRepository))
-      .use(provider<QuoteRepository>((_) => _quoteRepository));
+      .use(provider<QuoteRepository>((_) => _quoteRepository))
+      .use(provider<OrderRepository>((_) => _orderRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.
