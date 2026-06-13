@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/order_repository.dart';
 import 'package:backend/src/request_auth.dart';
@@ -5,16 +7,39 @@ import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// POST /api/orders/<id>/to-invoice — erzeugt aus einem Auftrag eine neue
-/// Rechnung (Kunde, Titel, Notizen und Positionen inkl. Gruppen-Label werden
-/// übernommen, `order_id` verweist auf den Ursprungsauftrag).
+/// Rechnung (Kunde, Titel, Notizen werden übernommen). Optionaler JSON-Body:
+/// `invoice_type` (standard/partial/down_payment/final, Default `standard`)
+/// und `item_ids` (Liste von `order_items.id`, Default: alle Positionen).
+/// Bereits abgerechnete Positionen (siehe `billable-items`) werden immer
+/// ausgeschlossen (Doppelabrechnungsschutz). Bei `invoice_type: final` wird
+/// `prior_invoiced_total` aus der Summe aller vorherigen, nicht-stornierten
+/// Rechnungen dieses Auftrags berechnet.
 Future<Response> onRequest(RequestContext context, String id) async {
   final auth = authenticateRequest(context);
   if (auth == null) {
     return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
   }
-
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
+  }
+
+  var invoiceType = InvoiceType.standard;
+  List<String>? itemIds;
+
+  final rawBody = await context.request.body();
+  if (rawBody.trim().isNotEmpty) {
+    Map<String, dynamic> body;
+    try {
+      body = jsonDecode(rawBody) as Map<String, dynamic>;
+    } on FormatException {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_json'});
+    }
+    if (body['invoice_type'] != null) {
+      invoiceType = InvoiceType.fromJson(body['invoice_type'] as String);
+    }
+    if (body['item_ids'] != null) {
+      itemIds = (body['item_ids'] as List).map((e) => e as String).toList();
+    }
   }
 
   final orderRepository = context.read<OrderRepository>();
@@ -25,11 +50,36 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
+  final invoicedIds = await invoiceRepository.invoicedOrderItemIds(tenantId: auth.tenantId, orderId: order.id);
+
+  var items = order.items.where((item) => item.id == null || !invoicedIds.contains(item.id)).toList();
+  if (itemIds != null) {
+    final selected = itemIds.toSet();
+    items = items.where((item) => item.id != null && selected.contains(item.id)).toList();
+  }
+
+  if (items.isEmpty) {
+    return Response.json(
+      statusCode: 400,
+      body: {'error': 'no_billable_items', 'message': 'Keine abrechenbaren Positionen vorhanden.'},
+    );
+  }
+
+  double? priorInvoicedTotal;
+  if (invoiceType == InvoiceType.closingInvoice) {
+    priorInvoicedTotal = await invoiceRepository.sumInvoicedGrossForOrder(
+      tenantId: auth.tenantId,
+      orderId: order.id,
+    );
+  }
+
   final req = CreateInvoiceRequest(
     customerId: order.customerId,
     title: order.title,
     notes: order.notes,
-    items: order.items
+    invoiceType: invoiceType,
+    priorInvoicedTotal: priorInvoicedTotal,
+    items: items
         .map(
           (item) => InvoiceItem(
             kind: InvoiceItemKind.fromJson(item.kind.toJson()),
@@ -41,6 +91,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
             unitPrice: item.unitPrice,
             vatRate: item.vatRate,
             groupLabel: item.groupLabel,
+            orderItemId: item.id,
           ),
         )
         .toList(),

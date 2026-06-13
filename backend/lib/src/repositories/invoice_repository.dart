@@ -13,10 +13,11 @@ class InvoiceRepository {
   final NumberSequenceRepository _numberSequences;
 
   static const _invoiceColumns =
-      'id, tenant_id, invoice_number, order_id, customer_id, title, status, due_date, notes, created_at';
+      'id, tenant_id, invoice_number, order_id, customer_id, title, status, due_date, notes, created_at, '
+      'invoice_type, prior_invoiced_total';
 
-  static const _itemColumns =
-      'id, invoice_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
+  static const _itemColumns = 'id, invoice_id, kind, article_id, product_id, description, quantity, unit, '
+      'unit_price, vat_rate, group_label, order_item_id';
 
   Future<Invoice> create({
     required String tenantId,
@@ -32,8 +33,10 @@ class InvoiceRepository {
     return _pool.runTx((session) async {
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO invoices (tenant_id, invoice_number, order_id, customer_id, title, due_date, notes) '
-          'VALUES (@tenant_id, @invoice_number, @order_id, @customer_id, @title, @due_date, @notes) '
+          'INSERT INTO invoices (tenant_id, invoice_number, order_id, customer_id, title, due_date, notes, '
+          'invoice_type, prior_invoiced_total) '
+          'VALUES (@tenant_id, @invoice_number, @order_id, @customer_id, @title, @due_date, @notes, '
+          '@invoice_type, @prior_invoiced_total) '
           'RETURNING $_invoiceColumns',
         ),
         parameters: {
@@ -44,6 +47,8 @@ class InvoiceRepository {
           'title': req.title,
           'due_date': req.dueDate,
           'notes': req.notes,
+          'invoice_type': req.invoiceType.toJson(),
+          'prior_invoiced_total': req.priorInvoicedTotal,
         },
       );
       final invoiceId = result.first.toColumnMap()['id'] as String;
@@ -102,7 +107,8 @@ class InvoiceRepository {
       final result = await session.execute(
         Sql.named(
           'UPDATE invoices SET customer_id = @customer_id, title = @title, status = @status, '
-          'due_date = @due_date, notes = @notes '
+          'due_date = @due_date, notes = @notes, invoice_type = @invoice_type, '
+          'prior_invoiced_total = @prior_invoiced_total '
           'WHERE tenant_id = @tenant_id AND id = @id '
           'RETURNING $_invoiceColumns',
         ),
@@ -114,6 +120,8 @@ class InvoiceRepository {
           'status': req.status.toJson(),
           'due_date': req.dueDate,
           'notes': req.notes,
+          'invoice_type': req.invoiceType.toJson(),
+          'prior_invoiced_total': req.priorInvoicedTotal,
         },
       );
       if (result.isEmpty) return null;
@@ -148,8 +156,8 @@ class InvoiceRepository {
       await session.execute(
         Sql.named(
           'INSERT INTO invoice_items '
-          '(tenant_id, invoice_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label, sort_order) '
-          'VALUES (@tenant_id, @invoice_id, @kind, @article_id, @product_id, @description, @quantity, @unit, @unit_price, @vat_rate, @group_label, @sort_order)',
+          '(tenant_id, invoice_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label, order_item_id, sort_order) '
+          'VALUES (@tenant_id, @invoice_id, @kind, @article_id, @product_id, @description, @quantity, @unit, @unit_price, @vat_rate, @group_label, @order_item_id, @sort_order)',
         ),
         parameters: {
           'tenant_id': tenantId,
@@ -163,6 +171,7 @@ class InvoiceRepository {
           'unit_price': item.unitPrice,
           'vat_rate': item.vatRate,
           'group_label': item.groupLabel,
+          'order_item_id': item.orderItemId,
           'sort_order': i,
         },
       );
@@ -188,6 +197,7 @@ class InvoiceRepository {
         unitPrice: (row['unit_price'] as num).toDouble(),
         vatRate: (row['vat_rate'] as num).toDouble(),
         groupLabel: row['group_label'] as String?,
+        orderItemId: row['order_item_id'] as String?,
       );
 
   Invoice _fromRow(Map<String, dynamic> row, List<InvoiceItem> items) => Invoice(
@@ -202,5 +212,38 @@ class InvoiceRepository {
         notes: row['notes'] as String?,
         createdAt: (row['created_at'] as DateTime).toUtc(),
         items: items,
+        invoiceType: InvoiceType.fromJson(row['invoice_type'] as String),
+        priorInvoicedTotal: (row['prior_invoiced_total'] as num?)?.toDouble(),
       );
+
+  /// IDs der Auftragspositionen, die bereits über eine nicht-stornierte
+  /// Rechnung dieses Auftrags abgerechnet wurden (Doppelabrechnungsschutz
+  /// für Teil-/Abschlags-/Schlussrechnungen).
+  Future<Set<String>> invoicedOrderItemIds({required String tenantId, required String orderId}) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT ii.order_item_id FROM invoice_items ii '
+        'JOIN invoices i ON i.id = ii.invoice_id '
+        "WHERE i.tenant_id = @tenant_id AND i.order_id = @order_id AND i.status != 'cancelled' "
+        'AND ii.order_item_id IS NOT NULL',
+      ),
+      parameters: {'tenant_id': tenantId, 'order_id': orderId},
+    );
+    return result.map((row) => row.toColumnMap()['order_item_id'] as String).toSet();
+  }
+
+  /// Summe der Bruttobeträge aller nicht-stornierten Rechnungen eines
+  /// Auftrags — Basis für `prior_invoiced_total` einer Schlussrechnung.
+  Future<double> sumInvoicedGrossForOrder({required String tenantId, required String orderId}) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT COALESCE(SUM(ii.quantity * ii.unit_price * (1 + ii.vat_rate / 100.0)), 0) AS total '
+        'FROM invoice_items ii '
+        'JOIN invoices i ON i.id = ii.invoice_id '
+        "WHERE i.tenant_id = @tenant_id AND i.order_id = @order_id AND i.status != 'cancelled'",
+      ),
+      parameters: {'tenant_id': tenantId, 'order_id': orderId},
+    );
+    return (result.first.toColumnMap()['total'] as num).toDouble();
+  }
 }
