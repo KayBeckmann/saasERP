@@ -10,6 +10,7 @@ export 'src/models/auth.dart';
 export 'src/models/customer.dart';
 export 'src/models/price_import.dart';
 export 'src/models/product.dart';
+export 'src/models/quote.dart';
 export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
 export 'src/models/tenant_access.dart';
