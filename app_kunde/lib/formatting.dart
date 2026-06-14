@@ -22,3 +22,19 @@ StatusTone quoteStatusTone(QuoteStatus status) => switch (status) {
       QuoteStatus.accepted => StatusTone.success,
       QuoteStatus.rejected => StatusTone.error,
     };
+
+String invoiceStatusLabel(InvoiceStatus status) => switch (status) {
+      InvoiceStatus.draft => 'Entwurf',
+      InvoiceStatus.sent => 'Versendet',
+      InvoiceStatus.paid => 'Bezahlt',
+      InvoiceStatus.overdue => 'Überfällig',
+      InvoiceStatus.cancelled => 'Storniert',
+    };
+
+StatusTone invoiceStatusTone(InvoiceStatus status) => switch (status) {
+      InvoiceStatus.draft => StatusTone.neutral,
+      InvoiceStatus.sent => StatusTone.warning,
+      InvoiceStatus.paid => StatusTone.success,
+      InvoiceStatus.overdue => StatusTone.error,
+      InvoiceStatus.cancelled => StatusTone.neutral,
+    };

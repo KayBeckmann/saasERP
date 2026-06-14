@@ -5,23 +5,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../formatting.dart';
 import '../state/auth_controller.dart';
 import '../widgets/status_chip.dart';
+import 'invoice_detail_screen.dart';
 import 'quote_detail_screen.dart';
-
-String _invoiceStatusLabel(InvoiceStatus status) => switch (status) {
-      InvoiceStatus.draft => 'Entwurf',
-      InvoiceStatus.sent => 'Versendet',
-      InvoiceStatus.paid => 'Bezahlt',
-      InvoiceStatus.overdue => 'Überfällig',
-      InvoiceStatus.cancelled => 'Storniert',
-    };
-
-StatusTone _invoiceStatusTone(InvoiceStatus status) => switch (status) {
-      InvoiceStatus.draft => StatusTone.neutral,
-      InvoiceStatus.sent => StatusTone.warning,
-      InvoiceStatus.paid => StatusTone.success,
-      InvoiceStatus.overdue => StatusTone.error,
-      InvoiceStatus.cancelled => StatusTone.neutral,
-    };
 
 String _contractStatusLabel(MaintenanceContractStatus status) => switch (status) {
       MaintenanceContractStatus.active => 'Aktiv',
@@ -137,8 +122,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: invoice.title,
                         subtitle: invoice.dueDate != null ? 'Fällig: ${formatDate(invoice.dueDate!)}' : null,
                         trailing: formatAmount(invoice.totalDue),
-                        statusLabel: _invoiceStatusLabel(invoice.status),
-                        statusTone: _invoiceStatusTone(invoice.status),
+                        statusLabel: invoiceStatusLabel(invoice.status),
+                        statusTone: invoiceStatusTone(invoice.status),
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => InvoiceDetailScreen(invoice: invoice)),
+                          );
+                          if (mounted) _refresh();
+                        },
                       ),
                   ],
                 ),

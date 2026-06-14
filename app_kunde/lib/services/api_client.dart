@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -75,6 +76,22 @@ class ApiClient {
       body: jsonEncode(CustomerQuoteDecisionRequest(decision: decision, comment: comment).toJson()),
     );
     return Quote.fromJson(_decode(response));
+  }
+
+  /// Eigene Rechnung als PDF.
+  Future<Uint8List> getInvoicePdf({required String token, required String invoiceId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/customer-portal/invoices/$invoiceId/pdf'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
   }
 
   Map<String, dynamic> _decode(http.Response response) {
