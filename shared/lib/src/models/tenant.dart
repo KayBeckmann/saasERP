@@ -12,6 +12,7 @@ class Tenant {
     this.dunningFeeLevel1 = 0,
     this.dunningFeeLevel2 = 5.0,
     this.dunningFeeLevel3 = 10.0,
+    this.defaultHourlyRate = 0,
   });
 
   final String id;
@@ -47,6 +48,10 @@ class Tenant {
   /// Mahngebühr für die 3. Mahnstufe (2. Mahnung).
   final double dunningFeeLevel3;
 
+  /// Stundensatz für die interne Verrechnung erfasster Stunden in der
+  /// Projekt-Gewinn/Verlust-Übersicht.
+  final double defaultHourlyRate;
+
   factory Tenant.fromJson(Map<String, dynamic> json) => Tenant(
         id: json['id'] as String,
         name: json['name'] as String,
@@ -60,6 +65,7 @@ class Tenant {
         dunningFeeLevel1: (json['dunning_fee_level1'] as num?)?.toDouble() ?? 0,
         dunningFeeLevel2: (json['dunning_fee_level2'] as num?)?.toDouble() ?? 5.0,
         dunningFeeLevel3: (json['dunning_fee_level3'] as num?)?.toDouble() ?? 10.0,
+        defaultHourlyRate: (json['default_hourly_rate'] as num?)?.toDouble() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -75,6 +81,7 @@ class Tenant {
         'dunning_fee_level1': dunningFeeLevel1,
         'dunning_fee_level2': dunningFeeLevel2,
         'dunning_fee_level3': dunningFeeLevel3,
+        'default_hourly_rate': defaultHourlyRate,
       };
 }
 
@@ -90,6 +97,7 @@ class UpdateTenantConfigRequest {
     this.dunningFeeLevel1 = 0,
     this.dunningFeeLevel2 = 5.0,
     this.dunningFeeLevel3 = 10.0,
+    this.defaultHourlyRate = 0,
   });
 
   final String? companyAddress;
@@ -100,6 +108,7 @@ class UpdateTenantConfigRequest {
   final double dunningFeeLevel1;
   final double dunningFeeLevel2;
   final double dunningFeeLevel3;
+  final double defaultHourlyRate;
 
   factory UpdateTenantConfigRequest.fromJson(Map<String, dynamic> json) =>
       UpdateTenantConfigRequest(
@@ -111,6 +120,7 @@ class UpdateTenantConfigRequest {
         dunningFeeLevel1: (json['dunning_fee_level1'] as num?)?.toDouble() ?? 0,
         dunningFeeLevel2: (json['dunning_fee_level2'] as num?)?.toDouble() ?? 5.0,
         dunningFeeLevel3: (json['dunning_fee_level3'] as num?)?.toDouble() ?? 10.0,
+        defaultHourlyRate: (json['default_hourly_rate'] as num?)?.toDouble() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
@@ -122,6 +132,7 @@ class UpdateTenantConfigRequest {
         'dunning_fee_level1': dunningFeeLevel1,
         'dunning_fee_level2': dunningFeeLevel2,
         'dunning_fee_level3': dunningFeeLevel3,
+        'default_hourly_rate': defaultHourlyRate,
       };
 }
 

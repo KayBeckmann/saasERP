@@ -77,6 +77,7 @@ class PurchaseOrder {
     required this.purchaseOrderNumber,
     this.supplierId,
     this.orderId,
+    this.projectId,
     this.status = PurchaseOrderStatus.open,
     this.notes,
     required this.createdAt,
@@ -88,6 +89,10 @@ class PurchaseOrder {
   final String purchaseOrderNumber;
   final String? supplierId;
   final String? orderId;
+
+  /// Optionale Zuordnung zu einem Projekt — Grundlage für die
+  /// Ausgaben-Seite der Projekt-Gewinn/Verlust-Übersicht.
+  final String? projectId;
   final PurchaseOrderStatus status;
   final String? notes;
   final DateTime createdAt;
@@ -101,6 +106,7 @@ class PurchaseOrder {
         purchaseOrderNumber: json['purchase_order_number'] as String,
         supplierId: json['supplier_id'] as String?,
         orderId: json['order_id'] as String?,
+        projectId: json['project_id'] as String?,
         status: PurchaseOrderStatus.fromJson(json['status'] as String),
         notes: json['notes'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
@@ -115,6 +121,7 @@ class PurchaseOrder {
         'purchase_order_number': purchaseOrderNumber,
         'supplier_id': supplierId,
         'order_id': orderId,
+        'project_id': projectId,
         'status': status.toJson(),
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
@@ -130,18 +137,21 @@ class CreatePurchaseOrderRequest {
   const CreatePurchaseOrderRequest({
     this.supplierId,
     this.orderId,
+    this.projectId,
     this.notes,
     this.items = const [],
   });
 
   final String? supplierId;
   final String? orderId;
+  final String? projectId;
   final String? notes;
   final List<PurchaseOrderItem> items;
 
   factory CreatePurchaseOrderRequest.fromJson(Map<String, dynamic> json) => CreatePurchaseOrderRequest(
         supplierId: json['supplier_id'] as String?,
         orderId: json['order_id'] as String?,
+        projectId: json['project_id'] as String?,
         notes: json['notes'] as String?,
         items: (json['items'] as List? ?? [])
             .map((e) => PurchaseOrderItem.fromJson(e as Map<String, dynamic>))
@@ -151,6 +161,7 @@ class CreatePurchaseOrderRequest {
   Map<String, dynamic> toJson() => {
         'supplier_id': supplierId,
         'order_id': orderId,
+        'project_id': projectId,
         'notes': notes,
         'items': items.map((item) => item.toJson()).toList(),
       };
@@ -161,18 +172,21 @@ class CreatePurchaseOrderRequest {
 class UpdatePurchaseOrderRequest {
   const UpdatePurchaseOrderRequest({
     this.supplierId,
+    this.projectId,
     this.status = PurchaseOrderStatus.open,
     this.notes,
     this.items = const [],
   });
 
   final String? supplierId;
+  final String? projectId;
   final PurchaseOrderStatus status;
   final String? notes;
   final List<PurchaseOrderItem> items;
 
   factory UpdatePurchaseOrderRequest.fromJson(Map<String, dynamic> json) => UpdatePurchaseOrderRequest(
         supplierId: json['supplier_id'] as String?,
+        projectId: json['project_id'] as String?,
         status: PurchaseOrderStatus.fromJson(json['status'] as String),
         notes: json['notes'] as String?,
         items: (json['items'] as List? ?? [])
@@ -182,6 +196,7 @@ class UpdatePurchaseOrderRequest {
 
   Map<String, dynamic> toJson() => {
         'supplier_id': supplierId,
+        'project_id': projectId,
         'status': status.toJson(),
         'notes': notes,
         'items': items.map((item) => item.toJson()).toList(),

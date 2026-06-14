@@ -6,6 +6,7 @@ class TimeEntry {
     required this.tenantId,
     required this.userId,
     this.orderId,
+    this.projectId,
     required this.workDate,
     required this.hours,
     this.description,
@@ -16,6 +17,10 @@ class TimeEntry {
   final String tenantId;
   final String userId;
   final String? orderId;
+
+  /// Optionale Zuordnung zu einem Projekt — Grundlage für die
+  /// Stundenkosten in der Projekt-Gewinn/Verlust-Übersicht.
+  final String? projectId;
 
   /// Arbeitstag (ohne Zeitanteil).
   final DateTime workDate;
@@ -28,6 +33,7 @@ class TimeEntry {
         tenantId: json['tenant_id'] as String,
         userId: json['user_id'] as String,
         orderId: json['order_id'] as String?,
+        projectId: json['project_id'] as String?,
         workDate: DateTime.parse(json['work_date'] as String),
         hours: (json['hours'] as num).toDouble(),
         description: json['description'] as String?,
@@ -39,6 +45,7 @@ class TimeEntry {
         'tenant_id': tenantId,
         'user_id': userId,
         'order_id': orderId,
+        'project_id': projectId,
         'work_date': _dateOnly(workDate),
         'hours': hours,
         'description': description,
@@ -50,18 +57,21 @@ class TimeEntry {
 class CreateTimeEntryRequest {
   const CreateTimeEntryRequest({
     this.orderId,
+    this.projectId,
     required this.workDate,
     required this.hours,
     this.description,
   });
 
   final String? orderId;
+  final String? projectId;
   final DateTime workDate;
   final double hours;
   final String? description;
 
   factory CreateTimeEntryRequest.fromJson(Map<String, dynamic> json) => CreateTimeEntryRequest(
         orderId: json['order_id'] as String?,
+        projectId: json['project_id'] as String?,
         workDate: DateTime.parse(json['work_date'] as String),
         hours: (json['hours'] as num).toDouble(),
         description: json['description'] as String?,
@@ -69,6 +79,7 @@ class CreateTimeEntryRequest {
 
   Map<String, dynamic> toJson() => {
         'order_id': orderId,
+        'project_id': projectId,
         'work_date': _dateOnly(workDate),
         'hours': hours,
         'description': description,
@@ -79,18 +90,21 @@ class CreateTimeEntryRequest {
 class UpdateTimeEntryRequest {
   const UpdateTimeEntryRequest({
     this.orderId,
+    this.projectId,
     required this.workDate,
     required this.hours,
     this.description,
   });
 
   final String? orderId;
+  final String? projectId;
   final DateTime workDate;
   final double hours;
   final String? description;
 
   factory UpdateTimeEntryRequest.fromJson(Map<String, dynamic> json) => UpdateTimeEntryRequest(
         orderId: json['order_id'] as String?,
+        projectId: json['project_id'] as String?,
         workDate: DateTime.parse(json['work_date'] as String),
         hours: (json['hours'] as num).toDouble(),
         description: json['description'] as String?,
@@ -98,6 +112,7 @@ class UpdateTimeEntryRequest {
 
   Map<String, dynamic> toJson() => {
         'order_id': orderId,
+        'project_id': projectId,
         'work_date': _dateOnly(workDate),
         'hours': hours,
         'description': description,

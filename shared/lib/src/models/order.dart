@@ -122,6 +122,7 @@ class Order {
     required this.orderNumber,
     this.quoteId,
     this.customerId,
+    this.projectId,
     required this.title,
     this.status = OrderStatus.open,
     this.notes,
@@ -134,6 +135,10 @@ class Order {
   final String orderNumber;
   final String? quoteId;
   final String? customerId;
+
+  /// Optionale Zuordnung zu einem Projekt (Verhältnis Projekt ↔ Auftrag ist
+  /// 1:n, ein Projekt ist nicht verpflichtend).
+  final String? projectId;
   final String title;
   final OrderStatus status;
   final String? notes;
@@ -181,6 +186,7 @@ class Order {
         orderNumber: json['order_number'] as String,
         quoteId: json['quote_id'] as String?,
         customerId: json['customer_id'] as String?,
+        projectId: json['project_id'] as String?,
         title: json['title'] as String,
         status: OrderStatus.fromJson(json['status'] as String),
         notes: json['notes'] as String?,
@@ -196,6 +202,7 @@ class Order {
         'order_number': orderNumber,
         'quote_id': quoteId,
         'customer_id': customerId,
+        'project_id': projectId,
         'title': title,
         'status': status.toJson(),
         'notes': notes,
@@ -208,18 +215,21 @@ class Order {
 class CreateOrderRequest {
   const CreateOrderRequest({
     this.customerId,
+    this.projectId,
     required this.title,
     this.notes,
     this.items = const [],
   });
 
   final String? customerId;
+  final String? projectId;
   final String title;
   final String? notes;
   final List<OrderItem> items;
 
   factory CreateOrderRequest.fromJson(Map<String, dynamic> json) => CreateOrderRequest(
         customerId: json['customer_id'] as String?,
+        projectId: json['project_id'] as String?,
         title: json['title'] as String,
         notes: json['notes'] as String?,
         items: (json['items'] as List? ?? [])
@@ -229,6 +239,7 @@ class CreateOrderRequest {
 
   Map<String, dynamic> toJson() => {
         'customer_id': customerId,
+        'project_id': projectId,
         'title': title,
         'notes': notes,
         'items': items.map((item) => item.toJson()).toList(),
@@ -240,6 +251,7 @@ class CreateOrderRequest {
 class UpdateOrderRequest {
   const UpdateOrderRequest({
     this.customerId,
+    this.projectId,
     required this.title,
     this.status = OrderStatus.open,
     this.notes,
@@ -247,6 +259,7 @@ class UpdateOrderRequest {
   });
 
   final String? customerId;
+  final String? projectId;
   final String title;
   final OrderStatus status;
   final String? notes;
@@ -254,6 +267,7 @@ class UpdateOrderRequest {
 
   factory UpdateOrderRequest.fromJson(Map<String, dynamic> json) => UpdateOrderRequest(
         customerId: json['customer_id'] as String?,
+        projectId: json['project_id'] as String?,
         title: json['title'] as String,
         status: OrderStatus.fromJson(json['status'] as String),
         notes: json['notes'] as String?,
@@ -264,6 +278,7 @@ class UpdateOrderRequest {
 
   Map<String, dynamic> toJson() => {
         'customer_id': customerId,
+        'project_id': projectId,
         'title': title,
         'status': status.toJson(),
         'notes': notes,
