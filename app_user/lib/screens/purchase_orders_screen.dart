@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
+import '../widgets/status_chip.dart';
 import 'purchase_order_editor_screen.dart';
 
 /// Listet die Bestellungen des Mandanten und erlaubt Anlegen/Bearbeiten.
@@ -56,17 +59,18 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
         PurchaseOrderStatus.fullyDelivered => 'Vollständig geliefert',
       };
 
-  Color _statusColor(PurchaseOrderStatus status, BuildContext context) => switch (status) {
-        PurchaseOrderStatus.open => Theme.of(context).colorScheme.surfaceContainerHighest,
-        PurchaseOrderStatus.ordered => Colors.blue.shade100,
-        PurchaseOrderStatus.partiallyDelivered => Colors.orange.shade100,
-        PurchaseOrderStatus.fullyDelivered => Colors.green.shade100,
+  StatusTone _statusTone(PurchaseOrderStatus status) => switch (status) {
+        PurchaseOrderStatus.open => StatusTone.warning,
+        PurchaseOrderStatus.ordered => StatusTone.info,
+        PurchaseOrderStatus.partiallyDelivered => StatusTone.warning,
+        PurchaseOrderStatus.fullyDelivered => StatusTone.success,
       };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Bestellungen')),
+    return AppShell(
+      currentItem: AppNavItem.purchaseOrders,
+      title: 'Bestellungen',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -77,35 +81,29 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final data = snapshot.data!;
-          if (data.purchaseOrders.isEmpty) {
-            return const Center(child: Text('Noch keine Bestellungen vorhanden.'));
-          }
-
-          return ListView.builder(
-            itemCount: data.purchaseOrders.length,
-            itemBuilder: (context, index) {
-              final purchaseOrder = data.purchaseOrders[index];
-              final supplierName = _supplierName(purchaseOrder.supplierId, data.suppliers);
-
-              return ListTile(
-                title: Text(purchaseOrder.purchaseOrderNumber),
-                subtitle: Text(
-                  [
-                    ?supplierName,
-                    '${purchaseOrder.totalNet.toStringAsFixed(2)} € netto',
-                  ].join(' · '),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Bestellungen vorhanden.',
+            columns: const [
+              AppDataColumn('Bestellung', flex: 3),
+              AppDataColumn('Lieferant', flex: 2),
+              AppDataColumn('Betrag (netto)', numeric: true, flex: 2),
+              AppDataColumn('Status', flex: 1),
+            ],
+            rows: [
+              for (final purchaseOrder in data.purchaseOrders)
+                AppDataRow(
+                  onTap: () => _openEditor(purchaseOrder: purchaseOrder),
+                  cells: [
+                    Text(purchaseOrder.purchaseOrderNumber),
+                    Text(_supplierName(purchaseOrder.supplierId, data.suppliers) ?? '-'),
+                    Text('${purchaseOrder.totalNet.toStringAsFixed(2)} €'),
+                    StatusChip(
+                      label: _statusLabel(purchaseOrder.status),
+                      tone: _statusTone(purchaseOrder.status),
+                    ),
+                  ],
                 ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor(purchaseOrder.status, context),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(_statusLabel(purchaseOrder.status)),
-                ),
-                onTap: () => _openEditor(purchaseOrder: purchaseOrder),
-              );
-            },
+            ],
           );
         },
       ),

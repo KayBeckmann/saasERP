@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/invoice_conversion_dialog.dart';
+import '../widgets/status_chip.dart';
 import 'invoice_editor_screen.dart';
 
 /// Listet die Rechnungen des Mandanten und erlaubt Anlegen/Bearbeiten/Löschen.
@@ -78,18 +81,19 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         InvoiceStatus.cancelled => 'Storniert',
       };
 
-  Color _statusColor(InvoiceStatus status, BuildContext context) => switch (status) {
-        InvoiceStatus.draft => Theme.of(context).colorScheme.surfaceContainerHighest,
-        InvoiceStatus.sent => Colors.blue.shade100,
-        InvoiceStatus.paid => Colors.green.shade100,
-        InvoiceStatus.overdue => Colors.orange.shade100,
-        InvoiceStatus.cancelled => Colors.red.shade100,
+  StatusTone _statusTone(InvoiceStatus status) => switch (status) {
+        InvoiceStatus.draft => StatusTone.neutral,
+        InvoiceStatus.sent => StatusTone.warning,
+        InvoiceStatus.paid => StatusTone.success,
+        InvoiceStatus.overdue => StatusTone.error,
+        InvoiceStatus.cancelled => StatusTone.neutral,
       };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Rechnungen')),
+    return AppShell(
+      currentItem: AppNavItem.invoices,
+      title: 'Rechnungen',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -100,46 +104,37 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final data = snapshot.data!;
-          if (data.invoices.isEmpty) {
-            return const Center(child: Text('Noch keine Rechnungen vorhanden.'));
-          }
-
-          return ListView.builder(
-            itemCount: data.invoices.length,
-            itemBuilder: (context, index) {
-              final invoice = data.invoices[index];
-              final customerName = _customerName(invoice.customerId, data.customers);
-
-              return ListTile(
-                title: Text('${invoice.invoiceNumber} — ${invoice.title}'),
-                subtitle: Text(
-                  [
-                    ?customerName,
-                    if (invoice.invoiceType != InvoiceType.standard) invoiceTypeLabel(invoice.invoiceType),
-                    '${invoice.totalGross.toStringAsFixed(2)} €',
-                  ].join(' · '),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor(invoice.status, context),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(_statusLabel(invoice.status)),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Rechnungen vorhanden.',
+            columns: const [
+              AppDataColumn('Rechnung', flex: 3),
+              AppDataColumn('Kunde', flex: 2),
+              AppDataColumn('Betrag', numeric: true, flex: 2),
+              AppDataColumn('Status', flex: 1),
+            ],
+            rows: [
+              for (final invoice in data.invoices)
+                AppDataRow(
+                  onTap: () => _openEditor(invoice: invoice),
+                  cells: [
+                    Text(
+                      [
+                        '${invoice.invoiceNumber} — ${invoice.title}',
+                        if (invoice.invoiceType != InvoiceType.standard)
+                          invoiceTypeLabel(invoice.invoiceType),
+                      ].join(' · '),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Löschen',
-                      onPressed: () => _delete(invoice),
-                    ),
+                    Text(_customerName(invoice.customerId, data.customers) ?? '-'),
+                    Text('${invoice.totalGross.toStringAsFixed(2)} €'),
+                    StatusChip(label: _statusLabel(invoice.status), tone: _statusTone(invoice.status)),
                   ],
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Löschen',
+                    onPressed: () => _delete(invoice),
+                  ),
                 ),
-                onTap: () => _openEditor(invoice: invoice),
-              );
-            },
+            ],
           );
         },
       ),

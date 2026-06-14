@@ -4,8 +4,11 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 import '../widgets/purchase_proposal_dialog.dart';
+import '../widgets/status_chip.dart';
 import 'order_editor_screen.dart';
 import 'purchase_order_editor_screen.dart';
 
@@ -160,17 +163,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
         OrderStatus.cancelled => 'Storniert',
       };
 
-  Color _statusColor(OrderStatus status, BuildContext context) => switch (status) {
-        OrderStatus.open => Theme.of(context).colorScheme.surfaceContainerHighest,
-        OrderStatus.inProgress => Colors.blue.shade100,
-        OrderStatus.completed => Colors.green.shade100,
-        OrderStatus.cancelled => Colors.red.shade100,
+  StatusTone _statusTone(OrderStatus status) => switch (status) {
+        OrderStatus.open => StatusTone.warning,
+        OrderStatus.inProgress => StatusTone.info,
+        OrderStatus.completed => StatusTone.success,
+        OrderStatus.cancelled => StatusTone.error,
       };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Aufträge')),
+    return AppShell(
+      currentItem: AppNavItem.orders,
+      title: 'Aufträge',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -181,55 +185,47 @@ class _OrdersScreenState extends State<OrdersScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final data = snapshot.data!;
-          if (data.orders.isEmpty) {
-            return const Center(child: Text('Noch keine Aufträge vorhanden.'));
-          }
-
-          return ListView.builder(
-            itemCount: data.orders.length,
-            itemBuilder: (context, index) {
-              final order = data.orders[index];
-              final customerName = _customerName(order.customerId, data.customers);
-
-              return ListTile(
-                title: Text('${order.orderNumber} — ${order.title}'),
-                subtitle: Text(
-                  [
-                    ?customerName,
-                    '${order.totalGross.toStringAsFixed(2)} €',
-                  ].join(' · '),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor(order.status, context),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(_statusLabel(order.status)),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      tooltip: 'Rechnung erstellen',
-                      onPressed: () => _convertToInvoice(order),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.local_shipping_outlined),
-                      tooltip: 'Bestellvorschlag',
-                      onPressed: () => _createPurchaseOrderFromProposal(order),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Löschen',
-                      onPressed: () => _delete(order),
-                    ),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Aufträge vorhanden.',
+            trailingWidth: 140,
+            columns: const [
+              AppDataColumn('Auftrag', flex: 3),
+              AppDataColumn('Kunde', flex: 2),
+              AppDataColumn('Betrag', numeric: true, flex: 2),
+              AppDataColumn('Status', flex: 1),
+            ],
+            rows: [
+              for (final order in data.orders)
+                AppDataRow(
+                  onTap: () => _openEditor(order: order),
+                  cells: [
+                    Text('${order.orderNumber} — ${order.title}'),
+                    Text(_customerName(order.customerId, data.customers) ?? '-'),
+                    Text('${order.totalGross.toStringAsFixed(2)} €'),
+                    StatusChip(label: _statusLabel(order.status), tone: _statusTone(order.status)),
                   ],
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        tooltip: 'Rechnung erstellen',
+                        onPressed: () => _convertToInvoice(order),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.local_shipping_outlined),
+                        tooltip: 'Bestellvorschlag',
+                        onPressed: () => _createPurchaseOrderFromProposal(order),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Löschen',
+                        onPressed: () => _delete(order),
+                      ),
+                    ],
+                  ),
                 ),
-                onTap: () => _openEditor(order: order),
-              );
-            },
+            ],
           );
         },
       ),

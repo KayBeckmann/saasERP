@@ -6,6 +6,9 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
+import '../widgets/status_chip.dart';
 import 'quote_editor_screen.dart';
 
 /// Listet die Angebote des Mandanten und erlaubt Anlegen/Bearbeiten/Löschen.
@@ -118,17 +121,18 @@ class _QuotesScreenState extends State<QuotesScreen> {
         QuoteStatus.rejected => 'Abgelehnt',
       };
 
-  Color _statusColor(QuoteStatus status, BuildContext context) => switch (status) {
-        QuoteStatus.draft => Theme.of(context).colorScheme.surfaceContainerHighest,
-        QuoteStatus.sent => Colors.blue.shade100,
-        QuoteStatus.accepted => Colors.green.shade100,
-        QuoteStatus.rejected => Colors.red.shade100,
+  StatusTone _statusTone(QuoteStatus status) => switch (status) {
+        QuoteStatus.draft => StatusTone.neutral,
+        QuoteStatus.sent => StatusTone.info,
+        QuoteStatus.accepted => StatusTone.success,
+        QuoteStatus.rejected => StatusTone.error,
       };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Angebote')),
+    return AppShell(
+      currentItem: AppNavItem.quotes,
+      title: 'Angebote',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -139,55 +143,47 @@ class _QuotesScreenState extends State<QuotesScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final data = snapshot.data!;
-          if (data.quotes.isEmpty) {
-            return const Center(child: Text('Noch keine Angebote vorhanden.'));
-          }
-
-          return ListView.builder(
-            itemCount: data.quotes.length,
-            itemBuilder: (context, index) {
-              final quote = data.quotes[index];
-              final customerName = _customerName(quote.customerId, data.customers);
-
-              return ListTile(
-                title: Text('${quote.quoteNumber} — ${quote.title}'),
-                subtitle: Text(
-                  [
-                    ?customerName,
-                    '${quote.totalGross.toStringAsFixed(2)} €',
-                  ].join(' · '),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusColor(quote.status, context),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(_statusLabel(quote.status)),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      tooltip: 'PDF',
-                      onPressed: () => _showPdf(quote),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.assignment_turned_in_outlined),
-                      tooltip: 'In Auftrag wandeln',
-                      onPressed: () => _convertToOrder(quote),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Löschen',
-                      onPressed: () => _delete(quote),
-                    ),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Angebote vorhanden.',
+            trailingWidth: 140,
+            columns: const [
+              AppDataColumn('Angebot', flex: 3),
+              AppDataColumn('Kunde', flex: 2),
+              AppDataColumn('Betrag', numeric: true, flex: 2),
+              AppDataColumn('Status', flex: 1),
+            ],
+            rows: [
+              for (final quote in data.quotes)
+                AppDataRow(
+                  onTap: () => _openEditor(quote: quote),
+                  cells: [
+                    Text('${quote.quoteNumber} — ${quote.title}'),
+                    Text(_customerName(quote.customerId, data.customers) ?? '-'),
+                    Text('${quote.totalGross.toStringAsFixed(2)} €'),
+                    StatusChip(label: _statusLabel(quote.status), tone: _statusTone(quote.status)),
                   ],
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        tooltip: 'PDF',
+                        onPressed: () => _showPdf(quote),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.assignment_turned_in_outlined),
+                        tooltip: 'In Auftrag wandeln',
+                        onPressed: () => _convertToOrder(quote),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Löschen',
+                        onPressed: () => _delete(quote),
+                      ),
+                    ],
+                  ),
                 ),
-                onTap: () => _openEditor(quote: quote),
-              );
-            },
+            ],
           );
         },
       ),

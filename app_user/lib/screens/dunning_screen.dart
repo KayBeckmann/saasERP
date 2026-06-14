@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
+import '../widgets/status_chip.dart';
 
 const _dunningLevelLabels = ['Keine Mahnung', 'Zahlungserinnerung', '1. Mahnung', '2. Mahnung'];
 
@@ -71,10 +74,17 @@ class _DunningScreenState extends State<DunningScreen> {
     await Printing.layoutPdf(onLayout: (_) async => bytes, name: 'Mahnung-${invoice.invoiceNumber}.pdf');
   }
 
+  StatusTone _levelTone(int level) => switch (level) {
+        0 => StatusTone.neutral,
+        1 => StatusTone.warning,
+        _ => StatusTone.error,
+      };
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Mahnwesen')),
+    return AppShell(
+      currentItem: AppNavItem.dunning,
+      title: 'Mahnwesen',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -85,42 +95,45 @@ class _DunningScreenState extends State<DunningScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final invoices = snapshot.data!;
-          if (invoices.isEmpty) {
-            return const Center(child: Text('Keine überfälligen Rechnungen.'));
-          }
-
-          return ListView.builder(
-            itemCount: invoices.length,
-            itemBuilder: (context, index) {
-              final invoice = invoices[index];
-
-              return ListTile(
-                title: Text('${invoice.invoiceNumber} — ${invoice.title}'),
-                subtitle: Text(
-                  [
-                    if (invoice.dueDate != null) 'Fällig seit ${_formatDate(invoice.dueDate!)}',
-                    _dunningLevelLabels[invoice.dunningLevel],
-                    'Offen: ${_formatAmount(invoice.totalDue)}',
-                  ].join(' · '),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (invoice.dunningLevel >= 1)
-                      IconButton(
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        tooltip: 'Mahnung als PDF',
-                        onPressed: () => _openPdf(invoice),
-                      ),
-                    if (invoice.dunningLevel < 3)
-                      TextButton(
-                        onPressed: () => _createDunning(invoice),
-                        child: const Text('Mahnung erstellen'),
-                      ),
+          return AppDataTable(
+            emptyLabel: 'Keine überfälligen Rechnungen.',
+            trailingWidth: 180,
+            columns: const [
+              AppDataColumn('Rechnung', flex: 3),
+              AppDataColumn('Fällig seit', flex: 2),
+              AppDataColumn('Mahnstufe', flex: 2),
+              AppDataColumn('Offen', numeric: true, flex: 2),
+            ],
+            rows: [
+              for (final invoice in invoices)
+                AppDataRow(
+                  cells: [
+                    Text('${invoice.invoiceNumber} — ${invoice.title}'),
+                    Text(invoice.dueDate != null ? _formatDate(invoice.dueDate!) : '-'),
+                    StatusChip(
+                      label: _dunningLevelLabels[invoice.dunningLevel],
+                      tone: _levelTone(invoice.dunningLevel),
+                    ),
+                    Text(_formatAmount(invoice.totalDue)),
                   ],
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (invoice.dunningLevel >= 1)
+                        IconButton(
+                          icon: const Icon(Icons.picture_as_pdf_outlined),
+                          tooltip: 'Mahnung als PDF',
+                          onPressed: () => _openPdf(invoice),
+                        ),
+                      if (invoice.dunningLevel < 3)
+                        TextButton(
+                          onPressed: () => _createDunning(invoice),
+                          child: const Text('Mahnen'),
+                        ),
+                    ],
+                  ),
                 ),
-              );
-            },
+            ],
           );
         },
       ),
