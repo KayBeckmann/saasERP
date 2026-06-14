@@ -908,6 +908,62 @@ class ApiClient {
     return ProjectProfitLoss.fromJson(_decode(response));
   }
 
+  Future<List<MaintenanceContract>> listMaintenanceContracts(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/maintenance-contracts'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['maintenance_contracts'] as List)
+        .map((e) => MaintenanceContract.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<MaintenanceContract> createMaintenanceContract({
+    required String token,
+    required CreateMaintenanceContractRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/maintenance-contracts'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return MaintenanceContract.fromJson(_decode(response));
+  }
+
+  Future<MaintenanceContract> updateMaintenanceContract({
+    required String token,
+    required String id,
+    required UpdateMaintenanceContractRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/maintenance-contracts/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return MaintenanceContract.fromJson(_decode(response));
+  }
+
+  Future<void> deleteMaintenanceContract({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/maintenance-contracts/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<DashboardSummary> getDashboardSummary(String token) async {
     final response = await _httpClient.get(
       _uri('/api/dashboard/summary'),

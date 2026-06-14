@@ -6,6 +6,7 @@ import '../screens/customers_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/dunning_screen.dart';
 import '../screens/invoices_screen.dart';
+import '../screens/maintenance_contracts_screen.dart';
 import '../screens/orders_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/projects_screen.dart';
@@ -33,6 +34,7 @@ enum AppNavItem {
   purchaseOrders,
   stock,
   timeEntries,
+  maintenanceContracts,
 }
 
 class _NavEntry {
@@ -57,6 +59,7 @@ const _navEntries = [
   _NavEntry(AppNavItem.purchaseOrders, Icons.shopping_cart_outlined, 'Bestellungen'),
   _NavEntry(AppNavItem.stock, Icons.warehouse_outlined, 'Bestandsübersicht'),
   _NavEntry(AppNavItem.timeEntries, Icons.timer_outlined, 'Stundenerfassung'),
+  _NavEntry(AppNavItem.maintenanceContracts, Icons.handshake_outlined, 'Wartungsverträge'),
 ];
 
 Widget _screenFor(AppNavItem item) {
@@ -87,6 +90,8 @@ Widget _screenFor(AppNavItem item) {
       return const StockOverviewScreen();
     case AppNavItem.timeEntries:
       return const TimeEntriesScreen();
+    case AppNavItem.maintenanceContracts:
+      return const MaintenanceContractsScreen();
   }
 }
 
