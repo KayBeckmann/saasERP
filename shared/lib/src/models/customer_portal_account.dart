@@ -106,6 +106,7 @@ class CustomerInvitePreview {
     required this.customerName,
     required this.email,
     required this.status,
+    this.tenantBrandingColor,
   });
 
   final String tenantName;
@@ -113,11 +114,16 @@ class CustomerInvitePreview {
   final String email;
   final CustomerPortalAccountStatus status;
 
+  /// Branding-Farbe des einladenden Mandanten (`#RRGGBB`), für das
+  /// Theming der Einladungsseite vor dem Login.
+  final String? tenantBrandingColor;
+
   factory CustomerInvitePreview.fromJson(Map<String, dynamic> json) => CustomerInvitePreview(
         tenantName: json['tenant_name'] as String,
         customerName: json['customer_name'] as String,
         email: json['email'] as String,
         status: CustomerPortalAccountStatus.fromJson(json['status'] as String),
+        tenantBrandingColor: json['tenant_branding_color'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -125,5 +131,56 @@ class CustomerInvitePreview {
         'customer_name': customerName,
         'email': email,
         'status': status.toJson(),
+        if (tenantBrandingColor != null) 'tenant_branding_color': tenantBrandingColor,
+      };
+}
+
+/// Login für Kundenportal-Zugänge (`/api/customer-auth/login`).
+class CustomerLoginRequest {
+  const CustomerLoginRequest({required this.email, required this.password});
+
+  final String email;
+  final String password;
+
+  factory CustomerLoginRequest.fromJson(Map<String, dynamic> json) => CustomerLoginRequest(
+        email: json['email'] as String,
+        password: json['password'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {'email': email, 'password': password};
+}
+
+/// Antwort auf Login (`/api/customer-auth/login`) und Invite-Annahme
+/// (`/api/customer-invites/<token>/accept`): JWT (Rolle `customer`) +
+/// Zugang + Anzeige-/Branding-Infos für `app_kunde`.
+class CustomerAuthResponse {
+  const CustomerAuthResponse({
+    required this.token,
+    required this.account,
+    required this.customerName,
+    required this.tenantName,
+    this.tenantBrandingColor,
+  });
+
+  final String token;
+  final CustomerPortalAccount account;
+  final String customerName;
+  final String tenantName;
+  final String? tenantBrandingColor;
+
+  factory CustomerAuthResponse.fromJson(Map<String, dynamic> json) => CustomerAuthResponse(
+        token: json['token'] as String,
+        account: CustomerPortalAccount.fromJson(json['account'] as Map<String, dynamic>),
+        customerName: json['customer_name'] as String,
+        tenantName: json['tenant_name'] as String,
+        tenantBrandingColor: json['tenant_branding_color'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'token': token,
+        'account': account.toJson(),
+        'customer_name': customerName,
+        'tenant_name': tenantName,
+        if (tenantBrandingColor != null) 'tenant_branding_color': tenantBrandingColor,
       };
 }

@@ -7,10 +7,9 @@ import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
-/// POST /api/customer-invites/<token>/accept — Endkunde vergibt sein
-/// Passwort über den Einladungslink. Aktiviert den Zugang und gibt direkt
-/// ein JWT (Rolle `customer`) zurück.
-Future<Response> onRequest(RequestContext context, String token) async {
+/// POST /api/customer-auth/login — Login für Kundenportal-Zugänge
+/// (`app_kunde`). Öffentlich, kein Tenant-Scope erforderlich.
+Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
@@ -22,18 +21,11 @@ Future<Response> onRequest(RequestContext context, String token) async {
     return Response.json(statusCode: 400, body: {'error': 'invalid_json'});
   }
 
-  late final AcceptCustomerInviteRequest req;
+  late final CustomerLoginRequest req;
   try {
-    req = AcceptCustomerInviteRequest.fromJson(body);
+    req = CustomerLoginRequest.fromJson(body);
   } on TypeError {
     return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
-  }
-
-  if (req.password.length < 8) {
-    return Response.json(
-      statusCode: 400,
-      body: {'error': 'validation_failed', 'message': 'password muss mindestens 8 Zeichen lang sein.'},
-    );
   }
 
   final portalAccountRepository = context.read<CustomerPortalAccountRepository>();
@@ -41,22 +33,19 @@ Future<Response> onRequest(RequestContext context, String token) async {
   final tenantRepository = context.read<TenantRepository>();
   final authService = context.read<AuthService>();
 
-  final passwordHash = authService.hashPassword(req.password);
-  final account = await portalAccountRepository.acceptInvite(
-    inviteToken: token,
-    passwordHash: passwordHash,
-  );
-  if (account == null) {
-    return Response.json(statusCode: 404, body: {'error': 'invite_not_found_or_used'});
+  final record = await portalAccountRepository.findByEmail(req.email);
+  if (record == null || !authService.verifyPassword(req.password, record.passwordHash)) {
+    return Response.json(statusCode: 401, body: {'error': 'invalid_credentials'});
   }
 
+  final account = record.account;
   final customer = await customerRepository.findById(tenantId: account.tenantId, id: account.customerId);
   final tenant = await tenantRepository.findById(account.tenantId);
   if (customer == null || tenant == null) {
     return Response.json(statusCode: 500, body: {'error': 'tenant_missing'});
   }
 
-  final jwt = authService.issueToken(
+  final token = authService.issueToken(
     userId: account.id,
     tenantId: account.tenantId,
     email: account.email,
@@ -64,7 +53,7 @@ Future<Response> onRequest(RequestContext context, String token) async {
   );
 
   final response = CustomerAuthResponse(
-    token: jwt,
+    token: token,
     account: account,
     customerName: customer.name,
     tenantName: tenant.name,

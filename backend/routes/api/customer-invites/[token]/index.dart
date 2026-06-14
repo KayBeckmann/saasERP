@@ -31,6 +31,7 @@ Future<Response> onRequest(RequestContext context, String token) async {
     customerName: customer.name,
     email: account.email,
     status: account.status,
+    tenantBrandingColor: tenant.brandingColor,
   );
   return Response.json(body: preview.toJson());
 }

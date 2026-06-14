@@ -6,6 +6,15 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../config.dart';
 
+/// Internes Lese-Modell für Auth-Checks — enthält zusätzlich den
+/// Passwort-Hash, der niemals nach außen (API-Response) gegeben werden darf.
+class CustomerPortalAccountWithPassword {
+  CustomerPortalAccountWithPassword({required this.account, required this.passwordHash});
+
+  final CustomerPortalAccount account;
+  final String passwordHash;
+}
+
 /// Verwaltet Kundenportal-Zugänge (`customer_portal_accounts`) — je
 /// `Customer` höchstens ein Zugang. Anlage durch den Mandanten (Einladung),
 /// Passwortvergabe durch den Endkunden über den Einladungs-Token.
@@ -71,6 +80,26 @@ class CustomerPortalAccountRepository {
     );
     if (result.isEmpty) return null;
     return _fromRow(result.first.toColumnMap(), includeInvite: true);
+  }
+
+  /// Liest einen aktiven Zugang (Passwort bereits vergeben) für den Login
+  /// (`/api/customer-auth/login`). Bei mehreren Treffern (E-Mail ist nicht
+  /// global eindeutig) wird der älteste Zugang verwendet.
+  Future<CustomerPortalAccountWithPassword?> findByEmail(String email) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT $_columns, password_hash FROM customer_portal_accounts '
+        "WHERE lower(email) = lower(@email) AND status = 'active' "
+        'ORDER BY created_at LIMIT 1',
+      ),
+      parameters: {'email': email},
+    );
+    if (result.isEmpty) return null;
+    final row = result.first.toColumnMap();
+    return CustomerPortalAccountWithPassword(
+      account: _fromRow(row, includeInvite: false),
+      passwordHash: row['password_hash'] as String,
+    );
   }
 
   /// Vergibt das Passwort über den Einladungs-Token und aktiviert den
