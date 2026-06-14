@@ -6,21 +6,12 @@ import '../formatting.dart';
 import '../state/auth_controller.dart';
 import '../widgets/status_chip.dart';
 import 'invoice_detail_screen.dart';
+import 'maintenance_contract_detail_screen.dart';
 import 'quote_detail_screen.dart';
 
-String _contractStatusLabel(MaintenanceContractStatus status) => switch (status) {
-      MaintenanceContractStatus.active => 'Aktiv',
-      MaintenanceContractStatus.cancelled => 'Gekündigt',
-    };
-
-StatusTone _contractStatusTone(MaintenanceContractStatus status) => switch (status) {
-      MaintenanceContractStatus.active => StatusTone.success,
-      MaintenanceContractStatus.cancelled => StatusTone.neutral,
-    };
-
 /// Übersicht des Kundenportals: eigene Angebote, Rechnungen und
-/// Wartungsverträge/Abos. Bewusst nur Lesezugriff — Freigabe/Ablehnung,
-/// PDF-Download und Kündigung folgen in den nächsten M2b-Schritten.
+/// Wartungsverträge/Abos — jeweils mit Detailansicht (Freigabe/Ablehnung,
+/// PDF-Download, Kündigung mit Vertragsstrafen-Vorschau).
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -143,8 +134,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         leading: contract.contractNumber,
                         title: contract.title,
                         subtitle: 'Laufzeit bis: ${formatDate(contract.endDate)}',
-                        statusLabel: _contractStatusLabel(contract.status),
-                        statusTone: _contractStatusTone(contract.status),
+                        statusLabel: contractStatusLabel(contract.status),
+                        statusTone: contractStatusTone(contract.status),
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => MaintenanceContractDetailScreen(contract: contract)),
+                          );
+                          if (mounted) _refresh();
+                        },
                       ),
                   ],
                 ),

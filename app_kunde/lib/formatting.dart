@@ -38,3 +38,13 @@ StatusTone invoiceStatusTone(InvoiceStatus status) => switch (status) {
       InvoiceStatus.overdue => StatusTone.error,
       InvoiceStatus.cancelled => StatusTone.neutral,
     };
+
+String contractStatusLabel(MaintenanceContractStatus status) => switch (status) {
+      MaintenanceContractStatus.active => 'Aktiv',
+      MaintenanceContractStatus.cancelled => 'Gekündigt',
+    };
+
+StatusTone contractStatusTone(MaintenanceContractStatus status) => switch (status) {
+      MaintenanceContractStatus.active => StatusTone.success,
+      MaintenanceContractStatus.cancelled => StatusTone.neutral,
+    };

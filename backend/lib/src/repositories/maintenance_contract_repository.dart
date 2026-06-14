@@ -83,6 +83,33 @@ class MaintenanceContractRepository {
     return _fromRow(result.first.toColumnMap());
   }
 
+  /// Endkunde kündigt einen aktiven Wartungsvertrag im Kundenportal —
+  /// `cancelled_at` wird auf das heutige Datum gesetzt. Liefert `null`, falls
+  /// kein aktiver Vertrag mit dieser ID für diesen Kunden existiert (falscher
+  /// Mandant/Kunde, unbekannte ID oder bereits gekündigt).
+  Future<MaintenanceContract?> recordCustomerCancellation({
+    required String tenantId,
+    required String id,
+    required String customerId,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'UPDATE maintenance_contracts SET status = @status, cancelled_at = @cancelled_at '
+        "WHERE tenant_id = @tenant_id AND id = @id AND customer_id = @customer_id AND status = 'active' "
+        'RETURNING $_columns',
+      ),
+      parameters: {
+        'tenant_id': tenantId,
+        'id': id,
+        'customer_id': customerId,
+        'status': MaintenanceContractStatus.cancelled.toJson(),
+        'cancelled_at': DateTime.now(),
+      },
+    );
+    if (result.isEmpty) return null;
+    return _fromRow(result.first.toColumnMap());
+  }
+
   Future<MaintenanceContract?> update({
     required String tenantId,
     required String id,

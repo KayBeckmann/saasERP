@@ -78,6 +78,15 @@ class ApiClient {
     return Quote.fromJson(_decode(response));
   }
 
+  /// Endkunde kündigt einen aktiven Wartungsvertrag/Abo zum heutigen Datum.
+  Future<MaintenanceContract> cancelMaintenanceContract({required String token, required String contractId}) async {
+    final response = await _httpClient.patch(
+      _uri('/api/customer-portal/maintenance-contracts/$contractId/cancel'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return MaintenanceContract.fromJson(_decode(response));
+  }
+
   /// Eigene Rechnung als PDF.
   Future<Uint8List> getInvoicePdf({required String token, required String invoiceId}) async {
     final response = await _httpClient.get(
