@@ -10,6 +10,7 @@ export 'src/models/auth.dart';
 export 'src/models/customer.dart';
 export 'src/models/dashboard_summary.dart';
 export 'src/models/invoice.dart';
+export 'src/models/maintenance_contract.dart';
 export 'src/models/order.dart';
 export 'src/models/price_import.dart';
 export 'src/models/product.dart';
