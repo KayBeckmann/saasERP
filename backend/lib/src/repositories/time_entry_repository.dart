@@ -66,6 +66,24 @@ class TimeEntryRepository {
     return result.map((row) => _fromRow(row.toColumnMap())).toList();
   }
 
+  /// Summe der Arbeitsstunden des Nutzers im Zeitraum `[from, to]`
+  /// (inklusiv) — für die Monatsstunden-Kennzahl im Dashboard.
+  Future<double> sumHours({
+    required String tenantId,
+    required String userId,
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT COALESCE(SUM(hours), 0) AS total FROM time_entries '
+        'WHERE tenant_id = @tenant_id AND user_id = @user_id AND work_date >= @from AND work_date <= @to',
+      ),
+      parameters: {'tenant_id': tenantId, 'user_id': userId, 'from': from, 'to': to},
+    );
+    return (result.first.toColumnMap()['total'] as num).toDouble();
+  }
+
   Future<TimeEntry?> findById({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_columns FROM time_entries WHERE tenant_id = @tenant_id AND id = @id'),

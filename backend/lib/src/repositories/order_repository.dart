@@ -55,6 +55,17 @@ class OrderRepository {
     });
   }
 
+  /// Anzahl offener Aufträge (`open`/`in_progress`) — für die Dashboard-Übersicht.
+  Future<int> countOpen(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        "SELECT COUNT(*) AS count FROM orders WHERE tenant_id = @tenant_id AND status IN ('open', 'in_progress')",
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    return (result.first.toColumnMap()['count'] as num).toInt();
+  }
+
   Future<List<Order>> list(String tenantId) async {
     final orderRows = await _pool.execute(
       Sql.named('SELECT $_orderColumns FROM orders WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),

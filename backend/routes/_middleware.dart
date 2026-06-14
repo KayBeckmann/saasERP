@@ -3,6 +3,7 @@ import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
+import 'package:backend/src/repositories/dashboard_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
 import 'package:backend/src/repositories/order_repository.dart';
@@ -41,6 +42,13 @@ final _timeEntryRepository = TimeEntryRepository(_pool);
 final _purchaseOrderRepository = PurchaseOrderRepository(_pool, _numberSequenceRepository);
 final _projectRepository = ProjectRepository(_pool, _numberSequenceRepository);
 final _projectTransactionRepository = ProjectTransactionRepository(_pool);
+final _dashboardRepository = DashboardRepository(
+  _quoteRepository,
+  _orderRepository,
+  _purchaseOrderRepository,
+  _invoiceRepository,
+  _timeEntryRepository,
+);
 
 Handler middleware(Handler handler) {
   return handler
@@ -64,7 +72,8 @@ Handler middleware(Handler handler) {
       .use(provider<TimeEntryRepository>((_) => _timeEntryRepository))
       .use(provider<PurchaseOrderRepository>((_) => _purchaseOrderRepository))
       .use(provider<ProjectRepository>((_) => _projectRepository))
-      .use(provider<ProjectTransactionRepository>((_) => _projectTransactionRepository));
+      .use(provider<ProjectTransactionRepository>((_) => _projectTransactionRepository))
+      .use(provider<DashboardRepository>((_) => _dashboardRepository));
 }
 
 /// CORS-Header für Aufrufe der User-/Kunden-App von einer anderen Origin.

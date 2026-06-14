@@ -53,6 +53,17 @@ class QuoteRepository {
     });
   }
 
+  /// Anzahl offener Angebote (`draft`/`sent`) — für die Dashboard-Übersicht.
+  Future<int> countOpen(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        "SELECT COUNT(*) AS count FROM quotes WHERE tenant_id = @tenant_id AND status IN ('draft', 'sent')",
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    return (result.first.toColumnMap()['count'] as num).toInt();
+  }
+
   Future<List<Quote>> list(String tenantId) async {
     final quoteRows = await _pool.execute(
       Sql.named('SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),

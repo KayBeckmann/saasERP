@@ -60,6 +60,18 @@ class InvoiceRepository {
     });
   }
 
+  /// Anzahl offener Rechnungen (`draft`/`sent`/`overdue`) — für die
+  /// Dashboard-Übersicht.
+  Future<int> countOpen(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        "SELECT COUNT(*) AS count FROM invoices WHERE tenant_id = @tenant_id AND status IN ('draft', 'sent', 'overdue')",
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    return (result.first.toColumnMap()['count'] as num).toInt();
+  }
+
   Future<List<Invoice>> list(String tenantId) async {
     final invoiceRows = await _pool.execute(
       Sql.named('SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),
@@ -96,6 +108,55 @@ class InvoiceRepository {
 
     final items = await _loadItems(_pool, invoiceId: id);
     return _fromRow(result.first.toColumnMap(), items);
+  }
+
+  /// Rechnungen eines Mandanten, deren `created_at` im Zeitraum `[from, to]`
+  /// (jeweils inklusiv, falls gesetzt) liegt — Basis für den
+  /// Steuerberater-Export.
+  Future<List<Invoice>> listForExport({
+    required String tenantId,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final conditions = ['tenant_id = @tenant_id'];
+    final parameters = <String, dynamic>{'tenant_id': tenantId};
+
+    if (from != null) {
+      conditions.add('created_at >= @from');
+      parameters['from'] = from;
+    }
+    if (to != null) {
+      conditions.add('created_at <= @to');
+      parameters['to'] = to;
+    }
+
+    final invoiceRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_invoiceColumns FROM invoices '
+        'WHERE ${conditions.join(' AND ')} ORDER BY created_at',
+      ),
+      parameters: parameters,
+    );
+    if (invoiceRows.isEmpty) return [];
+
+    final itemRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_itemColumns FROM invoice_items '
+        'WHERE tenant_id = @tenant_id ORDER BY invoice_id, sort_order',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+
+    final itemsByInvoice = <String, List<InvoiceItem>>{};
+    for (final row in itemRows) {
+      final map = row.toColumnMap();
+      final invoiceId = map['invoice_id'] as String;
+      itemsByInvoice.putIfAbsent(invoiceId, () => []).add(_itemFromRow(map));
+    }
+
+    return invoiceRows
+        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .toList();
   }
 
   Future<Invoice?> update({
