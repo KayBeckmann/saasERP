@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-const _deepNavy = Color(0xFF091426);
-const _steelBlue = Color(0xFF4A607E);
+/// Primärfarben des Mockup-Designsystems "Craft-Trade ERP System", auch
+/// für Layout-Komponenten (AppShell, StatusChip) außerhalb des Theme nutzbar.
+const deepNavy = Color(0xFF091426);
+const steelBlue = Color(0xFF4A607E);
 
 /// Liest einen Hex-Code (`#RRGGBB`) aus dem Tenant-Branding. Gibt `null`
 /// zurück, wenn kein/ein ungültiger Wert gesetzt ist — dann greift das
@@ -19,12 +21,12 @@ Color? parseBrandingColor(String? hex) {
 /// [primaryColor] kommt aus dem Branding des aktuellen Mandanten
 /// (Whitelabel-Potenzial) — `null` fällt auf das generische Theme zurück.
 ThemeData buildAppTheme({Color? primaryColor}) {
-  final primary = primaryColor ?? _deepNavy;
+  final primary = primaryColor ?? deepNavy;
 
   final colorScheme = ColorScheme.fromSeed(
     seedColor: primary,
     primary: primary,
-    secondary: _steelBlue,
+    secondary: steelBlue,
     surface: const Color(0xFFF8FAFB),
   );
 
