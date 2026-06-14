@@ -12,8 +12,8 @@ class QuoteRepository {
   final Pool<void> _pool;
   final NumberSequenceRepository _numberSequences;
 
-  static const _quoteColumns =
-      'id, tenant_id, quote_number, customer_id, title, status, valid_until, notes, created_at';
+  static const _quoteColumns = 'id, tenant_id, quote_number, customer_id, title, status, valid_until, notes, '
+      'created_at, customer_decision_at, customer_comment';
 
   static const _itemColumns =
       'id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
@@ -121,6 +121,38 @@ class QuoteRepository {
     return quoteRows
         .map((row) => _fromRow(row.toColumnMap(), itemsByQuote[row.toColumnMap()['id']] ?? []))
         .toList();
+  }
+
+  /// Endkunde nimmt ein versendetes Angebot im Kundenportal an oder lehnt es
+  /// ab — `null`, falls kein passendes Angebot mit Status `sent` existiert
+  /// (falscher Mandant/Kunde, unbekannte ID oder bereits entschieden).
+  Future<Quote?> recordCustomerDecision({
+    required String tenantId,
+    required String id,
+    required String customerId,
+    required QuoteStatus decision,
+    String? comment,
+  }) async {
+    return _pool.runTx((session) async {
+      final result = await session.execute(
+        Sql.named(
+          'UPDATE quotes SET status = @status, customer_decision_at = now(), customer_comment = @comment '
+          "WHERE tenant_id = @tenant_id AND id = @id AND customer_id = @customer_id AND status = 'sent' "
+          'RETURNING $_quoteColumns',
+        ),
+        parameters: {
+          'tenant_id': tenantId,
+          'id': id,
+          'customer_id': customerId,
+          'status': decision.toJson(),
+          'comment': comment,
+        },
+      );
+      if (result.isEmpty) return null;
+
+      final items = await _loadItems(session, quoteId: id);
+      return _fromRow(result.first.toColumnMap(), items);
+    });
   }
 
   Future<Quote?> findById({required String tenantId, required String id}) async {
@@ -242,5 +274,7 @@ class QuoteRepository {
         notes: row['notes'] as String?,
         createdAt: (row['created_at'] as DateTime).toUtc(),
         items: items,
+        customerDecisionAt: (row['customer_decision_at'] as DateTime?)?.toUtc(),
+        customerComment: row['customer_comment'] as String?,
       );
 }

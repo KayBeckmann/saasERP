@@ -119,6 +119,8 @@ class Quote {
     this.notes,
     required this.createdAt,
     this.items = const [],
+    this.customerDecisionAt,
+    this.customerComment,
   });
 
   final String id;
@@ -131,6 +133,14 @@ class Quote {
   final String? notes;
   final DateTime createdAt;
   final List<QuoteItem> items;
+
+  /// Zeitpunkt, zu dem der Endkunde im Kundenportal über das Angebot
+  /// entschieden hat (Status `accepted`/`rejected`) — `null`, solange keine
+  /// Entscheidung vorliegt.
+  final DateTime? customerDecisionAt;
+
+  /// Optionaler Kommentar des Endkunden zu seiner Entscheidung.
+  final String? customerComment;
 
   double get totalNet => items.fold(0, (sum, item) => sum + item.totalNet);
 
@@ -180,6 +190,9 @@ class Quote {
         items: (json['items'] as List? ?? [])
             .map((e) => QuoteItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        customerDecisionAt:
+            json['customer_decision_at'] == null ? null : DateTime.parse(json['customer_decision_at'] as String),
+        customerComment: json['customer_comment'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -193,6 +206,8 @@ class Quote {
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
         'items': items.map((item) => item.toJson()).toList(),
+        'customer_decision_at': customerDecisionAt?.toIso8601String(),
+        'customer_comment': customerComment,
       };
 }
 
@@ -267,5 +282,25 @@ class UpdateQuoteRequest {
         'valid_until': validUntil?.toIso8601String().split('T').first,
         'notes': notes,
         'items': items.map((item) => item.toJson()).toList(),
+      };
+}
+
+/// Entscheidung des Endkunden zu einem versendeten Angebot im Kundenportal
+/// (`app_kunde`) — `decision` muss `accepted` oder `rejected` sein,
+/// `comment` ist optional.
+class CustomerQuoteDecisionRequest {
+  const CustomerQuoteDecisionRequest({required this.decision, this.comment});
+
+  final QuoteStatus decision;
+  final String? comment;
+
+  factory CustomerQuoteDecisionRequest.fromJson(Map<String, dynamic> json) => CustomerQuoteDecisionRequest(
+        decision: QuoteStatus.fromJson(json['decision'] as String),
+        comment: json['comment'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'decision': decision.toJson(),
+        if (comment != null) 'comment': comment,
       };
 }

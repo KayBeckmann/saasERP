@@ -2,27 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
+import '../formatting.dart';
 import '../state/auth_controller.dart';
 import '../widgets/status_chip.dart';
-
-String _formatDate(DateTime date) =>
-    '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
-
-String _formatAmount(double value) => '${value.toStringAsFixed(2)} €';
-
-String _quoteStatusLabel(QuoteStatus status) => switch (status) {
-      QuoteStatus.draft => 'Entwurf',
-      QuoteStatus.sent => 'Versendet',
-      QuoteStatus.accepted => 'Angenommen',
-      QuoteStatus.rejected => 'Abgelehnt',
-    };
-
-StatusTone _quoteStatusTone(QuoteStatus status) => switch (status) {
-      QuoteStatus.draft => StatusTone.neutral,
-      QuoteStatus.sent => StatusTone.info,
-      QuoteStatus.accepted => StatusTone.success,
-      QuoteStatus.rejected => StatusTone.error,
-    };
+import 'quote_detail_screen.dart';
 
 String _invoiceStatusLabel(InvoiceStatus status) => switch (status) {
       InvoiceStatus.draft => 'Entwurf',
@@ -131,9 +114,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _OverviewRow(
                         leading: quote.quoteNumber,
                         title: quote.title,
-                        trailing: _formatAmount(quote.totalGross),
-                        statusLabel: _quoteStatusLabel(quote.status),
-                        statusTone: _quoteStatusTone(quote.status),
+                        trailing: formatAmount(quote.totalGross),
+                        statusLabel: quoteStatusLabel(quote.status),
+                        statusTone: quoteStatusTone(quote.status),
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => QuoteDetailScreen(quote: quote)),
+                          );
+                          if (mounted) _refresh();
+                        },
                       ),
                   ],
                 ),
@@ -146,8 +135,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _OverviewRow(
                         leading: invoice.invoiceNumber,
                         title: invoice.title,
-                        subtitle: invoice.dueDate != null ? 'Fällig: ${_formatDate(invoice.dueDate!)}' : null,
-                        trailing: _formatAmount(invoice.totalDue),
+                        subtitle: invoice.dueDate != null ? 'Fällig: ${formatDate(invoice.dueDate!)}' : null,
+                        trailing: formatAmount(invoice.totalDue),
                         statusLabel: _invoiceStatusLabel(invoice.status),
                         statusTone: _invoiceStatusTone(invoice.status),
                       ),
@@ -162,7 +151,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _OverviewRow(
                         leading: contract.contractNumber,
                         title: contract.title,
-                        subtitle: 'Laufzeit bis: ${_formatDate(contract.endDate)}',
+                        subtitle: 'Laufzeit bis: ${formatDate(contract.endDate)}',
                         statusLabel: _contractStatusLabel(contract.status),
                         statusTone: _contractStatusTone(contract.status),
                       ),
@@ -219,6 +208,7 @@ class _OverviewRow extends StatelessWidget {
     required this.statusTone,
     this.subtitle,
     this.trailing,
+    this.onTap,
   });
 
   final String leading;
@@ -227,10 +217,11 @@ class _OverviewRow extends StatelessWidget {
   final String? trailing;
   final String statusLabel;
   final StatusTone statusTone;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
@@ -251,8 +242,12 @@ class _OverviewRow extends StatelessWidget {
           if (trailing != null) Text(trailing!),
           const SizedBox(width: 12),
           StatusChip(label: statusLabel, tone: statusTone),
+          if (onTap != null) const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
         ],
       ),
     );
+
+    if (onTap == null) return row;
+    return InkWell(onTap: onTap, child: row);
   }
 }

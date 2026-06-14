@@ -58,6 +58,25 @@ class ApiClient {
     return CustomerPortalOverview.fromJson(_decode(response));
   }
 
+  /// Entscheidung des Endkunden zu einem versendeten Angebot (annehmen/
+  /// ablehnen, mit optionalem Kommentar).
+  Future<Quote> decideQuote({
+    required String token,
+    required String quoteId,
+    required QuoteStatus decision,
+    String? comment,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/customer-portal/quotes/$quoteId/decision'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(CustomerQuoteDecisionRequest(decision: decision, comment: comment).toJson()),
+    );
+    return Quote.fromJson(_decode(response));
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 400) {
