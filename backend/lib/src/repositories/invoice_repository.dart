@@ -99,6 +99,38 @@ class InvoiceRepository {
         .toList();
   }
 
+  /// Rechnungen eines bestimmten Kunden — für die Kundenportal-Übersicht
+  /// (`app_kunde`).
+  Future<List<Invoice>> listForCustomer({required String tenantId, required String customerId}) async {
+    final invoiceRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_invoiceColumns FROM invoices '
+        'WHERE tenant_id = @tenant_id AND customer_id = @customer_id ORDER BY created_at DESC',
+      ),
+      parameters: {'tenant_id': tenantId, 'customer_id': customerId},
+    );
+    if (invoiceRows.isEmpty) return [];
+
+    final itemRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_itemColumns FROM invoice_items '
+        'WHERE tenant_id = @tenant_id ORDER BY invoice_id, sort_order',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+
+    final itemsByInvoice = <String, List<InvoiceItem>>{};
+    for (final row in itemRows) {
+      final map = row.toColumnMap();
+      final invoiceId = map['invoice_id'] as String;
+      itemsByInvoice.putIfAbsent(invoiceId, () => []).add(_itemFromRow(map));
+    }
+
+    return invoiceRows
+        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .toList();
+  }
+
   Future<Invoice?> findById({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id AND id = @id'),

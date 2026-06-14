@@ -56,6 +56,17 @@ class CustomerPortalAccountRepository {
     return _fromRow(result.first.toColumnMap(), includeInvite: true);
   }
 
+  /// Liest einen Zugang über seine ID — für authentifizierte
+  /// Kundenportal-Routen (`auth.userId` ist die Account-ID des JWT).
+  Future<CustomerPortalAccount?> findById(String id) async {
+    final result = await _pool.execute(
+      Sql.named('SELECT $_columns FROM customer_portal_accounts WHERE id = @id'),
+      parameters: {'id': id},
+    );
+    if (result.isEmpty) return null;
+    return _fromRow(result.first.toColumnMap(), includeInvite: false);
+  }
+
   Future<CustomerPortalAccount?> findByCustomerId({
     required String tenantId,
     required String customerId,

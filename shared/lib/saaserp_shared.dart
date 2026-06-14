@@ -9,6 +9,7 @@ export 'src/models/article.dart';
 export 'src/models/auth.dart';
 export 'src/models/customer.dart';
 export 'src/models/customer_portal_account.dart';
+export 'src/models/customer_portal_overview.dart';
 export 'src/models/dashboard_summary.dart';
 export 'src/models/invoice.dart';
 export 'src/models/maintenance_contract.dart';

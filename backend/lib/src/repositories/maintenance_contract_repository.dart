@@ -61,6 +61,19 @@ class MaintenanceContractRepository {
     return result.map((row) => _fromRow(row.toColumnMap())).toList();
   }
 
+  /// Wartungsverträge/Abos eines bestimmten Kunden — für die
+  /// Kundenportal-Übersicht (`app_kunde`).
+  Future<List<MaintenanceContract>> listForCustomer({required String tenantId, required String customerId}) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT $_columns FROM maintenance_contracts '
+        'WHERE tenant_id = @tenant_id AND customer_id = @customer_id ORDER BY created_at DESC',
+      ),
+      parameters: {'tenant_id': tenantId, 'customer_id': customerId},
+    );
+    return result.map((row) => _fromRow(row.toColumnMap())).toList();
+  }
+
   Future<MaintenanceContract?> findById({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_columns FROM maintenance_contracts WHERE tenant_id = @tenant_id AND id = @id'),

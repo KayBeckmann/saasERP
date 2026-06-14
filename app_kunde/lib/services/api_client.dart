@@ -48,6 +48,16 @@ class ApiClient {
     return CustomerAuthResponse.fromJson(_decode(response));
   }
 
+  /// Übersicht des eingeloggten Endkunden (eigene Angebote, Rechnungen,
+  /// Wartungsverträge/Abos).
+  Future<CustomerPortalOverview> getOverview(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/customer-portal/overview'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return CustomerPortalOverview.fromJson(_decode(response));
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 400) {

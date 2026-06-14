@@ -91,6 +91,38 @@ class QuoteRepository {
         .toList();
   }
 
+  /// Angebote eines bestimmten Kunden — für die Kundenportal-Übersicht
+  /// (`app_kunde`).
+  Future<List<Quote>> listForCustomer({required String tenantId, required String customerId}) async {
+    final quoteRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_quoteColumns FROM quotes '
+        'WHERE tenant_id = @tenant_id AND customer_id = @customer_id ORDER BY created_at DESC',
+      ),
+      parameters: {'tenant_id': tenantId, 'customer_id': customerId},
+    );
+    if (quoteRows.isEmpty) return [];
+
+    final itemRows = await _pool.execute(
+      Sql.named(
+        'SELECT $_itemColumns FROM quote_items '
+        'WHERE tenant_id = @tenant_id ORDER BY quote_id, sort_order',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+
+    final itemsByQuote = <String, List<QuoteItem>>{};
+    for (final row in itemRows) {
+      final map = row.toColumnMap();
+      final quoteId = map['quote_id'] as String;
+      itemsByQuote.putIfAbsent(quoteId, () => []).add(_itemFromRow(map));
+    }
+
+    return quoteRows
+        .map((row) => _fromRow(row.toColumnMap(), itemsByQuote[row.toColumnMap()['id']] ?? []))
+        .toList();
+  }
+
   Future<Quote?> findById({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id AND id = @id'),

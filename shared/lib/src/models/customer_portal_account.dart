@@ -99,7 +99,7 @@ class AcceptCustomerInviteRequest {
 }
 
 /// Vorschau-Informationen zu einem Einladungslink (vor Passwortvergabe) —
-/// für die Anzeige "Sie wurden von <tenantName> als <customerName> eingeladen".
+/// für die Anzeige "Sie wurden von `tenantName` als `customerName` eingeladen".
 class CustomerInvitePreview {
   const CustomerInvitePreview({
     required this.tenantName,
