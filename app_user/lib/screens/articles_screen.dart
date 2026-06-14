@@ -4,6 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 import 'price_import_screen.dart';
 
 /// Artikelliste des aktuellen Mandanten — Freitext-first: nur `name` ist
@@ -63,22 +65,21 @@ class _ArticlesScreenState extends State<ArticlesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Artikel'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.upload_file_outlined),
-            tooltip: 'Preisimport',
-            onPressed: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PriceImportScreen()),
-              );
-              _reload();
-            },
-          ),
-        ],
-      ),
+    return AppShell(
+      currentItem: AppNavItem.articles,
+      title: 'Artikel',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.upload_file_outlined),
+          tooltip: 'Preisimport',
+          onPressed: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PriceImportScreen()),
+            );
+            _reload();
+          },
+        ),
+      ],
       body: FutureBuilder<List<Article>>(
         future: _future,
         builder: (context, snapshot) {
@@ -89,33 +90,39 @@ class _ArticlesScreenState extends State<ArticlesScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final articles = snapshot.data!;
-          if (articles.isEmpty) {
-            return const Center(child: Text('Noch keine Artikel angelegt.'));
-          }
-          return ListView.separated(
-            itemCount: articles.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final article = articles[index];
-              return ListTile(
-                title: Text(article.name),
-                subtitle: Text(
-                  [
-                    if (article.sku != null) 'SKU ${article.sku}',
-                    if (article.salePrice != null)
-                      'VK ${article.salePrice!.toStringAsFixed(2)} €',
-                    if (article.unit != null) article.unit!,
-                    'Bestand: ${article.stockQuantity.toStringAsFixed(article.stockQuantity == article.stockQuantity.roundToDouble() ? 0 : 2)}',
-                  ].join(' · '),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Artikel angelegt.',
+            columns: const [
+              AppDataColumn('Name', flex: 3),
+              AppDataColumn('SKU', flex: 2),
+              AppDataColumn('VK-Preis', numeric: true, flex: 2),
+              AppDataColumn('Bestand', numeric: true, flex: 2),
+            ],
+            rows: [
+              for (final article in articles)
+                AppDataRow(
+                  onTap: () => _openForm(article: article),
+                  cells: [
+                    Text(article.name),
+                    Text(article.sku ?? '-'),
+                    Text(
+                      article.salePrice != null
+                          ? '${article.salePrice!.toStringAsFixed(2)} €'
+                          : '-',
+                    ),
+                    Text(
+                      article.stockQuantity.toStringAsFixed(
+                        article.stockQuantity == article.stockQuantity.roundToDouble() ? 0 : 2,
+                      ),
+                    ),
+                  ],
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Löschen',
+                    onPressed: () => _delete(article),
+                  ),
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Löschen',
-                  onPressed: () => _delete(article),
-                ),
-                onTap: () => _openForm(article: article),
-              );
-            },
+            ],
           );
         },
       ),

@@ -4,6 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 
 /// Produktliste des aktuellen Mandanten — Bundles aus Artikeln und/oder
 /// Arbeitszeit mit eigenem Verkaufspreis (Freitext-first: nur `name` ist
@@ -77,8 +79,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Produkte')),
+    return AppShell(
+      currentItem: AppNavItem.products,
+      title: 'Produkte',
       body: FutureBuilder<({List<Product> products, List<Article> articles})>(
         future: _future,
         builder: (context, snapshot) {
@@ -90,32 +93,33 @@ class _ProductsScreenState extends State<ProductsScreen> {
           }
           final products = snapshot.data!.products;
           final articles = snapshot.data!.articles;
-          if (products.isEmpty) {
-            return Center(
-              child: Text(
-                articles.isEmpty
-                    ? 'Noch keine Produkte angelegt. Lege zuerst Artikel im Artikelstamm an, um sie als Positionen zu verwenden.'
-                    : 'Noch keine Produkte angelegt.',
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-          return ListView.separated(
-            itemCount: products.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final product = products[index];
-              return ListTile(
-                title: Text(product.name),
-                subtitle: _buildSubtitle(product),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Löschen',
-                  onPressed: () => _delete(product),
+          return AppDataTable(
+            emptyLabel: articles.isEmpty
+                ? 'Noch keine Produkte angelegt. Lege zuerst Artikel im Artikelstamm an, um sie als Positionen zu verwenden.'
+                : 'Noch keine Produkte angelegt.',
+            columns: const [
+              AppDataColumn('Name', flex: 3),
+              AppDataColumn('Verkaufspreis', numeric: true, flex: 2),
+              AppDataColumn('Kosten', numeric: true, flex: 2),
+              AppDataColumn('Positionen', numeric: true, flex: 1),
+            ],
+            rows: [
+              for (final product in products)
+                AppDataRow(
+                  onTap: () => _openForm(product: product, articles: articles),
+                  cells: [
+                    Text(product.name),
+                    _PriceCell(product: product, onConfirm: _confirmPrice, onReject: _rejectPrice),
+                    Text('${product.totalCost.toStringAsFixed(2)} €'),
+                    Text('${product.components.length}'),
+                  ],
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Löschen',
+                    onPressed: () => _delete(product),
+                  ),
                 ),
-                onTap: () => _openForm(product: product, articles: articles),
-              );
-            },
+            ],
           );
         },
       ),
@@ -134,41 +138,48 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSubtitle(Product product) {
-    final lines = <Widget>[
-      Text(
-        'VK ${product.salePrice.toStringAsFixed(2)} € · '
-        'Kosten ${product.totalCost.toStringAsFixed(2)} € · '
-        '${product.components.length} Position(en)',
-      ),
-    ];
-    if (product.pendingSalePrice != null) {
-      lines.add(
+/// Verkaufspreis eines Produkts, mit optionalem Preisvorschlag aus dem
+/// Preisimport (annehmen/verwerfen).
+class _PriceCell extends StatelessWidget {
+  const _PriceCell({required this.product, required this.onConfirm, required this.onReject});
+
+  final Product product;
+  final void Function(Product product) onConfirm;
+  final void Function(Product product) onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    if (product.pendingSalePrice == null) {
+      return Text('${product.salePrice.toStringAsFixed(2)} €');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${product.salePrice.toStringAsFixed(2)} €'),
         Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Text(
-                'Preisvorschlag: ${product.pendingSalePrice!.toStringAsFixed(2)} € '
-                '(aktuell ${product.salePrice.toStringAsFixed(2)} €)',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+            Text(
+              'Vorschlag ${product.pendingSalePrice!.toStringAsFixed(2)} €',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
             IconButton(
-              icon: const Icon(Icons.check, color: Colors.green),
+              icon: const Icon(Icons.check, color: Colors.green, size: 18),
               tooltip: 'Vorschlag übernehmen',
-              onPressed: () => _confirmPrice(product),
+              onPressed: () => onConfirm(product),
             ),
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.red),
+              icon: const Icon(Icons.close, color: Colors.red, size: 18),
               tooltip: 'Vorschlag verwerfen',
-              onPressed: () => _rejectPrice(product),
+              onPressed: () => onReject(product),
             ),
           ],
         ),
-      );
-    }
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: lines);
+      ],
+    );
   }
 }
 

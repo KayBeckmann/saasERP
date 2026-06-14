@@ -4,6 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 
 /// Kundenliste des aktuellen Mandanten — Freitext-first: nur `name` ist
 /// Pflicht, alle anderen Felder sind optional und wachsen organisch.
@@ -62,8 +64,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Kunden')),
+    return AppShell(
+      currentItem: AppNavItem.customers,
+      title: 'Kunden',
       body: FutureBuilder<List<Customer>>(
         future: _future,
         builder: (context, snapshot) {
@@ -74,30 +77,29 @@ class _CustomersScreenState extends State<CustomersScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final customers = snapshot.data!;
-          if (customers.isEmpty) {
-            return const Center(child: Text('Noch keine Kunden angelegt.'));
-          }
-          return ListView.separated(
-            itemCount: customers.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final customer = customers[index];
-              return ListTile(
-                title: Text(customer.name),
-                subtitle: Text(
-                  [
-                    customer.customerNumber,
-                    if (customer.email != null) customer.email!,
-                  ].join(' · '),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Kunden angelegt.',
+            columns: const [
+              AppDataColumn('Name', flex: 3),
+              AppDataColumn('Kundennummer', flex: 2),
+              AppDataColumn('Kontakt', flex: 3),
+            ],
+            rows: [
+              for (final customer in customers)
+                AppDataRow(
+                  onTap: () => _openForm(customer: customer),
+                  cells: [
+                    Text(customer.name),
+                    Text(customer.customerNumber),
+                    Text(customer.email ?? '-'),
+                  ],
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Löschen',
+                    onPressed: () => _delete(customer),
+                  ),
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Löschen',
-                  onPressed: () => _delete(customer),
-                ),
-                onTap: () => _openForm(customer: customer),
-              );
-            },
+            ],
           );
         },
       ),

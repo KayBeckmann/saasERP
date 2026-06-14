@@ -4,6 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 
 /// Lieferantenliste des aktuellen Mandanten — Freitext-first: nur `name`
 /// ist Pflicht, alle anderen Felder sind optional.
@@ -62,8 +64,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Lieferanten')),
+    return AppShell(
+      currentItem: AppNavItem.suppliers,
+      title: 'Lieferanten',
       body: FutureBuilder<List<Supplier>>(
         future: _future,
         builder: (context, snapshot) {
@@ -74,31 +77,33 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final suppliers = snapshot.data!;
-          if (suppliers.isEmpty) {
-            return const Center(child: Text('Noch keine Lieferanten angelegt.'));
-          }
-          return ListView.separated(
-            itemCount: suppliers.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final supplier = suppliers[index];
-              return ListTile(
-                title: Text(supplier.name),
-                subtitle: Text(
-                  [
-                    if (supplier.email != null) supplier.email!,
-                    if (supplier.paymentTermsDays != null)
-                      'Zahlungsziel ${supplier.paymentTermsDays} Tage',
-                  ].join(' · '),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Lieferanten angelegt.',
+            columns: const [
+              AppDataColumn('Name', flex: 3),
+              AppDataColumn('Kontakt', flex: 2),
+              AppDataColumn('Zahlungsziel', flex: 2),
+            ],
+            rows: [
+              for (final supplier in suppliers)
+                AppDataRow(
+                  onTap: () => _openForm(supplier: supplier),
+                  cells: [
+                    Text(supplier.name),
+                    Text(supplier.email ?? '-'),
+                    Text(
+                      supplier.paymentTermsDays != null
+                          ? '${supplier.paymentTermsDays} Tage'
+                          : '-',
+                    ),
+                  ],
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Löschen',
+                    onPressed: () => _delete(supplier),
+                  ),
                 ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Löschen',
-                  onPressed: () => _delete(supplier),
-                ),
-                onTap: () => _openForm(supplier: supplier),
-              );
-            },
+            ],
           );
         },
       ),
