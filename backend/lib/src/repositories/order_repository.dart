@@ -13,7 +13,7 @@ class OrderRepository {
   final NumberSequenceRepository _numberSequences;
 
   static const _orderColumns =
-      'id, tenant_id, order_number, quote_id, customer_id, title, status, notes, created_at';
+      'id, tenant_id, order_number, quote_id, customer_id, project_id, title, status, notes, created_at';
 
   static const _itemColumns =
       'id, order_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
@@ -32,8 +32,8 @@ class OrderRepository {
     return _pool.runTx((session) async {
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO orders (tenant_id, order_number, quote_id, customer_id, title, notes) '
-          'VALUES (@tenant_id, @order_number, @quote_id, @customer_id, @title, @notes) '
+          'INSERT INTO orders (tenant_id, order_number, quote_id, customer_id, project_id, title, notes) '
+          'VALUES (@tenant_id, @order_number, @quote_id, @customer_id, @project_id, @title, @notes) '
           'RETURNING $_orderColumns',
         ),
         parameters: {
@@ -41,6 +41,7 @@ class OrderRepository {
           'order_number': orderNumber,
           'quote_id': quoteId,
           'customer_id': req.customerId,
+          'project_id': req.projectId,
           'title': req.title,
           'notes': req.notes,
         },
@@ -100,7 +101,8 @@ class OrderRepository {
     return _pool.runTx((session) async {
       final result = await session.execute(
         Sql.named(
-          'UPDATE orders SET customer_id = @customer_id, title = @title, status = @status, notes = @notes '
+          'UPDATE orders SET customer_id = @customer_id, project_id = @project_id, title = @title, '
+          'status = @status, notes = @notes '
           'WHERE tenant_id = @tenant_id AND id = @id '
           'RETURNING $_orderColumns',
         ),
@@ -108,6 +110,7 @@ class OrderRepository {
           'tenant_id': tenantId,
           'id': id,
           'customer_id': req.customerId,
+          'project_id': req.projectId,
           'title': req.title,
           'status': req.status.toJson(),
           'notes': req.notes,
@@ -193,6 +196,7 @@ class OrderRepository {
         orderNumber: row['order_number'] as String,
         quoteId: row['quote_id'] as String?,
         customerId: row['customer_id'] as String?,
+        projectId: row['project_id'] as String?,
         title: row['title'] as String,
         status: OrderStatus.fromJson(row['status'] as String),
         notes: row['notes'] as String?,

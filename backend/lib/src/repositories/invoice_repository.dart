@@ -250,6 +250,23 @@ class InvoiceRepository {
     return (result.first.toColumnMap()['total'] as num).toDouble();
   }
 
+  /// Netto-Summe aller Rechnungspositionen von Rechnungen, die aus Aufträgen
+  /// dieses Projekts erzeugt wurden — Einnahmen-Seite der
+  /// Projekt-Gewinn/Verlust-Übersicht.
+  Future<double> sumNetForProject({required String tenantId, required String projectId}) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT COALESCE(SUM(ii.quantity * ii.unit_price), 0) AS total '
+        'FROM invoice_items ii '
+        'JOIN invoices i ON i.id = ii.invoice_id '
+        'JOIN orders o ON o.id = i.order_id '
+        "WHERE i.tenant_id = @tenant_id AND o.project_id = @project_id AND i.status != 'cancelled'",
+      ),
+      parameters: {'tenant_id': tenantId, 'project_id': projectId},
+    );
+    return (result.first.toColumnMap()['total'] as num).toDouble();
+  }
+
   /// Überfällige Rechnungen eines Mandanten: `due_date` liegt in der
   /// Vergangenheit, Status ist weder `paid` noch `cancelled`. Grundlage für
   /// den Mahnlauf.

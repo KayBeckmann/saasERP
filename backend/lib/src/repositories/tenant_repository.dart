@@ -9,7 +9,8 @@ class TenantRepository {
   static const _columns = 'id, name, created_at, branding_color, '
       'company_address, company_tax_id, logo_url, '
       'default_vat_rate, reduced_vat_rate, '
-      'dunning_fee_level1, dunning_fee_level2, dunning_fee_level3';
+      'dunning_fee_level1, dunning_fee_level2, dunning_fee_level3, '
+      'default_hourly_rate';
 
   Future<Tenant> create(String name) async {
     final result = await _pool.execute(
@@ -59,7 +60,8 @@ class TenantRepository {
         'reduced_vat_rate = @reduced_vat_rate, '
         'dunning_fee_level1 = @dunning_fee_level1, '
         'dunning_fee_level2 = @dunning_fee_level2, '
-        'dunning_fee_level3 = @dunning_fee_level3 '
+        'dunning_fee_level3 = @dunning_fee_level3, '
+        'default_hourly_rate = @default_hourly_rate '
         'WHERE id = @id '
         'RETURNING $_columns',
       ),
@@ -73,6 +75,7 @@ class TenantRepository {
         'dunning_fee_level1': config.dunningFeeLevel1,
         'dunning_fee_level2': config.dunningFeeLevel2,
         'dunning_fee_level3': config.dunningFeeLevel3,
+        'default_hourly_rate': config.defaultHourlyRate,
       },
     );
     return _fromRow(result.first.toColumnMap());
@@ -91,5 +94,6 @@ class TenantRepository {
         dunningFeeLevel1: (row['dunning_fee_level1'] as num).toDouble(),
         dunningFeeLevel2: (row['dunning_fee_level2'] as num).toDouble(),
         dunningFeeLevel3: (row['dunning_fee_level3'] as num).toDouble(),
+        defaultHourlyRate: (row['default_hourly_rate'] as num).toDouble(),
       );
 }

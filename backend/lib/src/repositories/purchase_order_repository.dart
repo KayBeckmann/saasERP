@@ -12,7 +12,7 @@ class PurchaseOrderRepository {
   final NumberSequenceRepository _numberSequences;
 
   static const _columns =
-      'id, tenant_id, purchase_order_number, supplier_id, order_id, status, notes, created_at';
+      'id, tenant_id, purchase_order_number, supplier_id, order_id, project_id, status, notes, created_at';
 
   static const _itemColumns =
       'id, purchase_order_id, article_id, description, quantity, quantity_delivered, unit, unit_price';
@@ -30,8 +30,8 @@ class PurchaseOrderRepository {
     return _pool.runTx((session) async {
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO purchase_orders (tenant_id, purchase_order_number, supplier_id, order_id, notes) '
-          'VALUES (@tenant_id, @purchase_order_number, @supplier_id, @order_id, @notes) '
+          'INSERT INTO purchase_orders (tenant_id, purchase_order_number, supplier_id, order_id, project_id, notes) '
+          'VALUES (@tenant_id, @purchase_order_number, @supplier_id, @order_id, @project_id, @notes) '
           'RETURNING $_columns',
         ),
         parameters: {
@@ -39,6 +39,7 @@ class PurchaseOrderRepository {
           'purchase_order_number': purchaseOrderNumber,
           'supplier_id': req.supplierId,
           'order_id': req.orderId,
+          'project_id': req.projectId,
           'notes': req.notes,
         },
       );
@@ -97,7 +98,8 @@ class PurchaseOrderRepository {
     return _pool.runTx((session) async {
       final result = await session.execute(
         Sql.named(
-          'UPDATE purchase_orders SET supplier_id = @supplier_id, status = @status, notes = @notes '
+          'UPDATE purchase_orders SET supplier_id = @supplier_id, project_id = @project_id, '
+          'status = @status, notes = @notes '
           'WHERE tenant_id = @tenant_id AND id = @id '
           'RETURNING $_columns',
         ),
@@ -105,6 +107,7 @@ class PurchaseOrderRepository {
           'tenant_id': tenantId,
           'id': id,
           'supplier_id': req.supplierId,
+          'project_id': req.projectId,
           'status': req.status.toJson(),
           'notes': req.notes,
         },
@@ -256,6 +259,7 @@ class PurchaseOrderRepository {
         purchaseOrderNumber: row['purchase_order_number'] as String,
         supplierId: row['supplier_id'] as String?,
         orderId: row['order_id'] as String?,
+        projectId: row['project_id'] as String?,
         status: PurchaseOrderStatus.fromJson(row['status'] as String),
         notes: row['notes'] as String?,
         createdAt: (row['created_at'] as DateTime).toUtc(),

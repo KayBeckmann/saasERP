@@ -9,7 +9,7 @@ class TimeEntryRepository {
   final Pool<void> _pool;
 
   static const _columns =
-      'id, tenant_id, user_id, order_id, work_date, hours, description, created_at';
+      'id, tenant_id, user_id, order_id, project_id, work_date, hours, description, created_at';
 
   Future<TimeEntry> create({
     required String tenantId,
@@ -18,14 +18,15 @@ class TimeEntryRepository {
   }) async {
     final result = await _pool.execute(
       Sql.named(
-        'INSERT INTO time_entries (tenant_id, user_id, order_id, work_date, hours, description) '
-        'VALUES (@tenant_id, @user_id, @order_id, @work_date, @hours, @description) '
+        'INSERT INTO time_entries (tenant_id, user_id, order_id, project_id, work_date, hours, description) '
+        'VALUES (@tenant_id, @user_id, @order_id, @project_id, @work_date, @hours, @description) '
         'RETURNING $_columns',
       ),
       parameters: {
         'tenant_id': tenantId,
         'user_id': userId,
         'order_id': req.orderId,
+        'project_id': req.projectId,
         'work_date': req.workDate,
         'hours': req.hours,
         'description': req.description,
@@ -81,7 +82,7 @@ class TimeEntryRepository {
   }) async {
     final result = await _pool.execute(
       Sql.named(
-        'UPDATE time_entries SET order_id = @order_id, work_date = @work_date, '
+        'UPDATE time_entries SET order_id = @order_id, project_id = @project_id, work_date = @work_date, '
         'hours = @hours, description = @description '
         'WHERE tenant_id = @tenant_id AND id = @id '
         'RETURNING $_columns',
@@ -90,6 +91,7 @@ class TimeEntryRepository {
         'tenant_id': tenantId,
         'id': id,
         'order_id': req.orderId,
+        'project_id': req.projectId,
         'work_date': req.workDate,
         'hours': req.hours,
         'description': req.description,
@@ -112,6 +114,7 @@ class TimeEntryRepository {
         tenantId: row['tenant_id'] as String,
         userId: row['user_id'] as String,
         orderId: row['order_id'] as String?,
+        projectId: row['project_id'] as String?,
         workDate: (row['work_date'] as DateTime).toUtc(),
         hours: (row['hours'] as num).toDouble(),
         description: row['description'] as String?,
