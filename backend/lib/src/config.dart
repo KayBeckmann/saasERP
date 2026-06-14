@@ -12,6 +12,7 @@ class AppConfig {
     required this.jwtSecret,
     required this.corsOrigin,
     required this.encryptionMasterKey,
+    required this.appKundeUrl,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -25,6 +26,7 @@ class AppConfig {
       jwtSecret: env['JWT_SECRET'] ?? 'dev-secret-change-me',
       corsOrigin: env['CORS_ORIGIN'] ?? '*',
       encryptionMasterKey: env['ENCRYPTION_MASTER_KEY'] ?? 'dev-encryption-key-change-me',
+      appKundeUrl: env['APP_KUNDE_URL'] ?? 'http://localhost:8082',
     );
   }
 
@@ -39,4 +41,8 @@ class AppConfig {
   /// Globaler Master-Key zum Wrapping der Tenant-Datenschlüssel
   /// (Envelope-Encryption, siehe `TenantEncryptionService`).
   final String encryptionMasterKey;
+
+  /// Basis-URL der Kunden-App (`app_kunde`), für Einladungslinks an
+  /// Endkunden (`<appKundeUrl>/invite/<token>`).
+  final String appKundeUrl;
 }
