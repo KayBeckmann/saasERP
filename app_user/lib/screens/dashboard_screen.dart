@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/invoice_export_dialog.dart';
 import 'articles_screen.dart';
 import 'customers_screen.dart';
 import 'dunning_screen.dart';
@@ -71,6 +74,8 @@ class DashboardScreen extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 24),
+            const _AnalyticsCard(),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -279,6 +284,108 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 }
+
+/// Kennzahlen-Übersicht (offene Belege, überfällige Rechnungen,
+/// Monatsstunden) sowie der Steuerberater-Export (CSV).
+class _AnalyticsCard extends StatefulWidget {
+  const _AnalyticsCard();
+
+  @override
+  State<_AnalyticsCard> createState() => _AnalyticsCardState();
+}
+
+class _AnalyticsCardState extends State<_AnalyticsCard> {
+  late Future<DashboardSummary> _future;
+  bool _exporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final auth = context.read<AuthController>();
+    _future = auth.apiClient.getDashboardSummary(auth.token!);
+  }
+
+  Future<void> _export() async {
+    final range = await showInvoiceExportDialog(context: context);
+    if (range == null) return;
+    if (!mounted) return;
+
+    final auth = context.read<AuthController>();
+    setState(() => _exporting = true);
+    try {
+      final bytes = await auth.apiClient.exportInvoicesCsv(
+        token: auth.token!,
+        from: range.from,
+        to: range.to,
+      );
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, name: 'rechnungen-export.csv', mimeType: 'text/csv')],
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Export-Fehler: ${e.message}')));
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Auswertungen', style: Theme.of(context).textTheme.titleMedium),
+                TextButton.icon(
+                  onPressed: _exporting ? null : _export,
+                  icon: const Icon(Icons.download_outlined),
+                  label: const Text('Steuerberater-Export (CSV)'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            FutureBuilder<DashboardSummary>(
+              future: _future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Text('Fehler beim Laden: ${snapshot.error}');
+                }
+                final summary = snapshot.data!;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Offene Angebote: ${summary.openQuotes}'),
+                    Text('Offene Aufträge: ${summary.openOrders}'),
+                    Text('Offene Bestellungen: ${summary.openPurchaseOrders}'),
+                    Text('Offene Rechnungen: ${summary.openInvoices}'),
+                    Text(
+                      'Überfällige Rechnungen: ${summary.overdueInvoicesCount} '
+                      '(${_formatNumber(summary.overdueInvoicesTotal)} €)',
+                    ),
+                    Text('Stunden im aktuellen Monat: ${_formatNumber(summary.monthlyHours)}'),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatNumber(double value) => value.toStringAsFixed(2).replaceAll('.', ',');
 
 /// Branding-Editor für Owner: setzt die Primärfarbe des Mandanten
 /// (Whitelabel-Potenzial), wirkt sofort auf das App-Theme.

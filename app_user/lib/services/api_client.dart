@@ -908,6 +908,33 @@ class ApiClient {
     return ProjectProfitLoss.fromJson(_decode(response));
   }
 
+  Future<DashboardSummary> getDashboardSummary(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/dashboard/summary'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return DashboardSummary.fromJson(_decode(response));
+  }
+
+  Future<Uint8List> exportInvoicesCsv({required String token, DateTime? from, DateTime? to}) async {
+    final params = <String, String>{};
+    if (from != null) params['from'] = _dateOnly(from);
+    if (to != null) params['to'] = _dateOnly(to);
+
+    final response = await _httpClient.get(
+      _uri('/api/invoices/export').replace(queryParameters: params.isEmpty ? null : params),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),
