@@ -779,6 +779,135 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<Project>> listProjects(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/projects'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['projects'] as List)
+        .map((e) => Project.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Project> createProject({
+    required String token,
+    required CreateProjectRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/projects'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Project.fromJson(_decode(response));
+  }
+
+  Future<Project> updateProject({
+    required String token,
+    required String id,
+    required UpdateProjectRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/projects/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return Project.fromJson(_decode(response));
+  }
+
+  Future<void> deleteProject({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/projects/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<List<ProjectTransaction>> listProjectTransactions({
+    required String token,
+    required String projectId,
+  }) async {
+    final response = await _httpClient.get(
+      _uri('/api/projects/$projectId/transactions'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['project_transactions'] as List)
+        .map((e) => ProjectTransaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ProjectTransaction> createProjectTransaction({
+    required String token,
+    required String projectId,
+    required CreateProjectTransactionRequest req,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/projects/$projectId/transactions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return ProjectTransaction.fromJson(_decode(response));
+  }
+
+  Future<ProjectTransaction> updateProjectTransaction({
+    required String token,
+    required String projectId,
+    required String id,
+    required UpdateProjectTransactionRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/projects/$projectId/transactions/$id'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(req.toJson()),
+    );
+    return ProjectTransaction.fromJson(_decode(response));
+  }
+
+  Future<void> deleteProjectTransaction({
+    required String token,
+    required String projectId,
+    required String id,
+  }) async {
+    final response = await _httpClient.delete(
+      _uri('/api/projects/$projectId/transactions/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
+  Future<ProjectProfitLoss> getProjectProfitLoss({required String token, required String projectId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/projects/$projectId/profit-loss'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    return ProjectProfitLoss.fromJson(_decode(response));
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

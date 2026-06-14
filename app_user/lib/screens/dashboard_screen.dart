@@ -10,6 +10,7 @@ import 'dunning_screen.dart';
 import 'invoices_screen.dart';
 import 'orders_screen.dart';
 import 'products_screen.dart';
+import 'projects_screen.dart';
 import 'purchase_orders_screen.dart';
 import 'quotes_screen.dart';
 import 'stock_overview_screen.dart';
@@ -167,6 +168,18 @@ class DashboardScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const QuotesScreen()),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.folder_outlined),
+                title: const Text('Projekte'),
+                subtitle: const Text('Projekte verwalten und Gewinn/Verlust auswerten'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProjectsScreen()),
                 ),
               ),
             ),
@@ -366,6 +379,8 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
       TextEditingController(text: _formatRate(widget.tenant?.dunningFeeLevel2 ?? 5.0));
   late final TextEditingController _dunningFee3Controller =
       TextEditingController(text: _formatRate(widget.tenant?.dunningFeeLevel3 ?? 10.0));
+  late final TextEditingController _defaultHourlyRateController =
+      TextEditingController(text: _formatRate(widget.tenant?.defaultHourlyRate ?? 0));
 
   static String _formatRate(double value) =>
       value == value.roundToDouble() ? value.toInt().toString() : value.toString();
@@ -380,6 +395,7 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
     _dunningFee1Controller.dispose();
     _dunningFee2Controller.dispose();
     _dunningFee3Controller.dispose();
+    _defaultHourlyRateController.dispose();
     super.dispose();
   }
 
@@ -480,6 +496,15 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
           ],
         ),
         const SizedBox(height: 8),
+        TextField(
+          controller: _defaultHourlyRateController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Stundensatz für Projekt-Auswertung (€)',
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
@@ -489,8 +514,10 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
               final dunningFee1 = double.tryParse(_dunningFee1Controller.text.replaceAll(',', '.'));
               final dunningFee2 = double.tryParse(_dunningFee2Controller.text.replaceAll(',', '.'));
               final dunningFee3 = double.tryParse(_dunningFee3Controller.text.replaceAll(',', '.'));
+              final defaultHourlyRate = double.tryParse(_defaultHourlyRateController.text.replaceAll(',', '.'));
               if (defaultVat == null || reducedVat == null) return;
               if (dunningFee1 == null || dunningFee2 == null || dunningFee3 == null) return;
+              if (defaultHourlyRate == null) return;
               auth.updateTenantConfig(
                 UpdateTenantConfigRequest(
                   companyAddress: _addressController.text.trim().isEmpty
@@ -507,6 +534,7 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
                   dunningFeeLevel1: dunningFee1,
                   dunningFeeLevel2: dunningFee2,
                   dunningFeeLevel3: dunningFee3,
+                  defaultHourlyRate: defaultHourlyRate,
                 ),
               );
             },

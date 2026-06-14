@@ -102,10 +102,12 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _notesController;
   String? _customerId;
+  String? _projectId;
   OrderStatus _status = OrderStatus.open;
   final List<_ItemDraft> _items = [];
 
-  late Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _refsFuture;
+  late Future<({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects})>
+      _refsFuture;
 
   bool _saving = false;
   String? _error;
@@ -117,6 +119,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     _titleController = TextEditingController(text: o?.title ?? '');
     _notesController = TextEditingController(text: o?.notes ?? '');
     _customerId = o?.customerId;
+    _projectId = o?.projectId;
     _status = o?.status ?? OrderStatus.open;
     if (o != null) {
       _items.addAll(o.items.map(_ItemDraft.fromItem));
@@ -124,12 +127,14 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     _refsFuture = _loadReferences();
   }
 
-  Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _loadReferences() async {
+  Future<({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects})>
+      _loadReferences() async {
     final auth = context.read<AuthController>();
     final customers = await auth.apiClient.listCustomers(auth.token!);
     final articles = await auth.apiClient.listArticles(auth.token!);
     final products = await auth.apiClient.listProducts(auth.token!);
-    return (customers: customers, articles: articles, products: products);
+    final projects = await auth.apiClient.listProjects(auth.token!);
+    return (customers: customers, articles: articles, products: products, projects: projects);
   }
 
   @override
@@ -228,6 +233,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
           token: auth.token!,
           req: CreateOrderRequest(
             customerId: _customerId,
+            projectId: _projectId,
             title: _titleController.text.trim(),
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
@@ -239,6 +245,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
           id: widget.order!.id,
           req: UpdateOrderRequest(
             customerId: _customerId,
+            projectId: _projectId,
             title: _titleController.text.trim(),
             status: _status,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
@@ -367,6 +374,20 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _projectId,
+                    decoration: const InputDecoration(labelText: 'Projekt'),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('— kein Projekt —')),
+                      for (final project in refs.projects)
+                        DropdownMenuItem<String?>(
+                          value: project.id,
+                          child: Text('${project.projectNumber} · ${project.name}'),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _projectId = value),
+                  ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     controller: _notesController,
                     decoration: const InputDecoration(labelText: 'Notizen'),
@@ -451,7 +472,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   Widget _buildItemRow(
     BuildContext context,
     int index,
-    ({List<Customer> customers, List<Article> articles, List<Product> products}) refs,
+    ({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects}) refs,
   ) {
     final item = _items[index];
 

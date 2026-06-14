@@ -94,10 +94,11 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _notesController;
   String? _supplierId;
+  String? _projectId;
   PurchaseOrderStatus _status = PurchaseOrderStatus.open;
   final List<_POItemDraft> _items = [];
 
-  late Future<({List<Supplier> suppliers, List<Article> articles})> _refsFuture;
+  late Future<({List<Supplier> suppliers, List<Article> articles, List<Project> projects})> _refsFuture;
 
   bool _saving = false;
   String? _error;
@@ -109,6 +110,7 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
     final initial = widget.initial;
     _notesController = TextEditingController(text: po?.notes ?? initial?.notes ?? '');
     _supplierId = po?.supplierId ?? initial?.supplierId;
+    _projectId = po?.projectId ?? initial?.projectId;
     _status = po?.status ?? PurchaseOrderStatus.open;
     if (po != null) {
       _items.addAll(po.items.map(_POItemDraft.fromItem));
@@ -118,11 +120,12 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
     _refsFuture = _loadReferences();
   }
 
-  Future<({List<Supplier> suppliers, List<Article> articles})> _loadReferences() async {
+  Future<({List<Supplier> suppliers, List<Article> articles, List<Project> projects})> _loadReferences() async {
     final auth = context.read<AuthController>();
     final suppliers = await auth.apiClient.listSuppliers(auth.token!);
     final articles = await auth.apiClient.listArticles(auth.token!);
-    return (suppliers: suppliers, articles: articles);
+    final projects = await auth.apiClient.listProjects(auth.token!);
+    return (suppliers: suppliers, articles: articles, projects: projects);
   }
 
   @override
@@ -184,6 +187,7 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
           req: CreatePurchaseOrderRequest(
             supplierId: _supplierId,
             orderId: widget.initial?.orderId,
+            projectId: _projectId,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
           ),
@@ -194,6 +198,7 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
           id: widget.purchaseOrder!.id,
           req: UpdatePurchaseOrderRequest(
             supplierId: _supplierId,
+            projectId: _projectId,
             status: _status,
             notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             items: items,
@@ -322,6 +327,20 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _projectId,
+                    decoration: const InputDecoration(labelText: 'Projekt'),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('— kein Projekt —')),
+                      for (final project in refs.projects)
+                        DropdownMenuItem<String?>(
+                          value: project.id,
+                          child: Text('${project.projectNumber} · ${project.name}'),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _projectId = value),
+                  ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     controller: _notesController,
                     decoration: const InputDecoration(labelText: 'Notizen'),
@@ -384,7 +403,7 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
   Widget _buildItemRow(
     BuildContext context,
     int index,
-    ({List<Supplier> suppliers, List<Article> articles}) refs,
+    ({List<Supplier> suppliers, List<Article> articles, List<Project> projects}) refs,
     bool isEdit,
   ) {
     final item = _items[index];
