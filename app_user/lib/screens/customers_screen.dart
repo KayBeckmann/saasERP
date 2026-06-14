@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -6,6 +7,9 @@ import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../widgets/app_data_table.dart';
 import '../widgets/app_shell.dart';
+
+String _formatDateTime(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
 
 /// Kundenliste des aktuellen Mandanten — Freitext-first: nur `name` ist
 /// Pflicht, alle anderen Felder sind optional und wachsen organisch.
@@ -62,6 +66,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
     _reload();
   }
 
+  Future<void> _openPortalAccess(Customer customer) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _CustomerPortalAccessDialog(customer: customer),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -79,6 +90,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           final customers = snapshot.data!;
           return AppDataTable(
             emptyLabel: 'Noch keine Kunden angelegt.',
+            trailingWidth: 96,
             columns: const [
               AppDataColumn('Name', flex: 3),
               AppDataColumn('Kundennummer', flex: 2),
@@ -93,10 +105,20 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     Text(customer.customerNumber),
                     Text(customer.email ?? '-'),
                   ],
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Löschen',
-                    onPressed: () => _delete(customer),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.badge_outlined),
+                        tooltip: 'Kundenzugang',
+                        onPressed: () => _openPortalAccess(customer),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Löschen',
+                        onPressed: () => _delete(customer),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -324,6 +346,175 @@ class _CustomerFormDialogState extends State<_CustomerFormDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Text('Speichern'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Verwaltung des Kundenportal-Zugangs (Einladungslink) eines Kunden —
+/// Anlage, Anzeige/Kopieren des Links und Widerruf.
+class _CustomerPortalAccessDialog extends StatefulWidget {
+  const _CustomerPortalAccessDialog({required this.customer});
+
+  final Customer customer;
+
+  @override
+  State<_CustomerPortalAccessDialog> createState() => _CustomerPortalAccessDialogState();
+}
+
+class _CustomerPortalAccessDialogState extends State<_CustomerPortalAccessDialog> {
+  late Future<CustomerPortalAccount?> _future;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<CustomerPortalAccount?> _load() {
+    final auth = context.read<AuthController>();
+    return auth.apiClient.getCustomerPortalAccess(token: auth.token!, customerId: widget.customer.id);
+  }
+
+  void _reload() => setState(() => _future = _load());
+
+  Future<void> _create() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final auth = context.read<AuthController>();
+    try {
+      await auth.apiClient.createCustomerPortalAccess(token: auth.token!, customerId: widget.customer.id);
+      _reload();
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _revoke() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kundenzugang widerrufen?'),
+        content: const Text('Der Endkunde kann sich danach nicht mehr im Kundenportal anmelden.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Widerrufen')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _busy = true);
+    final auth = context.read<AuthController>();
+    try {
+      await auth.apiClient.deleteCustomerPortalAccess(token: auth.token!, customerId: widget.customer.id);
+      _reload();
+    } on ApiException catch (e) {
+      setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _copyLink(String url) {
+    Clipboard.setData(ClipboardData(text: url));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Einladungslink kopiert.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Kundenzugang'),
+      content: SizedBox(
+        width: 420,
+        child: FutureBuilder<CustomerPortalAccount?>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+            }
+            if (snapshot.hasError) {
+              return Text('Fehler: ${snapshot.error}');
+            }
+
+            final account = snapshot.data;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${widget.customer.name} (${widget.customer.customerNumber})'),
+                const SizedBox(height: 12),
+                if (account == null) ...[
+                  const Text('Für diesen Kunden existiert noch kein Kundenportal-Zugang.'),
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.customer.email == null
+                        ? 'Hinweis: Der Kunde hat keine E-Mail-Adresse hinterlegt.'
+                        : 'Einladung wird an ${widget.customer.email} adressiert.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ] else if (account.status == CustomerPortalAccountStatus.invited) ...[
+                  Text(
+                    'Eingeladen am ${_formatDateTime(account.invitedAt)} (${account.email}), '
+                    'noch kein Passwort vergeben.',
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    readOnly: true,
+                    controller: TextEditingController(text: account.inviteUrl),
+                    decoration: InputDecoration(
+                      labelText: 'Einladungslink',
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.copy),
+                        tooltip: 'Link kopieren',
+                        onPressed:
+                            account.inviteUrl == null ? null : () => _copyLink(account.inviteUrl!),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Text('Aktiv seit ${_formatDateTime(account.activatedAt ?? account.invitedAt)} (${account.email}).'),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        FutureBuilder<CustomerPortalAccount?>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) return const SizedBox.shrink();
+            final account = snapshot.data;
+            if (account == null) {
+              return FilledButton(
+                onPressed: _busy ? null : _create,
+                child: const Text('Kundenzugang anlegen'),
+              );
+            }
+            return TextButton(
+              onPressed: _busy ? null : _revoke,
+              child: const Text('Zugang widerrufen'),
+            );
+          },
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Schließen'),
         ),
       ],
     );

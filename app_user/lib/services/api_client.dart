@@ -171,6 +171,50 @@ class ApiClient {
     }
   }
 
+  /// Liest den Kundenportal-Zugang eines Kunden, oder `null` falls noch
+  /// keiner angelegt wurde.
+  Future<CustomerPortalAccount?> getCustomerPortalAccess({
+    required String token,
+    required String customerId,
+  }) async {
+    final response = await _httpClient.get(
+      _uri('/api/customers/$customerId/portal-access'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 404) return null;
+    return CustomerPortalAccount.fromJson(_decode(response));
+  }
+
+  Future<CustomerPortalAccount> createCustomerPortalAccess({
+    required String token,
+    required String customerId,
+    String? email,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/customers/$customerId/portal-access'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(CreateCustomerPortalAccountRequest(email: email).toJson()),
+    );
+    return CustomerPortalAccount.fromJson(_decode(response));
+  }
+
+  Future<void> deleteCustomerPortalAccess({required String token, required String customerId}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/customers/$customerId/portal-access'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Future<List<Supplier>> listSuppliers(String token) async {
     final response = await _httpClient.get(
       _uri('/api/suppliers'),
