@@ -6,19 +6,8 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/invoice_export_dialog.dart';
-import 'articles_screen.dart';
-import 'customers_screen.dart';
-import 'dunning_screen.dart';
-import 'invoices_screen.dart';
-import 'orders_screen.dart';
-import 'products_screen.dart';
-import 'projects_screen.dart';
-import 'purchase_orders_screen.dart';
-import 'quotes_screen.dart';
-import 'stock_overview_screen.dart';
-import 'suppliers_screen.dart';
-import 'time_entries_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -29,42 +18,10 @@ class DashboardScreen extends StatelessWidget {
     final user = auth.user;
     final tenant = auth.tenant;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(tenant?.name ?? 'saasERP'),
-        actions: [
-          if (auth.availableTenants.length > 1)
-            PopupMenuButton<String>(
-              tooltip: 'Mandant wechseln',
-              icon: const Icon(Icons.apartment),
-              onSelected: (tenantId) => auth.switchTenant(tenantId),
-              itemBuilder: (context) => auth.availableTenants
-                  .map(
-                    (access) => PopupMenuItem(
-                      value: access.tenant.id,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (access.tenant.id == tenant?.id)
-                            const Padding(
-                              padding: EdgeInsets.only(right: 8),
-                              child: Icon(Icons.check, size: 18),
-                            ),
-                          Text(access.tenant.name),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Abmelden',
-            onPressed: () => auth.logout(),
-          ),
-        ],
-      ),
-      body: Padding(
+    return AppShell(
+      currentItem: AppNavItem.dashboard,
+      title: tenant?.name ?? 'saasERP',
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,150 +73,6 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.people_outline),
-                title: const Text('Kunden'),
-                subtitle: const Text('Kundenstamm verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const CustomersScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.local_shipping_outlined),
-                title: const Text('Lieferanten'),
-                subtitle: const Text('Lieferantenstamm verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SuppliersScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Artikel'),
-                subtitle: const Text('Artikelstamm verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ArticlesScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.widgets_outlined),
-                title: const Text('Produkte'),
-                subtitle: const Text('Bundles aus Artikeln & Arbeitszeit verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: const Text('Angebote'),
-                subtitle: const Text('Angebote erstellen und verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const QuotesScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: const Text('Projekte'),
-                subtitle: const Text('Projekte verwalten und Gewinn/Verlust auswerten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProjectsScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.assignment_outlined),
-                title: const Text('Aufträge'),
-                subtitle: const Text('Aufträge erstellen und verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OrdersScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.receipt_long_outlined),
-                title: const Text('Rechnungen'),
-                subtitle: const Text('Rechnungen erstellen und verwalten'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const InvoicesScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_outlined),
-                title: const Text('Mahnwesen'),
-                subtitle: const Text('Überfällige Rechnungen mahnen'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const DunningScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.shopping_cart_outlined),
-                title: const Text('Bestellungen'),
-                subtitle: const Text('Bestellwesen: Lieferanten-Bestellungen & Wareneingang'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PurchaseOrdersScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.warehouse_outlined),
-                title: const Text('Bestandsübersicht'),
-                subtitle: const Text('Lagerbestand je Artikel, Mindestbestands-Hinweis'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const StockOverviewScreen()),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.timer_outlined),
-                title: const Text('Stundenerfassung'),
-                subtitle: const Text('Arbeitszeit mit Wochenansicht erfassen'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TimeEntriesScreen()),
-                ),
-              ),
-            ),
             const SizedBox(height: 16),
             Card(
               child: Padding(
