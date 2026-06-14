@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
+import '../widgets/status_chip.dart';
 import 'project_editor_screen.dart';
 
 /// Listet die Projekte des Mandanten und erlaubt Anlegen/Bearbeiten.
@@ -55,16 +58,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         ProjectStatus.cancelled => 'Abgebrochen',
       };
 
-  Color _statusColor(ProjectStatus status, BuildContext context) => switch (status) {
-        ProjectStatus.open => Theme.of(context).colorScheme.surfaceContainerHighest,
-        ProjectStatus.completed => Colors.green.shade100,
-        ProjectStatus.cancelled => Colors.red.shade100,
+  StatusTone _statusTone(ProjectStatus status) => switch (status) {
+        ProjectStatus.open => StatusTone.warning,
+        ProjectStatus.completed => StatusTone.success,
+        ProjectStatus.cancelled => StatusTone.error,
       };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Projekte')),
+    return AppShell(
+      currentItem: AppNavItem.projects,
+      title: 'Projekte',
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {
@@ -75,30 +79,24 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             return Center(child: Text('Fehler: ${snapshot.error}'));
           }
           final data = snapshot.data!;
-          if (data.projects.isEmpty) {
-            return const Center(child: Text('Noch keine Projekte vorhanden.'));
-          }
-
-          return ListView.builder(
-            itemCount: data.projects.length,
-            itemBuilder: (context, index) {
-              final project = data.projects[index];
-              final customerName = _customerName(project.customerId, data.customers);
-
-              return ListTile(
-                title: Text('${project.projectNumber} · ${project.name}'),
-                subtitle: customerName == null ? null : Text(customerName),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor(project.status, context),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(_statusLabel(project.status)),
+          return AppDataTable(
+            emptyLabel: 'Noch keine Projekte vorhanden.',
+            columns: const [
+              AppDataColumn('Projekt', flex: 3),
+              AppDataColumn('Kunde', flex: 2),
+              AppDataColumn('Status', flex: 1),
+            ],
+            rows: [
+              for (final project in data.projects)
+                AppDataRow(
+                  onTap: () => _openEditor(project: project),
+                  cells: [
+                    Text('${project.projectNumber} · ${project.name}'),
+                    Text(_customerName(project.customerId, data.customers) ?? '-'),
+                    StatusChip(label: _statusLabel(project.status), tone: _statusTone(project.status)),
+                  ],
                 ),
-                onTap: () => _openEditor(project: project),
-              );
-            },
+            ],
           );
         },
       ),

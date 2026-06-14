@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_shell.dart';
 
 const _weekdayLabels = [
   'Montag',
@@ -137,30 +138,29 @@ class _TimeEntriesScreenState extends State<TimeEntriesScreen> {
   Widget build(BuildContext context) {
     final weekEnd = _weekStart.add(const Duration(days: 6));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Stundenerfassung'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            tooltip: 'Vorherige Woche',
-            onPressed: () => _changeWeek(-1),
-          ),
-          IconButton(
-            icon: const Icon(Icons.today),
-            tooltip: 'Aktuelle Woche',
-            onPressed: () => setState(() {
-              _weekStart = _mondayOf(DateTime.now());
-              _future = _load();
-            }),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            tooltip: 'Nächste Woche',
-            onPressed: () => _changeWeek(1),
-          ),
-        ],
-      ),
+    return AppShell(
+      currentItem: AppNavItem.timeEntries,
+      title: 'Stundenerfassung',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Vorherige Woche',
+          onPressed: () => _changeWeek(-1),
+        ),
+        IconButton(
+          icon: const Icon(Icons.today),
+          tooltip: 'Aktuelle Woche',
+          onPressed: () => setState(() {
+            _weekStart = _mondayOf(DateTime.now());
+            _future = _load();
+          }),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Nächste Woche',
+          onPressed: () => _changeWeek(1),
+        ),
+      ],
       body: FutureBuilder(
         future: _future,
         builder: (context, snapshot) {

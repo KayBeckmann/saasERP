@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../state/auth_controller.dart';
+import '../widgets/app_data_table.dart';
+import '../widgets/app_shell.dart';
 
 /// Bestandsübersicht — listet alle Artikel mit Lagerbestand und
 /// Mindestbestand, Artikel unter dem Mindestbestand werden hervorgehoben.
@@ -34,17 +36,16 @@ class _StockOverviewScreenState extends State<StockOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Bestandsübersicht'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Aktualisieren',
-            onPressed: _reload,
-          ),
-        ],
-      ),
+    return AppShell(
+      currentItem: AppNavItem.stock,
+      title: 'Bestandsübersicht',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Aktualisieren',
+          onPressed: _reload,
+        ),
+      ],
       body: FutureBuilder<List<Article>>(
         future: _future,
         builder: (context, snapshot) {
@@ -56,9 +57,6 @@ class _StockOverviewScreenState extends State<StockOverviewScreen> {
           }
           final articles = [...snapshot.data!]
             ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-          if (articles.isEmpty) {
-            return const Center(child: Text('Noch keine Artikel angelegt.'));
-          }
 
           final lowStockCount = articles.where((a) => a.stockQuantity < a.minimumStock).length;
 
@@ -75,50 +73,71 @@ class _StockOverviewScreenState extends State<StockOverviewScreen> {
                   ),
                 ),
               Expanded(
-                child: ListView.separated(
-                  itemCount: articles.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final article = articles[index];
-                    final belowMinimum = article.stockQuantity < article.minimumStock;
-                    return ListTile(
-                      title: Text(article.name),
-                      subtitle: Text(
-                        [
-                          if (article.sku != null) 'SKU ${article.sku}',
-                          if (article.unit != null) article.unit!,
-                          'Mindestbestand: ${_formatNumber(article.minimumStock)}',
-                        ].join(' · '),
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
+                child: AppDataTable(
+                  emptyLabel: 'Noch keine Artikel angelegt.',
+                  columns: const [
+                    AppDataColumn('Artikel', flex: 3),
+                    AppDataColumn('Details', flex: 2),
+                    AppDataColumn('Mindestbestand', numeric: true, flex: 1),
+                    AppDataColumn('Bestand', numeric: true, flex: 1),
+                  ],
+                  rows: [
+                    for (final article in articles)
+                      AppDataRow(
+                        cells: [
+                          Text(article.name),
                           Text(
-                            _formatNumber(article.stockQuantity),
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: belowMinimum ? Theme.of(context).colorScheme.error : null,
-                                  fontWeight: belowMinimum ? FontWeight.bold : null,
-                                ),
+                            [
+                              if (article.sku != null) 'SKU ${article.sku}',
+                              if (article.unit != null) article.unit!,
+                            ].join(' · '),
                           ),
-                          if (belowMinimum)
-                            Text(
-                              'unter Mindestbestand',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                                fontSize: 11,
-                              ),
-                            ),
+                          Text(_formatNumber(article.minimumStock)),
+                          _StockCell(
+                            quantity: article.stockQuantity,
+                            belowMinimum: article.stockQuantity < article.minimumStock,
+                            formatNumber: _formatNumber,
+                          ),
                         ],
                       ),
-                    );
-                  },
+                  ],
                 ),
               ),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+/// Lagerbestand eines Artikels, hervorgehoben wenn unter Mindestbestand.
+class _StockCell extends StatelessWidget {
+  const _StockCell({required this.quantity, required this.belowMinimum, required this.formatNumber});
+
+  final double quantity;
+  final bool belowMinimum;
+  final String Function(double) formatNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          formatNumber(quantity),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: belowMinimum ? Theme.of(context).colorScheme.error : null,
+                fontWeight: belowMinimum ? FontWeight.bold : null,
+              ),
+        ),
+        if (belowMinimum)
+          Text(
+            'unter Mindestbestand',
+            style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11),
+          ),
+      ],
     );
   }
 }
