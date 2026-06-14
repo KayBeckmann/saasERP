@@ -2,6 +2,7 @@ import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/article_repository.dart';
+import 'package:backend/src/repositories/customer_portal_account_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/dashboard_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
@@ -33,6 +34,7 @@ final _tenantEncryptionKeyRepository = TenantEncryptionKeyRepository(_pool);
 final _tenantEncryptionService = TenantEncryptionService(_config, _tenantEncryptionKeyRepository);
 final _numberSequenceRepository = NumberSequenceRepository(_pool);
 final _customerRepository = CustomerRepository(_pool, _tenantEncryptionService, _numberSequenceRepository);
+final _customerPortalAccountRepository = CustomerPortalAccountRepository(_pool, _config);
 final _supplierRepository = SupplierRepository(_pool, _tenantEncryptionService);
 final _articleRepository = ArticleRepository(_pool);
 final _productRepository = ProductRepository(_pool);
@@ -65,6 +67,7 @@ Handler middleware(Handler handler) {
       .use(provider<TenantEncryptionService>((_) => _tenantEncryptionService))
       .use(provider<NumberSequenceRepository>((_) => _numberSequenceRepository))
       .use(provider<CustomerRepository>((_) => _customerRepository))
+      .use(provider<CustomerPortalAccountRepository>((_) => _customerPortalAccountRepository))
       .use(provider<SupplierRepository>((_) => _supplierRepository))
       .use(provider<ArticleRepository>((_) => _articleRepository))
       .use(provider<ProductRepository>((_) => _productRepository))
