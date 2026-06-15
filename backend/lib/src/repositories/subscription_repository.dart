@@ -24,6 +24,21 @@ class SubscriptionRepository {
     return result.map((row) => _fromRow(row.toColumnMap())).toList();
   }
 
+  /// Das aktuelle Abo eines Mandanten (`status = 'active'`) — Grundlage für
+  /// die Self-Service-Routen (`/api/subscription/*`). Liefert `null`, wenn
+  /// (noch) kein Abo angelegt wurde.
+  Future<Subscription?> findActiveForTenant(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT $_columns FROM subscriptions '
+        "WHERE tenant_id = @tenant_id AND status = 'active'",
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    if (result.isEmpty) return null;
+    return _fromRow(result.first.toColumnMap());
+  }
+
   Future<Subscription?> findById({required String tenantId, required String id}) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_columns FROM subscriptions WHERE tenant_id = @tenant_id AND id = @id'),
@@ -112,6 +127,56 @@ class SubscriptionRepository {
     );
     if (result.isEmpty) return null;
     return _fromRow(result.first.toColumnMap());
+  }
+
+  /// Tier-Wechsel (Self-Service, Up-/Downgrade): beendet das aktuelle aktive
+  /// Abo (`status = 'cancelled'`, `cancelled_at = now`, ohne Vertragsstrafe —
+  /// ein Tier-Wechsel ist keine Kündigung) und legt mit denselben
+  /// Vertragskonditionen (Laufzeit, Zahlungsrhythmus, max. Strafe) eine neue
+  /// aktive Zeile mit dem neuen Tier und frischer Laufzeit ab heute an.
+  /// Liefert `null`, wenn der Mandant kein aktives Abo hat.
+  Future<Subscription?> changeTier({required String tenantId, required String newTierId}) async {
+    return _pool.runTx((session) async {
+      final current = await session.execute(
+        Sql.named(
+          "SELECT $_columns FROM subscriptions WHERE tenant_id = @tenant_id AND status = 'active'",
+        ),
+        parameters: {'tenant_id': tenantId},
+      );
+      if (current.isEmpty) return null;
+      final old = _fromRow(current.first.toColumnMap());
+
+      final now = DateTime.now();
+      await session.execute(
+        Sql.named(
+          "UPDATE subscriptions SET status = 'cancelled', cancelled_at = @cancelled_at "
+          'WHERE tenant_id = @tenant_id AND id = @id',
+        ),
+        parameters: {'tenant_id': tenantId, 'id': old.id, 'cancelled_at': now},
+      );
+
+      final result = await session.execute(
+        Sql.named(
+          'INSERT INTO subscriptions (tenant_id, tier_id, payment_rhythm, term_months, '
+          'start_date, end_date, down_payment, max_penalty, notes) '
+          'VALUES (@tenant_id, @tier_id, @payment_rhythm, @term_months, '
+          '@start_date, @end_date, @down_payment, @max_penalty, @notes) '
+          'RETURNING $_columns',
+        ),
+        parameters: {
+          'tenant_id': tenantId,
+          'tier_id': newTierId,
+          'payment_rhythm': old.paymentRhythm.toJson(),
+          'term_months': old.termMonths,
+          'start_date': now,
+          'end_date': DateTime(now.year, now.month + old.termMonths, now.day),
+          'down_payment': 0,
+          'max_penalty': old.maxPenalty,
+          'notes': old.notes,
+        },
+      );
+      return _fromRow(result.first.toColumnMap());
+    });
   }
 
   Subscription _fromRow(Map<String, dynamic> row) => Subscription(

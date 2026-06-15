@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:backend/src/auth_service.dart';
+import 'package:backend/src/repositories/subscription_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
@@ -72,6 +73,22 @@ Future<Response> onRequest(RequestContext context) async {
     role: user.role.toJson(),
   );
   await tenantEncryptionService.provisionTenant(tenant.id);
+
+  final tierId = req.tierId;
+  if (tierId != null && tierId.isNotEmpty) {
+    final subscriptionRepository = context.read<SubscriptionRepository>();
+    final now = DateTime.now();
+    await subscriptionRepository.create(
+      tenantId: tenant.id,
+      req: CreateSubscriptionRequest(
+        tierId: tierId,
+        termMonths: 12,
+        startDate: now,
+        endDate: DateTime(now.year + 1, now.month, now.day),
+        downPayment: req.downPayment,
+      ),
+    );
+  }
 
   final token = authService.issueToken(
     userId: user.id,

@@ -2,28 +2,40 @@ import 'app_user.dart';
 import 'tenant.dart';
 
 /// Self-Service-Registrierung: legt einen neuen Mandanten samt Owner-User an.
+///
+/// Optional kann direkt ein Abo-Tier gewählt werden (Onboarding-Flow, M3):
+/// ist [tierId] gesetzt, legt die Registrierung zusätzlich ein aktives Abo
+/// mit diesem Tier und der optionalen Anzahlung [downPayment] an.
 class RegisterRequest {
   const RegisterRequest({
     required this.companyName,
     required this.email,
     required this.password,
+    this.tierId,
+    this.downPayment = 0,
   });
 
   final String companyName;
   final String email;
   final String password;
+  final String? tierId;
+  final double downPayment;
 
   factory RegisterRequest.fromJson(Map<String, dynamic> json) =>
       RegisterRequest(
         companyName: json['company_name'] as String,
         email: json['email'] as String,
         password: json['password'] as String,
+        tierId: json['tier_id'] as String?,
+        downPayment: (json['down_payment'] as num?)?.toDouble() ?? 0,
       );
 
   Map<String, dynamic> toJson() => {
         'company_name': companyName,
         'email': email,
         'password': password,
+        'tier_id': tierId,
+        'down_payment': downPayment,
       };
 }
 
