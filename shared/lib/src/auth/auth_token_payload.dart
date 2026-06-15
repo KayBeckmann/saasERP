@@ -6,6 +6,7 @@ class AuthTokenPayload {
     required this.email,
     required this.role,
     required this.expiresAt,
+    this.isPlatformAdmin = false,
   });
 
   final String userId;
@@ -13,6 +14,10 @@ class AuthTokenPayload {
   final String email;
   final String role;
   final DateTime expiresAt;
+
+  /// `true` für den saasERP-Plattform-Admin (Abo-Verwaltung über alle
+  /// Mandanten hinweg, M3) — unabhängig vom mandanten-skopierten [role].
+  final bool isPlatformAdmin;
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 
@@ -26,5 +31,6 @@ class AuthTokenPayload {
           (payload['exp'] as int) * 1000,
           isUtc: true,
         ),
+        isPlatformAdmin: payload['is_platform_admin'] as bool? ?? false,
       );
 }

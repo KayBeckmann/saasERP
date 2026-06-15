@@ -62,6 +62,7 @@ Future<Response> onRequest(RequestContext context) async {
     tenantId: tenant.id,
     email: user.email,
     role: role,
+    isPlatformAdmin: user.isPlatformAdmin,
   );
 
   final response = AuthResponse(token: token, user: user, tenant: tenant);

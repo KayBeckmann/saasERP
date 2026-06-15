@@ -15,10 +15,16 @@ class TokenCodec {
     required String tenantId,
     required String email,
     required String role,
+    bool isPlatformAdmin = false,
     Duration validFor = const Duration(hours: 12),
   }) {
     final jwt = JWT(
-      {'tenant_id': tenantId, 'email': email, 'role': role},
+      {
+        'tenant_id': tenantId,
+        'email': email,
+        'role': role,
+        'is_platform_admin': isPlatformAdmin,
+      },
       subject: userId,
     );
     return jwt.sign(SecretKey(_secret), expiresIn: validFor);

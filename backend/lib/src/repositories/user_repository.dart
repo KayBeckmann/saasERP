@@ -15,6 +15,8 @@ class UserRepository {
 
   final Pool<void> _pool;
 
+  static const _columns = 'id, tenant_id, email, role, created_at, is_platform_admin';
+
   Future<AppUser> create({
     required String tenantId,
     required String email,
@@ -25,7 +27,7 @@ class UserRepository {
       Sql.named(
         'INSERT INTO users (tenant_id, email, password_hash, role) '
         'VALUES (@tenant_id, @email, @password_hash, @role) '
-        'RETURNING id, tenant_id, email, role, created_at',
+        'RETURNING $_columns',
       ),
       parameters: {
         'tenant_id': tenantId,
@@ -40,7 +42,7 @@ class UserRepository {
   Future<UserWithPassword?> findByEmail(String email) async {
     final result = await _pool.execute(
       Sql.named(
-        'SELECT id, tenant_id, email, role, created_at, password_hash '
+        'SELECT $_columns, password_hash '
         'FROM users WHERE lower(email) = lower(@email)',
       ),
       parameters: {'email': email},
@@ -56,7 +58,7 @@ class UserRepository {
   Future<AppUser?> findById(String id) async {
     final result = await _pool.execute(
       Sql.named(
-        'SELECT id, tenant_id, email, role, created_at '
+        'SELECT $_columns '
         'FROM users WHERE id = @id',
       ),
       parameters: {'id': id},
@@ -88,5 +90,6 @@ class UserRepository {
         email: row['email'] as String,
         role: UserRole.fromJson(row['role'] as String),
         createdAt: (row['created_at'] as DateTime).toUtc(),
+        isPlatformAdmin: row['is_platform_admin'] as bool? ?? false,
       );
 }

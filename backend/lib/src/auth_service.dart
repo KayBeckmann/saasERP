@@ -24,12 +24,14 @@ class AuthService {
     required String tenantId,
     required String email,
     required String role,
+    bool isPlatformAdmin = false,
   }) =>
       _tokenCodec.issue(
         userId: userId,
         tenantId: tenantId,
         email: email,
         role: role,
+        isPlatformAdmin: isPlatformAdmin,
       );
 
   /// Validiert das Bearer-Token und gibt den dekodierten Payload zurück.

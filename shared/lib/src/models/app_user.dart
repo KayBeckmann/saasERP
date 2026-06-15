@@ -11,6 +11,7 @@ class AppUser {
     required this.email,
     required this.role,
     required this.createdAt,
+    this.isPlatformAdmin = false,
   });
 
   final String id;
@@ -19,12 +20,17 @@ class AppUser {
   final UserRole role;
   final DateTime createdAt;
 
+  /// `true` für den saasERP-Plattform-Admin (Abo-Verwaltung über alle
+  /// Mandanten hinweg, M3) — unabhängig vom mandanten-skopierten [role].
+  final bool isPlatformAdmin;
+
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
         tenantId: json['tenant_id'] as String,
         email: json['email'] as String,
         role: UserRole.fromJson(json['role'] as String),
         createdAt: DateTime.parse(json['created_at'] as String),
+        isPlatformAdmin: json['is_platform_admin'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -33,5 +39,6 @@ class AppUser {
         'email': email,
         'role': role.toJson(),
         'created_at': createdAt.toIso8601String(),
+        'is_platform_admin': isPlatformAdmin,
       };
 }

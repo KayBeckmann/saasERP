@@ -20,6 +20,14 @@ class TenantRepository {
     return _fromRow(result.first.toColumnMap());
   }
 
+  /// Alle Mandanten — nur für den Plattform-Admin (Abo-Verwaltung, M3).
+  Future<List<Tenant>> listAll() async {
+    final result = await _pool.execute(
+      Sql.named('SELECT $_columns FROM tenants ORDER BY created_at ASC'),
+    );
+    return result.map((row) => _fromRow(row.toColumnMap())).toList();
+  }
+
   Future<Tenant?> findById(String id) async {
     final result = await _pool.execute(
       Sql.named('SELECT $_columns FROM tenants WHERE id = @id'),

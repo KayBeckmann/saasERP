@@ -21,6 +21,8 @@ export 'src/models/project.dart';
 export 'src/models/project_transaction.dart';
 export 'src/models/purchase_order.dart';
 export 'src/models/quote.dart';
+export 'src/models/subscription.dart';
+export 'src/models/subscription_tier.dart';
 export 'src/models/supplier.dart';
 export 'src/models/tenant.dart';
 export 'src/models/tenant_access.dart';
