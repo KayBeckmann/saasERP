@@ -107,6 +107,7 @@ class CustomerInvitePreview {
     required this.email,
     required this.status,
     this.tenantBrandingColor,
+    this.tenantLogoUrl,
   });
 
   final String tenantName;
@@ -118,12 +119,17 @@ class CustomerInvitePreview {
   /// Theming der Einladungsseite vor dem Login.
   final String? tenantBrandingColor;
 
+  /// Logo-URL des einladenden Mandanten (Whitelabel), für die Anzeige auf
+  /// der Einladungsseite vor dem Login.
+  final String? tenantLogoUrl;
+
   factory CustomerInvitePreview.fromJson(Map<String, dynamic> json) => CustomerInvitePreview(
         tenantName: json['tenant_name'] as String,
         customerName: json['customer_name'] as String,
         email: json['email'] as String,
         status: CustomerPortalAccountStatus.fromJson(json['status'] as String),
         tenantBrandingColor: json['tenant_branding_color'] as String?,
+        tenantLogoUrl: json['tenant_logo_url'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -132,6 +138,7 @@ class CustomerInvitePreview {
         'email': email,
         'status': status.toJson(),
         if (tenantBrandingColor != null) 'tenant_branding_color': tenantBrandingColor,
+        if (tenantLogoUrl != null) 'tenant_logo_url': tenantLogoUrl,
       };
 }
 
@@ -160,6 +167,7 @@ class CustomerAuthResponse {
     required this.customerName,
     required this.tenantName,
     this.tenantBrandingColor,
+    this.tenantLogoUrl,
   });
 
   final String token;
@@ -168,12 +176,16 @@ class CustomerAuthResponse {
   final String tenantName;
   final String? tenantBrandingColor;
 
+  /// Logo-URL des Mandanten (Whitelabel), für die Anzeige in der Kunden-App.
+  final String? tenantLogoUrl;
+
   factory CustomerAuthResponse.fromJson(Map<String, dynamic> json) => CustomerAuthResponse(
         token: json['token'] as String,
         account: CustomerPortalAccount.fromJson(json['account'] as Map<String, dynamic>),
         customerName: json['customer_name'] as String,
         tenantName: json['tenant_name'] as String,
         tenantBrandingColor: json['tenant_branding_color'] as String?,
+        tenantLogoUrl: json['tenant_logo_url'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -182,5 +194,6 @@ class CustomerAuthResponse {
         'customer_name': customerName,
         'tenant_name': tenantName,
         if (tenantBrandingColor != null) 'tenant_branding_color': tenantBrandingColor,
+        if (tenantLogoUrl != null) 'tenant_logo_url': tenantLogoUrl,
       };
 }

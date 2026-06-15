@@ -17,6 +17,7 @@ import '../screens/suppliers_screen.dart';
 import '../screens/time_entries_screen.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import 'tenant_logo.dart';
 
 /// Module der User-App, wie sie in der Sidebar-Navigation des
 /// "Craft-Trade ERP System"-Mockups erscheinen.
@@ -233,10 +234,19 @@ class _Sidebar extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-              child: Text(
-                auth.tenant?.name ?? 'saasERP',
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (auth.tenant?.logoUrl != null) ...[
+                    TenantLogo(logoUrl: auth.tenant?.logoUrl, height: 40),
+                    const SizedBox(height: 8),
+                  ],
+                  Text(
+                    auth.tenant?.name ?? 'saasERP',
+                    style: Theme.of(context).textTheme.titleLarge,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
             Expanded(

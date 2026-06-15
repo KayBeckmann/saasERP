@@ -69,6 +69,7 @@ Future<Response> onRequest(RequestContext context, String token) async {
     customerName: customer.name,
     tenantName: tenant.name,
     tenantBrandingColor: tenant.brandingColor,
+    tenantLogoUrl: tenant.logoUrl,
   );
   return Response.json(body: response.toJson());
 }

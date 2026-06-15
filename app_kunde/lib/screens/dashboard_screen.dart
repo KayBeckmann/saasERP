@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../formatting.dart';
 import '../state/auth_controller.dart';
 import '../widgets/status_chip.dart';
+import '../widgets/tenant_logo.dart';
 import 'documents_screen.dart';
 import 'invoice_detail_screen.dart';
 import 'maintenance_contract_detail_screen.dart';
@@ -46,7 +47,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(auth.tenantName ?? 'Kundenportal'),
+        title: Row(
+          children: [
+            if (auth.tenantLogoUrl != null) ...[
+              TenantLogo(logoUrl: auth.tenantLogoUrl, height: 28),
+              const SizedBox(width: 12),
+            ],
+            Expanded(child: Text(auth.tenantName ?? 'Kundenportal', overflow: TextOverflow.ellipsis)),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.folder_outlined),

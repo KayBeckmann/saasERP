@@ -24,6 +24,7 @@ class AuthController extends ChangeNotifier {
   String? customerName;
   String? tenantName;
   String? tenantBrandingColor;
+  String? tenantLogoUrl;
   String? errorMessage;
   bool isLoading = false;
 
@@ -83,6 +84,7 @@ class AuthController extends ChangeNotifier {
     customerName = response.customerName;
     tenantName = response.tenantName;
     tenantBrandingColor = response.tenantBrandingColor;
+    tenantLogoUrl = response.tenantLogoUrl;
   }
 
   Future<void> logout() async {
@@ -92,6 +94,7 @@ class AuthController extends ChangeNotifier {
     customerName = null;
     tenantName = null;
     tenantBrandingColor = null;
+    tenantLogoUrl = null;
     status = AuthStatus.unauthenticated;
     notifyListeners();
   }

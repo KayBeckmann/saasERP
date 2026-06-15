@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/tenant_logo.dart';
 import 'login_screen.dart';
 
 /// Aufgerufen über `/invite/<token>` — Endkunde sieht eine Vorschau seiner
@@ -100,6 +101,10 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (preview.tenantLogoUrl != null) ...[
+                          Center(child: TenantLogo(logoUrl: preview.tenantLogoUrl, height: 48)),
+                          const SizedBox(height: 16),
+                        ],
                         Text(
                           'Willkommen bei ${preview.tenantName}',
                           style: Theme.of(context).textTheme.headlineSmall,
