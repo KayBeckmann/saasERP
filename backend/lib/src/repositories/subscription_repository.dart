@@ -90,6 +90,30 @@ class SubscriptionRepository {
     return _fromRow(result.first.toColumnMap());
   }
 
+  /// Kündigt ein aktives Abo zum Stichtag [cancelledAt] — Status-Guard in der
+  /// WHERE-Klausel: nur Abos mit `status = 'active'` werden gekündigt, sonst
+  /// liefert die Query keine Zeile und die Methode `null` (→ 404 in der Route).
+  Future<Subscription?> cancel({
+    required String tenantId,
+    required String id,
+    required DateTime cancelledAt,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        "UPDATE subscriptions SET status = 'cancelled', cancelled_at = @cancelled_at "
+        "WHERE tenant_id = @tenant_id AND id = @id AND status = 'active' "
+        'RETURNING $_columns',
+      ),
+      parameters: {
+        'tenant_id': tenantId,
+        'id': id,
+        'cancelled_at': cancelledAt,
+      },
+    );
+    if (result.isEmpty) return null;
+    return _fromRow(result.first.toColumnMap());
+  }
+
   Subscription _fromRow(Map<String, dynamic> row) => Subscription(
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,

@@ -71,12 +71,19 @@ class Subscription {
   }
 
   /// Vertragsstrafe gemäß Formel `Strafe = maximale Strafe ×
-  /// Restlaufzeit/Laufzeit`, bezogen auf [cancelledAt]. Liefert 0, wenn das
-  /// Abo nicht gekündigt ist oder keine Laufzeit hinterlegt ist.
+  /// Restlaufzeit/Laufzeit`, bezogen auf den Stichtag [date]. Liefert 0, wenn
+  /// keine Laufzeit hinterlegt ist.
+  double penaltyAt(DateTime date) {
+    if (termMonths <= 0) return 0;
+    return maxPenalty * remainingMonths(date) / termMonths;
+  }
+
+  /// Vertragsstrafe bezogen auf [cancelledAt]. Liefert 0, wenn das Abo nicht
+  /// gekündigt ist.
   double get penalty {
     final cancellationDate = cancelledAt;
-    if (cancellationDate == null || termMonths <= 0) return 0;
-    return maxPenalty * remainingMonths(cancellationDate) / termMonths;
+    if (cancellationDate == null) return 0;
+    return penaltyAt(cancellationDate);
   }
 
   factory Subscription.fromJson(Map<String, dynamic> json) => Subscription(
@@ -109,6 +116,35 @@ class Subscription {
         'cancelled_at': cancelledAt != null ? _dateOnly(cancelledAt!) : null,
         'notes': notes,
         'created_at': createdAt.toIso8601String(),
+      };
+}
+
+/// Beleg/Übersicht zu einer Kündigung — Ergebnis des
+/// Kündigungs-Workflows (`POST .../subscriptions/<id>/cancel`). Enthält das
+/// aktualisierte Abo sowie die zum Kündigungszeitpunkt berechnete
+/// Restlaufzeit und Vertragsstrafe, sodass der Plattform-Admin die
+/// Berechnung nachvollziehen kann.
+class SubscriptionCancellationStatement {
+  const SubscriptionCancellationStatement({
+    required this.subscription,
+    required this.remainingMonths,
+    required this.penalty,
+  });
+
+  final Subscription subscription;
+  final int remainingMonths;
+  final double penalty;
+
+  factory SubscriptionCancellationStatement.fromJson(Map<String, dynamic> json) => SubscriptionCancellationStatement(
+        subscription: Subscription.fromJson(json['subscription'] as Map<String, dynamic>),
+        remainingMonths: json['remaining_months'] as int,
+        penalty: (json['penalty'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'subscription': subscription.toJson(),
+        'remaining_months': remainingMonths,
+        'penalty': penalty,
       };
 }
 
