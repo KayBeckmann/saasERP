@@ -39,6 +39,7 @@ dependencies:
   provider: ^6.1.0
   shared_preferences: ^2.3.0
   printing: ^5.13.0
+  file_picker: ^8.1.2
   saaserp_shared:
     path: ../shared
 

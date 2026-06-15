@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../formatting.dart';
 import '../state/auth_controller.dart';
 import '../widgets/status_chip.dart';
+import 'documents_screen.dart';
 import 'invoice_detail_screen.dart';
 import 'maintenance_contract_detail_screen.dart';
 import 'quote_detail_screen.dart';
@@ -47,6 +48,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: Text(auth.tenantName ?? 'Kundenportal'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.folder_outlined),
+            tooltip: 'Dokumente',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DocumentsScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Abmelden',

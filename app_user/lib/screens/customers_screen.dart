@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -10,6 +11,13 @@ import '../widgets/app_shell.dart';
 
 String _formatDateTime(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+
+/// Dateigröße in B/KB/MB (Dokumentenablage).
+String _formatFileSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
 
 /// Kundenliste des aktuellen Mandanten — Freitext-first: nur `name` ist
 /// Pflicht, alle anderen Felder sind optional und wachsen organisch.
@@ -73,6 +81,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
     );
   }
 
+  Future<void> _openDocuments(Customer customer) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _CustomerDocumentsDialog(customer: customer),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppShell(
@@ -90,7 +105,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           final customers = snapshot.data!;
           return AppDataTable(
             emptyLabel: 'Noch keine Kunden angelegt.',
-            trailingWidth: 96,
+            trailingWidth: 136,
             columns: const [
               AppDataColumn('Name', flex: 3),
               AppDataColumn('Kundennummer', flex: 2),
@@ -112,6 +127,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         icon: const Icon(Icons.badge_outlined),
                         tooltip: 'Kundenzugang',
                         onPressed: () => _openPortalAccess(customer),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.folder_outlined),
+                        tooltip: 'Dokumente',
+                        onPressed: () => _openDocuments(customer),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
@@ -512,6 +532,112 @@ class _CustomerPortalAccessDialogState extends State<_CustomerPortalAccessDialog
             );
           },
         ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Schließen'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Vom Kunden im Kundenportal hochgeladene Dokumente (Fotos, Pläne,
+/// Vollmachten) — Ansicht für den Mandanten, read-only.
+class _CustomerDocumentsDialog extends StatefulWidget {
+  const _CustomerDocumentsDialog({required this.customer});
+
+  final Customer customer;
+
+  @override
+  State<_CustomerDocumentsDialog> createState() => _CustomerDocumentsDialogState();
+}
+
+class _CustomerDocumentsDialogState extends State<_CustomerDocumentsDialog> {
+  late Future<List<DocumentSummary>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<DocumentSummary>> _load() {
+    final auth = context.read<AuthController>();
+    return auth.apiClient.listCustomerDocuments(token: auth.token!, customerId: widget.customer.id);
+  }
+
+  Future<void> _view(DocumentSummary document) async {
+    final auth = context.read<AuthController>();
+    try {
+      final bytes = await auth.apiClient.getDocument(token: auth.token!, documentId: document.id);
+      if (!mounted) return;
+
+      if (document.contentType == 'application/pdf') {
+        await Printing.layoutPdf(onLayout: (_) async => bytes, name: document.filename);
+        return;
+      }
+      if (document.contentType.startsWith('image/')) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => Dialog(child: InteractiveViewer(child: Image.memory(bytes))),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vorschau für diesen Dateityp wird nicht unterstützt.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Dokumente — ${widget.customer.name}'),
+      content: SizedBox(
+        width: 420,
+        child: FutureBuilder<List<DocumentSummary>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()));
+            }
+            if (snapshot.hasError) {
+              return Text('Fehler: ${snapshot.error}');
+            }
+
+            final documents = snapshot.data!;
+            if (documents.isEmpty) {
+              return const Text('Der Kunde hat noch keine Dokumente hochgeladen.');
+            }
+            return SizedBox(
+              height: 320,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final document in documents)
+                    ListTile(
+                      leading: const Icon(Icons.insert_drive_file_outlined),
+                      title: Text(document.filename),
+                      subtitle: Text(
+                        [
+                          _formatFileSize(document.sizeBytes),
+                          _formatDateTime(document.createdAt),
+                          if (document.description != null && document.description!.trim().isNotEmpty)
+                            document.description!,
+                        ].join(' · '),
+                      ),
+                      onTap: () => _view(document),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+      actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('Schließen'),

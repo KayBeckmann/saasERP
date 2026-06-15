@@ -103,6 +103,72 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  /// Eigene Dokumente (Fotos, Pläne, Vollmachten) — Metadaten ohne Inhalt.
+  Future<List<DocumentSummary>> listDocuments(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/customer-portal/documents'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['documents'] as List)
+        .map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Neues Dokument hochladen — [content] wird Base64-kodiert übertragen.
+  Future<DocumentSummary> uploadDocument({
+    required String token,
+    required String filename,
+    required String contentType,
+    required Uint8List content,
+    String? description,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/customer-portal/documents'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(
+        CreateDocumentRequest(
+          filename: filename,
+          contentType: contentType,
+          contentBase64: base64Encode(content),
+          description: description,
+        ).toJson(),
+      ),
+    );
+    return DocumentSummary.fromJson(_decode(response));
+  }
+
+  /// Eigenes Dokument herunterladen.
+  Future<Uint8List> getDocument({required String token, required String documentId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/customer-portal/documents/$documentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
+  }
+
+  /// Eigenes Dokument löschen.
+  Future<void> deleteDocument({required String token, required String documentId}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/customer-portal/documents/$documentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode >= 400) {

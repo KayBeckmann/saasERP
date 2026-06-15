@@ -126,6 +126,35 @@ class ApiClient {
         .toList();
   }
 
+  /// Vom Kunden im Kundenportal hochgeladene Dokumente (Fotos, Pläne,
+  /// Vollmachten) — Metadaten ohne Inhalt.
+  Future<List<DocumentSummary>> listCustomerDocuments({required String token, required String customerId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/customers/$customerId/documents'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['documents'] as List)
+        .map((e) => DocumentSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Dokument eines Kunden herunterladen.
+  Future<Uint8List> getDocument({required String token, required String documentId}) async {
+    final response = await _httpClient.get(
+      _uri('/api/documents/$documentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Future<Customer> createCustomer({
     required String token,
     required CreateCustomerRequest req,

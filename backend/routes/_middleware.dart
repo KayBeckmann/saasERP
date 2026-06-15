@@ -5,6 +5,7 @@ import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/customer_portal_account_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/dashboard_repository.dart';
+import 'package:backend/src/repositories/document_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/maintenance_contract_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
@@ -46,6 +47,7 @@ final _purchaseOrderRepository = PurchaseOrderRepository(_pool, _numberSequenceR
 final _projectRepository = ProjectRepository(_pool, _numberSequenceRepository);
 final _projectTransactionRepository = ProjectTransactionRepository(_pool);
 final _maintenanceContractRepository = MaintenanceContractRepository(_pool, _numberSequenceRepository);
+final _documentRepository = DocumentRepository(_pool);
 final _dashboardRepository = DashboardRepository(
   _quoteRepository,
   _orderRepository,
@@ -79,6 +81,7 @@ Handler middleware(Handler handler) {
       .use(provider<ProjectRepository>((_) => _projectRepository))
       .use(provider<ProjectTransactionRepository>((_) => _projectTransactionRepository))
       .use(provider<MaintenanceContractRepository>((_) => _maintenanceContractRepository))
+      .use(provider<DocumentRepository>((_) => _documentRepository))
       .use(provider<DashboardRepository>((_) => _dashboardRepository));
 }
 

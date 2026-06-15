@@ -9,6 +9,13 @@ String formatDate(DateTime date) =>
 /// Geldbetrag mit zwei Nachkommastellen und Euro-Symbol.
 String formatAmount(double value) => '${value.toStringAsFixed(2)} €';
 
+/// Dateigröße in B/KB/MB (Kundenportal-Dokumentenablage).
+String formatFileSize(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+}
+
 String quoteStatusLabel(QuoteStatus status) => switch (status) {
       QuoteStatus.draft => 'Entwurf',
       QuoteStatus.sent => 'Versendet',
