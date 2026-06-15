@@ -65,6 +65,23 @@ class UserRepository {
     return _userFromRow(result.first.toColumnMap());
   }
 
+  /// E-Mail-Adresse des Inhabers (`role = 'owner'`) eines Mandanten — für
+  /// Benachrichtigungen über Status-Änderungen (z. B. Kundenentscheidung zu
+  /// einem Angebot). `null`, falls kein Owner-Zugang existiert.
+  Future<String?> findOwnerEmail(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT u.email FROM users u '
+        'JOIN user_tenant_access uta ON uta.user_id = u.id '
+        "WHERE uta.tenant_id = @tenant_id AND uta.role = 'owner' "
+        'ORDER BY u.created_at ASC LIMIT 1',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    if (result.isEmpty) return null;
+    return result.first.toColumnMap()['email'] as String;
+  }
+
   AppUser _userFromRow(Map<String, dynamic> row) => AppUser(
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,

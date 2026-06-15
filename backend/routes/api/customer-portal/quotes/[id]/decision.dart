@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/customer_portal_account_repository.dart';
 import 'package:backend/src/repositories/quote_repository.dart';
 import 'package:backend/src/request_auth.dart';
@@ -57,5 +59,9 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (quote == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
+
+  final notificationService = context.read<NotificationService>();
+  unawaited(notificationService.notifyOwnerQuoteDecision(tenantId: auth.tenantId, quote: quote));
+
   return Response.json(body: quote.toJson());
 }

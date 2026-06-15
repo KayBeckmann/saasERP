@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/quote_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -46,10 +48,17 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
+    final existing = await quoteRepository.findById(tenantId: auth.tenantId, id: id);
     final quote = await quoteRepository.update(tenantId: auth.tenantId, id: id, req: req);
     if (quote == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
+
+    if (quote.status == QuoteStatus.sent && existing?.status != QuoteStatus.sent) {
+      final notificationService = context.read<NotificationService>();
+      unawaited(notificationService.notifyCustomerNewQuote(tenantId: auth.tenantId, quote: quote));
+    }
+
     return Response.json(body: quote.toJson());
   }
 

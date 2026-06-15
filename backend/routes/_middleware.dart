@@ -1,6 +1,8 @@
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
+import 'package:backend/src/email_service.dart';
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/customer_portal_account_repository.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
@@ -28,6 +30,7 @@ import 'package:postgres/postgres.dart';
 final _config = AppConfig.fromEnvironment();
 final _pool = createDbPool(_config);
 final _authService = AuthService(_config);
+final _emailService = EmailService(_config);
 final _tenantRepository = TenantRepository(_pool);
 final _userRepository = UserRepository(_pool);
 final _tenantAccessRepository = TenantAccessRepository(_pool);
@@ -36,6 +39,13 @@ final _tenantEncryptionService = TenantEncryptionService(_config, _tenantEncrypt
 final _numberSequenceRepository = NumberSequenceRepository(_pool);
 final _customerRepository = CustomerRepository(_pool, _tenantEncryptionService, _numberSequenceRepository);
 final _customerPortalAccountRepository = CustomerPortalAccountRepository(_pool, _config);
+final _notificationService = NotificationService(
+  emailService: _emailService,
+  tenantRepository: _tenantRepository,
+  customerRepository: _customerRepository,
+  portalAccountRepository: _customerPortalAccountRepository,
+  userRepository: _userRepository,
+);
 final _supplierRepository = SupplierRepository(_pool, _tenantEncryptionService);
 final _articleRepository = ArticleRepository(_pool);
 final _productRepository = ProductRepository(_pool);
@@ -62,6 +72,8 @@ Handler middleware(Handler handler) {
       .use(provider<AppConfig>((_) => _config))
       .use(provider<Pool<void>>((_) => _pool))
       .use(provider<AuthService>((_) => _authService))
+      .use(provider<EmailService>((_) => _emailService))
+      .use(provider<NotificationService>((_) => _notificationService))
       .use(provider<TenantRepository>((_) => _tenantRepository))
       .use(provider<UserRepository>((_) => _userRepository))
       .use(provider<TenantAccessRepository>((_) => _tenantAccessRepository))

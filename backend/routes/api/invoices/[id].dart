@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -46,10 +48,17 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
+    final existing = await invoiceRepository.findById(tenantId: auth.tenantId, id: id);
     final invoice = await invoiceRepository.update(tenantId: auth.tenantId, id: id, req: req);
     if (invoice == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
+
+    if (invoice.status == InvoiceStatus.sent && existing?.status != InvoiceStatus.sent) {
+      final notificationService = context.read<NotificationService>();
+      unawaited(notificationService.notifyCustomerNewInvoice(tenantId: auth.tenantId, invoice: invoice));
+    }
+
     return Response.json(body: invoice.toJson());
   }
 
