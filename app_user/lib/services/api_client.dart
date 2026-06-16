@@ -499,6 +499,22 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  Future<Uint8List> getPurchaseOrderPdf(
+      {required String token, required String id}) async {
+    final response = await _httpClient.get(
+      _uri('/api/purchase-orders/$id/pdf'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(
+        response.statusCode,
+        (json['message'] ?? json['error'] ?? 'unknown_error').toString(),
+      );
+    }
+    return response.bodyBytes;
+  }
+
   Future<List<Order>> listOrders(String token) async {
     final response = await _httpClient.get(
       _uri('/api/orders'),

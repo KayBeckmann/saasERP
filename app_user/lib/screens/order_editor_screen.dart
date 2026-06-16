@@ -4,21 +4,10 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../theme.dart';
 import '../widgets/invoice_conversion_dialog.dart';
+import '../widgets/material_invoice_dialog.dart';
 
-/// Anlegen/Bearbeiten eines Auftrags: Stammdaten (Kunde, Titel, Status,
-/// Notizen) plus Positions-Editor (Freitext, Artikel, Produkt, Stunden)
-/// mit Live-Summen — analog zu `QuoteEditorScreen`.
-class OrderEditorScreen extends StatefulWidget {
-  const OrderEditorScreen({super.key, this.order});
-
-  final Order? order;
-
-  @override
-  State<OrderEditorScreen> createState() => _OrderEditorScreenState();
-}
-
-/// Hält die Eingaben einer einzelnen Auftragsposition.
 class _ItemDraft {
   _ItemDraft({
     required this.kind,
@@ -29,13 +18,11 @@ class _ItemDraft {
     String unit = '',
     double unitPrice = 0,
     double vatRate = 19.0,
-    String groupLabel = '',
   })  : descriptionController = TextEditingController(text: description),
-        quantityController = TextEditingController(text: _formatNumber(quantity)),
+        quantityController = TextEditingController(text: _fmt(quantity)),
         unitController = TextEditingController(text: unit),
-        unitPriceController = TextEditingController(text: _formatNumber(unitPrice)),
-        vatRateController = TextEditingController(text: _formatNumber(vatRate)),
-        groupLabelController = TextEditingController(text: groupLabel);
+        unitPriceController = TextEditingController(text: _fmt(unitPrice)),
+        vatRateController = TextEditingController(text: _fmt(vatRate));
 
   factory _ItemDraft.fromItem(OrderItem item) => _ItemDraft(
         kind: item.kind,
@@ -46,7 +33,6 @@ class _ItemDraft {
         unit: item.unit ?? '',
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
-        groupLabel: item.groupLabel ?? '',
       );
 
   OrderItemKind kind;
@@ -57,25 +43,20 @@ class _ItemDraft {
   final TextEditingController unitController;
   final TextEditingController unitPriceController;
   final TextEditingController vatRateController;
-  final TextEditingController groupLabelController;
 
-  static String _formatNumber(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  static String _fmt(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
-  double get quantity => double.tryParse(quantityController.text.trim().replaceAll(',', '.')) ?? 0;
-
-  double get unitPrice => double.tryParse(unitPriceController.text.trim().replaceAll(',', '.')) ?? 0;
-
-  double get vatRate => double.tryParse(vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
-
+  double get quantity =>
+      double.tryParse(quantityController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get unitPrice =>
+      double.tryParse(unitPriceController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get vatRate =>
+      double.tryParse(vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
   double get totalNet => quantity * unitPrice;
-
   double get totalGross => totalNet * (1 + vatRate / 100);
 
-  String? get groupLabel =>
-      groupLabelController.text.trim().isEmpty ? null : groupLabelController.text.trim();
-
-  OrderItem toItem() => OrderItem(
+  OrderItem toItem({String? groupLabel}) => OrderItem(
         kind: kind,
         articleId: articleId,
         productId: productId,
@@ -93,8 +74,43 @@ class _ItemDraft {
     unitController.dispose();
     unitPriceController.dispose();
     vatRateController.dispose();
-    groupLabelController.dispose();
   }
+}
+
+class _GroupDraft {
+  _GroupDraft({String title = ''})
+      : titleController = TextEditingController(text: title);
+
+  final TextEditingController titleController;
+  final List<_ItemDraft> items = [];
+
+  String get title => titleController.text.trim();
+  double get totalNet => items.fold(0.0, (s, i) => s + i.totalNet);
+  double get totalGross => items.fold(0.0, (s, i) => s + i.totalGross);
+
+  void dispose() {
+    titleController.dispose();
+    for (final item in items) {
+      item.dispose();
+    }
+  }
+}
+
+typedef _Refs = ({
+  List<Customer> customers,
+  List<Article> articles,
+  List<Product> products,
+  List<Project> projects
+});
+
+/// Anlegen/Bearbeiten eines Auftrags mit Gruppen-Editor nach miniERP-Vorbild.
+class OrderEditorScreen extends StatefulWidget {
+  const OrderEditorScreen({super.key, this.order});
+
+  final Order? order;
+
+  @override
+  State<OrderEditorScreen> createState() => _OrderEditorScreenState();
 }
 
 class _OrderEditorScreenState extends State<OrderEditorScreen> {
@@ -104,11 +120,11 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   String? _customerId;
   String? _projectId;
   OrderStatus _status = OrderStatus.open;
-  final List<_ItemDraft> _items = [];
 
-  late Future<({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects})>
-      _refsFuture;
+  final List<_ItemDraft> _ungrouped = [];
+  final List<_GroupDraft> _groups = [];
 
+  late Future<_Refs> _refsFuture;
   bool _saving = false;
   String? _error;
 
@@ -121,112 +137,76 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     _customerId = o?.customerId;
     _projectId = o?.projectId;
     _status = o?.status ?? OrderStatus.open;
+
     if (o != null) {
-      _items.addAll(o.items.map(_ItemDraft.fromItem));
+      for (final item in o.items) {
+        final label = item.groupLabel;
+        if (label == null || label.isEmpty) {
+          _ungrouped.add(_ItemDraft.fromItem(item));
+        } else {
+          var group = _groups.where((g) => g.title == label).firstOrNull;
+          if (group == null) {
+            group = _GroupDraft(title: label);
+            _groups.add(group);
+          }
+          group.items.add(_ItemDraft.fromItem(item));
+        }
+      }
     }
+
     _refsFuture = _loadReferences();
   }
 
-  Future<({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects})>
-      _loadReferences() async {
+  Future<_Refs> _loadReferences() async {
     final auth = context.read<AuthController>();
     final customers = await auth.apiClient.listCustomers(auth.token!);
     final articles = await auth.apiClient.listArticles(auth.token!);
     final products = await auth.apiClient.listProducts(auth.token!);
     final projects = await auth.apiClient.listProjects(auth.token!);
-    return (customers: customers, articles: articles, products: products, projects: projects);
+    return (
+      customers: customers,
+      articles: articles,
+      products: products,
+      projects: projects
+    );
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
-    for (final item in _items) {
+    for (final item in _ungrouped) {
       item.dispose();
+    }
+    for (final group in _groups) {
+      group.dispose();
     }
     super.dispose();
   }
 
-  double get _totalNet => _items.fold(0, (sum, item) => sum + item.totalNet);
+  double get _totalNet =>
+      _ungrouped.fold(0.0, (s, i) => s + i.totalNet) +
+      _groups.fold(0.0, (s, g) => s + g.totalNet);
 
-  double get _totalGross => _items.fold(0, (sum, item) => sum + item.totalGross);
+  double get _totalGross =>
+      _ungrouped.fold(0.0, (s, i) => s + i.totalGross) +
+      _groups.fold(0.0, (s, g) => s + g.totalGross);
 
-  /// Zwischensummen je [_ItemDraft.groupLabel], in Reihenfolge des ersten
-  /// Auftretens. Positionen ohne Gruppe werden hier nicht aufgeführt.
-  List<OrderGroupSummary> _groupSubtotals() {
-    final byLabel = <String, List<OrderItem>>{};
-    final order = <String>[];
-    for (final item in _items) {
-      final label = item.groupLabel;
-      if (label == null) continue;
-      if (!byLabel.containsKey(label)) {
-        byLabel[label] = [];
-        order.add(label);
-      }
-      byLabel[label]!.add(item.toItem());
-    }
-    return [for (final label in order) OrderGroupSummary(label: label, items: byLabel[label]!)];
-  }
-
-  void _addTextItem() {
-    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.text)));
-  }
-
-  void _addHoursItem() {
-    setState(() => _items.add(_ItemDraft(kind: OrderItemKind.hours, unit: 'h')));
-  }
-
-  void _addArticleItem(List<Article> articles) {
-    if (articles.isEmpty) return;
-    setState(() {
-      final article = articles.first;
-      _items.add(
-        _ItemDraft(
-          kind: OrderItemKind.article,
-          articleId: article.id,
-          description: article.name,
-          unit: article.unit ?? '',
-          unitPrice: article.salePrice ?? 0,
-          vatRate: article.vatRate,
-        ),
-      );
-    });
-  }
-
-  void _addProductItem(List<Product> products) {
-    if (products.isEmpty) return;
-    setState(() {
-      final product = products.first;
-      _items.add(
-        _ItemDraft(
-          kind: OrderItemKind.product,
-          productId: product.id,
-          description: product.name,
-          unitPrice: product.salePrice,
-          vatRate: product.vatRate,
-        ),
-      );
-    });
-  }
-
-  void _removeItem(int index) {
-    setState(() {
-      _items[index].dispose();
-      _items.removeAt(index);
-    });
-  }
+  List<OrderItem> _collectItems() => [
+        ..._ungrouped.map((d) => d.toItem()),
+        for (final group in _groups)
+          for (final item in group.items)
+            item.toItem(groupLabel: group.title.isEmpty ? null : group.title),
+      ];
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() {
       _saving = true;
       _error = null;
     });
 
     final auth = context.read<AuthController>();
-    final items = _items.map((draft) => draft.toItem()).toList();
-
     try {
       if (widget.order == null) {
         await auth.apiClient.createOrder(
@@ -235,8 +215,10 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             customerId: _customerId,
             projectId: _projectId,
             title: _titleController.text.trim(),
-            notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-            items: items,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+            items: _collectItems(),
           ),
         );
       } else {
@@ -248,8 +230,10 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             projectId: _projectId,
             title: _titleController.text.trim(),
             status: _status,
-            notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-            items: items,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+            items: _collectItems(),
           ),
         );
       }
@@ -269,8 +253,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       token: auth.token!,
       orderId: widget.order!.id,
     );
-    if (choice == null) return;
-    if (!mounted) return;
+    if (choice == null || !mounted) return;
 
     try {
       final invoice = await auth.apiClient.convertOrderToInvoice(
@@ -285,9 +268,27 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       );
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
     }
   }
+
+  Future<void> _createMaterialInvoice() async {
+    final auth = context.read<AuthController>();
+    await showMaterialInvoiceDialog(
+      context: context,
+      apiClient: auth.apiClient,
+      token: auth.token!,
+      orderId: widget.order!.id,
+    );
+  }
+
+  String _statusLabel(OrderStatus status) => switch (status) {
+        OrderStatus.open => 'Offen',
+        OrderStatus.inProgress => 'In Bearbeitung',
+        OrderStatus.completed => 'Abgeschlossen',
+        OrderStatus.cancelled => 'Storniert',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -297,15 +298,32 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       appBar: AppBar(
         title: Text(isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag'),
         actions: [
-          if (isEdit)
-            IconButton(
+          if (isEdit) ...[
+            PopupMenuButton<String>(
               icon: const Icon(Icons.receipt_long_outlined),
               tooltip: 'Rechnung erstellen',
-              onPressed: _convertToInvoice,
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'standard',
+                  child: Text('Rechnung erstellen'),
+                ),
+                const PopupMenuItem(
+                  value: 'material',
+                  child: Text('Materialabschlag erstellen'),
+                ),
+              ],
+              onSelected: (value) {
+                if (value == 'standard') _convertToInvoice();
+                if (value == 'material') _createMaterialInvoice();
+              },
             ),
+          ],
           IconButton(
             icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.save_outlined),
             tooltip: 'Speichern',
             onPressed: _saving ? null : _save,
@@ -331,16 +349,17 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (widget.order?.quoteId != null) ...[
-                    Text(
-                      'Erzeugt aus Angebot',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
+                    Text('Erzeugt aus Angebot',
+                        style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: 8),
                   ],
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(labelText: 'Titel *'),
-                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Pflichtfeld' : null,
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                            ? 'Pflichtfeld'
+                            : null,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -350,11 +369,15 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                           initialValue: _customerId,
                           decoration: const InputDecoration(labelText: 'Kunde'),
                           items: [
-                            const DropdownMenuItem<String?>(value: null, child: Text('— kein Kunde —')),
+                            const DropdownMenuItem<String?>(
+                                value: null, child: Text('— kein Kunde —')),
                             for (final customer in refs.customers)
-                              DropdownMenuItem<String?>(value: customer.id, child: Text(customer.name)),
+                              DropdownMenuItem<String?>(
+                                  value: customer.id,
+                                  child: Text(customer.name)),
                           ],
-                          onChanged: (value) => setState(() => _customerId = value),
+                          onChanged: (value) =>
+                              setState(() => _customerId = value),
                         ),
                       ),
                       if (isEdit) ...[
@@ -362,12 +385,16 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                         Expanded(
                           child: DropdownButtonFormField<OrderStatus>(
                             initialValue: _status,
-                            decoration: const InputDecoration(labelText: 'Status'),
+                            decoration:
+                                const InputDecoration(labelText: 'Status'),
                             items: [
                               for (final status in OrderStatus.values)
-                                DropdownMenuItem(value: status, child: Text(_statusLabel(status))),
+                                DropdownMenuItem(
+                                    value: status,
+                                    child: Text(_statusLabel(status))),
                             ],
-                            onChanged: (value) => setState(() => _status = value ?? OrderStatus.open),
+                            onChanged: (value) => setState(
+                                () => _status = value ?? OrderStatus.open),
                           ),
                         ),
                       ],
@@ -378,11 +405,13 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                     initialValue: _projectId,
                     decoration: const InputDecoration(labelText: 'Projekt'),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('— kein Projekt —')),
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('— kein Projekt —')),
                       for (final project in refs.projects)
                         DropdownMenuItem<String?>(
                           value: project.id,
-                          child: Text('${project.projectNumber} · ${project.name}'),
+                          child: Text(
+                              '${project.projectNumber} · ${project.name}'),
                         ),
                     ],
                     onChanged: (value) => setState(() => _projectId = value),
@@ -393,56 +422,20 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                     decoration: const InputDecoration(labelText: 'Notizen'),
                     maxLines: 2,
                   ),
-                  const SizedBox(height: 16),
-                  Text('Positionen', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  for (var i = 0; i < _items.length; i++) _buildItemRow(context, i, refs),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _addTextItem,
-                        icon: const Icon(Icons.notes_outlined),
-                        label: const Text('Freitext'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _addArticleItem(refs.articles),
-                        icon: const Icon(Icons.inventory_2_outlined),
-                        label: const Text('Artikel'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _addProductItem(refs.products),
-                        icon: const Icon(Icons.widgets_outlined),
-                        label: const Text('Produkt'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _addHoursItem,
-                        icon: const Icon(Icons.schedule_outlined),
-                        label: const Text('Stunden'),
-                      ),
-                    ],
+                  const SizedBox(height: 20),
+                  _buildUngroupedSection(context, refs),
+                  const SizedBox(height: 12),
+                  for (var i = 0; i < _groups.length; i++) ...[
+                    _buildGroupCard(context, i, refs),
+                    const SizedBox(height: 12),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        setState(() => _groups.add(_GroupDraft())),
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    label: const Text('Gruppe hinzufügen'),
                   ),
                   const Divider(height: 32),
-                  if (_groupSubtotals().isNotEmpty) ...[
-                    Text('Zwischensummen', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    for (final group in _groupSubtotals())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(group.label!),
-                            Text(
-                              '${group.totalNet.toStringAsFixed(2)} € netto '
-                              '/ ${group.totalGross.toStringAsFixed(2)} € brutto',
-                            ),
-                          ],
-                        ),
-                      ),
-                    const Divider(height: 24),
-                  ],
                   Align(
                     alignment: Alignment.centerRight,
                     child: Column(
@@ -458,7 +451,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 8),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    Text(_error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
                   ],
                 ],
               ),
@@ -469,13 +464,256 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     );
   }
 
+  Widget _buildUngroupedSection(BuildContext context, _Refs refs) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionHeader(context, 'Allgemeine Positionen'),
+          if (_ungrouped.isNotEmpty) ...[
+            const Divider(height: 1),
+            for (var i = 0; i < _ungrouped.length; i++) ...[
+              _buildItemRow(
+                context,
+                _ungrouped[i],
+                () => setState(() {
+                  _ungrouped[i].dispose();
+                  _ungrouped.removeAt(i);
+                }),
+                refs,
+              ),
+              if (i < _ungrouped.length - 1) const Divider(height: 1),
+            ],
+          ],
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: _buildAddButtons(
+              refs,
+              onText: () => setState(
+                  () => _ungrouped.add(_ItemDraft(kind: OrderItemKind.text))),
+              onArticle: refs.articles.isEmpty
+                  ? null
+                  : () {
+                      final a = refs.articles.first;
+                      setState(() => _ungrouped.add(_ItemDraft(
+                            kind: OrderItemKind.article,
+                            articleId: a.id,
+                            description: a.name,
+                            unit: a.unit ?? '',
+                            unitPrice: a.salePrice ?? 0,
+                            vatRate: a.vatRate,
+                          )));
+                    },
+              onProduct: refs.products.isEmpty
+                  ? null
+                  : () {
+                      final p = refs.products.first;
+                      setState(() => _ungrouped.add(_ItemDraft(
+                            kind: OrderItemKind.product,
+                            productId: p.id,
+                            description: p.name,
+                            unitPrice: p.salePrice,
+                            vatRate: p.vatRate,
+                          )));
+                    },
+              onHours: () => setState(() =>
+                  _ungrouped.add(_ItemDraft(kind: OrderItemKind.hours, unit: 'h'))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupCard(BuildContext context, int gi, _Refs refs) {
+    final group = _groups[gi];
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: colorSurfaceContainerLow,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.folder_outlined, size: 18, color: steelBlue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: group.titleController,
+                    decoration: const InputDecoration(
+                      hintText: 'Gruppenname eingeben …',
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  tooltip: 'Gruppe entfernen',
+                  onPressed: () => setState(() {
+                    _groups[gi].dispose();
+                    _groups.removeAt(gi);
+                  }),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+          if (group.items.isNotEmpty) ...[
+            const Divider(height: 1),
+            for (var i = 0; i < group.items.length; i++) ...[
+              _buildItemRow(
+                context,
+                group.items[i],
+                () => setState(() {
+                  group.items[i].dispose();
+                  group.items.removeAt(i);
+                }),
+                refs,
+              ),
+              if (i < group.items.length - 1) const Divider(height: 1),
+            ],
+          ],
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: _buildAddButtons(
+              refs,
+              onText: () => setState(
+                  () => group.items.add(_ItemDraft(kind: OrderItemKind.text))),
+              onArticle: refs.articles.isEmpty
+                  ? null
+                  : () {
+                      final a = refs.articles.first;
+                      setState(() => group.items.add(_ItemDraft(
+                            kind: OrderItemKind.article,
+                            articleId: a.id,
+                            description: a.name,
+                            unit: a.unit ?? '',
+                            unitPrice: a.salePrice ?? 0,
+                            vatRate: a.vatRate,
+                          )));
+                    },
+              onProduct: refs.products.isEmpty
+                  ? null
+                  : () {
+                      final p = refs.products.first;
+                      setState(() => group.items.add(_ItemDraft(
+                            kind: OrderItemKind.product,
+                            productId: p.id,
+                            description: p.name,
+                            unitPrice: p.salePrice,
+                            vatRate: p.vatRate,
+                          )));
+                    },
+              onHours: () => setState(() =>
+                  group.items.add(_ItemDraft(kind: OrderItemKind.hours, unit: 'h'))),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: colorSurfaceContainerLow,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  group.title.isEmpty ? 'Gruppe' : group.title,
+                  style: const TextStyle(
+                      color: colorOnSurfaceVariant, fontSize: 12),
+                ),
+                Text(
+                  '${group.totalNet.toStringAsFixed(2)} € netto',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: colorOnSurface),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String title) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: colorSurfaceContainerLow,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Text(
+        title,
+        style: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(color: colorOnSurfaceVariant),
+      ),
+    );
+  }
+
+  Widget _buildAddButtons(
+    _Refs refs, {
+    required VoidCallback onText,
+    required VoidCallback? onArticle,
+    required VoidCallback? onProduct,
+    required VoidCallback onHours,
+  }) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        TextButton.icon(
+          onPressed: onText,
+          icon: const Icon(Icons.notes_outlined, size: 16),
+          label: const Text('Freitext'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onArticle,
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: const Text('Artikel'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onProduct,
+          icon: const Icon(Icons.widgets_outlined, size: 16),
+          label: const Text('Produkt'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onHours,
+          icon: const Icon(Icons.schedule_outlined, size: 16),
+          label: const Text('Stunden'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+      ],
+    );
+  }
+
   Widget _buildItemRow(
     BuildContext context,
-    int index,
-    ({List<Customer> customers, List<Article> articles, List<Product> products, List<Project> projects}) refs,
+    _ItemDraft item,
+    VoidCallback onRemove,
+    _Refs refs,
   ) {
-    final item = _items[index];
-
     Widget descriptionField;
     switch (item.kind) {
       case OrderItemKind.article:
@@ -487,13 +725,15 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
               DropdownMenuItem(value: article.id, child: Text(article.name)),
           ],
           onChanged: (value) {
+            if (value == null) return;
             final article = refs.articles.firstWhere((a) => a.id == value);
             setState(() {
               item.articleId = value;
               item.descriptionController.text = article.name;
               item.unitController.text = article.unit ?? '';
-              item.unitPriceController.text = _ItemDraft._formatNumber(article.salePrice ?? 0);
-              item.vatRateController.text = _ItemDraft._formatNumber(article.vatRate);
+              item.unitPriceController.text =
+                  _ItemDraft._fmt(article.salePrice ?? 0);
+              item.vatRateController.text = _ItemDraft._fmt(article.vatRate);
             });
           },
         );
@@ -506,12 +746,14 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
               DropdownMenuItem(value: product.id, child: Text(product.name)),
           ],
           onChanged: (value) {
+            if (value == null) return;
             final product = refs.products.firstWhere((p) => p.id == value);
             setState(() {
               item.productId = value;
               item.descriptionController.text = product.name;
-              item.unitPriceController.text = _ItemDraft._formatNumber(product.salePrice);
-              item.vatRateController.text = _ItemDraft._formatNumber(product.vatRate);
+              item.unitPriceController.text =
+                  _ItemDraft._fmt(product.salePrice);
+              item.vatRateController.text = _ItemDraft._fmt(product.vatRate);
             });
           },
         );
@@ -523,81 +765,72 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
         );
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: descriptionField),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Position entfernen',
-                  onPressed: () => _removeItem(index),
-                ),
-              ],
-            ),
-            TextFormField(
-              controller: item.groupLabelController,
-              decoration: const InputDecoration(
-                labelText: 'Gruppe (optional)',
-                hintText: 'z. B. Elektroinstallation — für Zwischensummen',
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: descriptionField),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18),
+                tooltip: 'Position entfernen',
+                onPressed: onRemove,
+                visualDensity: VisualDensity.compact,
               ),
-              onChanged: (_) => setState(() {}),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: item.quantityController,
+                  decoration: const InputDecoration(labelText: 'Menge'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.unitController,
+                  decoration: const InputDecoration(labelText: 'Einheit'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.unitPriceController,
+                  decoration: const InputDecoration(labelText: 'Preis (€)'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.vatRateController,
+                  decoration: const InputDecoration(labelText: 'MwSt. %'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${item.totalNet.toStringAsFixed(2)} € netto',
+              style: const TextStyle(
+                  fontSize: 12, color: colorOnSurfaceVariant),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: item.quantityController,
-                    decoration: const InputDecoration(labelText: 'Menge'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.unitController,
-                    decoration: const InputDecoration(labelText: 'Einheit'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.unitPriceController,
-                    decoration: const InputDecoration(labelText: 'Preis (€)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.vatRateController,
-                    decoration: const InputDecoration(labelText: 'MwSt. %'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-              ],
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text('${item.totalNet.toStringAsFixed(2)} € netto'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
-
-  String _statusLabel(OrderStatus status) => switch (status) {
-        OrderStatus.open => 'Offen',
-        OrderStatus.inProgress => 'In Bearbeitung',
-        OrderStatus.completed => 'Abgeschlossen',
-        OrderStatus.cancelled => 'Storniert',
-      };
 }

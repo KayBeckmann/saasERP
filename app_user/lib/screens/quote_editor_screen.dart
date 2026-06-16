@@ -5,20 +5,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../theme.dart';
 
-/// Anlegen/Bearbeiten eines Angebots: Stammdaten (Kunde, Titel, Gültigkeit,
-/// Status, Notizen) plus Positions-Editor (Freitext, Artikel, Produkt,
-/// Stunden) mit Live-Summen.
-class QuoteEditorScreen extends StatefulWidget {
-  const QuoteEditorScreen({super.key, this.quote});
-
-  final Quote? quote;
-
-  @override
-  State<QuoteEditorScreen> createState() => _QuoteEditorScreenState();
-}
-
-/// Hält die Eingaben einer einzelnen Angebotsposition.
 class _ItemDraft {
   _ItemDraft({
     required this.kind,
@@ -29,13 +17,11 @@ class _ItemDraft {
     String unit = '',
     double unitPrice = 0,
     double vatRate = 19.0,
-    String groupLabel = '',
   })  : descriptionController = TextEditingController(text: description),
-        quantityController = TextEditingController(text: _formatNumber(quantity)),
+        quantityController = TextEditingController(text: _fmt(quantity)),
         unitController = TextEditingController(text: unit),
-        unitPriceController = TextEditingController(text: _formatNumber(unitPrice)),
-        vatRateController = TextEditingController(text: _formatNumber(vatRate)),
-        groupLabelController = TextEditingController(text: groupLabel);
+        unitPriceController = TextEditingController(text: _fmt(unitPrice)),
+        vatRateController = TextEditingController(text: _fmt(vatRate));
 
   factory _ItemDraft.fromItem(QuoteItem item) => _ItemDraft(
         kind: item.kind,
@@ -46,7 +32,6 @@ class _ItemDraft {
         unit: item.unit ?? '',
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
-        groupLabel: item.groupLabel ?? '',
       );
 
   QuoteItemKind kind;
@@ -57,25 +42,20 @@ class _ItemDraft {
   final TextEditingController unitController;
   final TextEditingController unitPriceController;
   final TextEditingController vatRateController;
-  final TextEditingController groupLabelController;
 
-  static String _formatNumber(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+  static String _fmt(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
-  double get quantity => double.tryParse(quantityController.text.trim().replaceAll(',', '.')) ?? 0;
-
-  double get unitPrice => double.tryParse(unitPriceController.text.trim().replaceAll(',', '.')) ?? 0;
-
-  double get vatRate => double.tryParse(vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
-
+  double get quantity =>
+      double.tryParse(quantityController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get unitPrice =>
+      double.tryParse(unitPriceController.text.trim().replaceAll(',', '.')) ?? 0;
+  double get vatRate =>
+      double.tryParse(vatRateController.text.trim().replaceAll(',', '.')) ?? 19.0;
   double get totalNet => quantity * unitPrice;
-
   double get totalGross => totalNet * (1 + vatRate / 100);
 
-  String? get groupLabel =>
-      groupLabelController.text.trim().isEmpty ? null : groupLabelController.text.trim();
-
-  QuoteItem toItem() => QuoteItem(
+  QuoteItem toItem({String? groupLabel}) => QuoteItem(
         kind: kind,
         articleId: articleId,
         productId: productId,
@@ -93,8 +73,44 @@ class _ItemDraft {
     unitController.dispose();
     unitPriceController.dispose();
     vatRateController.dispose();
-    groupLabelController.dispose();
   }
+}
+
+class _GroupDraft {
+  _GroupDraft({String title = ''})
+      : titleController = TextEditingController(text: title);
+
+  final TextEditingController titleController;
+  final List<_ItemDraft> items = [];
+
+  String get title => titleController.text.trim();
+  double get totalNet => items.fold(0.0, (s, i) => s + i.totalNet);
+  double get totalGross => items.fold(0.0, (s, i) => s + i.totalGross);
+
+  void dispose() {
+    titleController.dispose();
+    for (final item in items) {
+      item.dispose();
+    }
+  }
+}
+
+typedef _Refs = ({
+  List<Customer> customers,
+  List<Article> articles,
+  List<Product> products
+});
+
+/// Anlegen/Bearbeiten eines Angebots mit Gruppen-Editor nach miniERP-Vorbild:
+/// Gruppen sind eigenständige Karten mit editierbarem Titel und
+/// per-Gruppe-Aktionsbuttons. Allgemeine Positionen bilden die erste Karte.
+class QuoteEditorScreen extends StatefulWidget {
+  const QuoteEditorScreen({super.key, this.quote});
+
+  final Quote? quote;
+
+  @override
+  State<QuoteEditorScreen> createState() => _QuoteEditorScreenState();
 }
 
 class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
@@ -104,10 +120,11 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   String? _customerId;
   QuoteStatus _status = QuoteStatus.draft;
   DateTime? _validUntil;
-  final List<_ItemDraft> _items = [];
 
-  late Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _refsFuture;
+  final List<_ItemDraft> _ungrouped = [];
+  final List<_GroupDraft> _groups = [];
 
+  late Future<_Refs> _refsFuture;
   bool _saving = false;
   String? _error;
 
@@ -120,13 +137,27 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     _customerId = q?.customerId;
     _status = q?.status ?? QuoteStatus.draft;
     _validUntil = q?.validUntil;
+
     if (q != null) {
-      _items.addAll(q.items.map(_ItemDraft.fromItem));
+      for (final item in q.items) {
+        final label = item.groupLabel;
+        if (label == null || label.isEmpty) {
+          _ungrouped.add(_ItemDraft.fromItem(item));
+        } else {
+          var group = _groups.where((g) => g.title == label).firstOrNull;
+          if (group == null) {
+            group = _GroupDraft(title: label);
+            _groups.add(group);
+          }
+          group.items.add(_ItemDraft.fromItem(item));
+        }
+      }
     }
+
     _refsFuture = _loadReferences();
   }
 
-  Future<({List<Customer> customers, List<Article> articles, List<Product> products})> _loadReferences() async {
+  Future<_Refs> _loadReferences() async {
     final auth = context.read<AuthController>();
     final customers = await auth.apiClient.listCustomers(auth.token!);
     final articles = await auth.apiClient.listArticles(auth.token!);
@@ -138,92 +169,38 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
-    for (final item in _items) {
+    for (final item in _ungrouped) {
       item.dispose();
+    }
+    for (final group in _groups) {
+      group.dispose();
     }
     super.dispose();
   }
 
-  double get _totalNet => _items.fold(0, (sum, item) => sum + item.totalNet);
+  double get _totalNet =>
+      _ungrouped.fold(0.0, (s, i) => s + i.totalNet) +
+      _groups.fold(0.0, (s, g) => s + g.totalNet);
 
-  double get _totalGross => _items.fold(0, (sum, item) => sum + item.totalGross);
+  double get _totalGross =>
+      _ungrouped.fold(0.0, (s, i) => s + i.totalGross) +
+      _groups.fold(0.0, (s, g) => s + g.totalGross);
 
-  /// Zwischensummen je [_ItemDraft.groupLabel], in Reihenfolge des ersten
-  /// Auftretens. Positionen ohne Gruppe werden hier nicht aufgeführt.
-  List<QuoteGroupSummary> _groupSubtotals() {
-    final byLabel = <String, List<QuoteItem>>{};
-    final order = <String>[];
-    for (final item in _items) {
-      final label = item.groupLabel;
-      if (label == null) continue;
-      if (!byLabel.containsKey(label)) {
-        byLabel[label] = [];
-        order.add(label);
-      }
-      byLabel[label]!.add(item.toItem());
-    }
-    return [for (final label in order) QuoteGroupSummary(label: label, items: byLabel[label]!)];
-  }
-
-  void _addTextItem() {
-    setState(() => _items.add(_ItemDraft(kind: QuoteItemKind.text)));
-  }
-
-  void _addHoursItem() {
-    setState(() => _items.add(_ItemDraft(kind: QuoteItemKind.hours, unit: 'h')));
-  }
-
-  void _addArticleItem(List<Article> articles) {
-    if (articles.isEmpty) return;
-    setState(() {
-      final article = articles.first;
-      _items.add(
-        _ItemDraft(
-          kind: QuoteItemKind.article,
-          articleId: article.id,
-          description: article.name,
-          unit: article.unit ?? '',
-          unitPrice: article.salePrice ?? 0,
-          vatRate: article.vatRate,
-        ),
-      );
-    });
-  }
-
-  void _addProductItem(List<Product> products) {
-    if (products.isEmpty) return;
-    setState(() {
-      final product = products.first;
-      _items.add(
-        _ItemDraft(
-          kind: QuoteItemKind.product,
-          productId: product.id,
-          description: product.name,
-          unitPrice: product.salePrice,
-          vatRate: product.vatRate,
-        ),
-      );
-    });
-  }
-
-  void _removeItem(int index) {
-    setState(() {
-      _items[index].dispose();
-      _items.removeAt(index);
-    });
-  }
+  List<QuoteItem> _collectItems() => [
+        ..._ungrouped.map((d) => d.toItem()),
+        for (final group in _groups)
+          for (final item in group.items)
+            item.toItem(groupLabel: group.title.isEmpty ? null : group.title),
+      ];
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() {
       _saving = true;
       _error = null;
     });
 
     final auth = context.read<AuthController>();
-    final items = _items.map((draft) => draft.toItem()).toList();
-
     try {
       if (widget.quote == null) {
         await auth.apiClient.createQuote(
@@ -232,8 +209,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             customerId: _customerId,
             title: _titleController.text.trim(),
             validUntil: _validUntil,
-            notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-            items: items,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+            items: _collectItems(),
           ),
         );
       } else {
@@ -245,8 +224,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             title: _titleController.text.trim(),
             status: _status,
             validUntil: _validUntil,
-            notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
-            items: items,
+            notes: _notesController.text.trim().isEmpty
+                ? null
+                : _notesController.text.trim(),
+            items: _collectItems(),
           ),
         );
       }
@@ -263,37 +244,47 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('In Auftrag wandeln?'),
-        content: Text('Aus Angebot ${widget.quote!.quoteNumber} einen neuen Auftrag erzeugen?'),
+        content: Text(
+            'Aus Angebot ${widget.quote!.quoteNumber} einen neuen Auftrag erzeugen?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Wandeln')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Abbrechen')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Wandeln')),
         ],
       ),
     );
-    if (confirmed != true) return;
-    if (!mounted) return;
+    if (confirmed != true || !mounted) return;
 
     final auth = context.read<AuthController>();
     try {
-      final order = await auth.apiClient.convertQuoteToOrder(token: auth.token!, quoteId: widget.quote!.id);
+      final order = await auth.apiClient.convertQuoteToOrder(
+          token: auth.token!, quoteId: widget.quote!.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Auftrag ${order.orderNumber} erstellt.')),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
     }
   }
 
   Future<void> _showPdf() async {
     final auth = context.read<AuthController>();
     try {
-      final bytes = await auth.apiClient.getQuotePdf(token: auth.token!, id: widget.quote!.id);
-      await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${widget.quote!.quoteNumber}.pdf');
+      final bytes = await auth.apiClient
+          .getQuotePdf(token: auth.token!, id: widget.quote!.id);
+      await Printing.layoutPdf(
+          onLayout: (_) async => bytes,
+          name: '${widget.quote!.quoteNumber}.pdf');
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
     }
   }
 
@@ -306,6 +297,13 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     );
     if (picked != null) setState(() => _validUntil = picked);
   }
+
+  String _statusLabel(QuoteStatus status) => switch (status) {
+        QuoteStatus.draft => 'Entwurf',
+        QuoteStatus.sent => 'Versendet',
+        QuoteStatus.accepted => 'Angenommen',
+        QuoteStatus.rejected => 'Abgelehnt',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -329,7 +327,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
           ],
           IconButton(
             icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.save_outlined),
             tooltip: 'Speichern',
             onPressed: _saving ? null : _save,
@@ -357,16 +358,21 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                   TextFormField(
                     controller: _titleController,
                     decoration: const InputDecoration(labelText: 'Titel *'),
-                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Pflichtfeld' : null,
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty)
+                            ? 'Pflichtfeld'
+                            : null,
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String?>(
                     initialValue: _customerId,
                     decoration: const InputDecoration(labelText: 'Kunde'),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('— kein Kunde —')),
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('— kein Kunde —')),
                       for (final customer in refs.customers)
-                        DropdownMenuItem<String?>(value: customer.id, child: Text(customer.name)),
+                        DropdownMenuItem<String?>(
+                            value: customer.id, child: Text(customer.name)),
                     ],
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
@@ -377,7 +383,8 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                         child: InkWell(
                           onTap: _pickValidUntil,
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Gültig bis'),
+                            decoration:
+                                const InputDecoration(labelText: 'Gültig bis'),
                             child: Text(
                               _validUntil == null
                                   ? '—'
@@ -393,12 +400,16 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                         Expanded(
                           child: DropdownButtonFormField<QuoteStatus>(
                             initialValue: _status,
-                            decoration: const InputDecoration(labelText: 'Status'),
+                            decoration:
+                                const InputDecoration(labelText: 'Status'),
                             items: [
                               for (final status in QuoteStatus.values)
-                                DropdownMenuItem(value: status, child: Text(_statusLabel(status))),
+                                DropdownMenuItem(
+                                    value: status,
+                                    child: Text(_statusLabel(status))),
                             ],
-                            onChanged: (value) => setState(() => _status = value ?? QuoteStatus.draft),
+                            onChanged: (value) => setState(
+                                () => _status = value ?? QuoteStatus.draft),
                           ),
                         ),
                       ],
@@ -410,56 +421,20 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                     decoration: const InputDecoration(labelText: 'Notizen'),
                     maxLines: 2,
                   ),
-                  const SizedBox(height: 16),
-                  Text('Positionen', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  for (var i = 0; i < _items.length; i++) _buildItemRow(context, i, refs),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: _addTextItem,
-                        icon: const Icon(Icons.notes_outlined),
-                        label: const Text('Freitext'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _addArticleItem(refs.articles),
-                        icon: const Icon(Icons.inventory_2_outlined),
-                        label: const Text('Artikel'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _addProductItem(refs.products),
-                        icon: const Icon(Icons.widgets_outlined),
-                        label: const Text('Produkt'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _addHoursItem,
-                        icon: const Icon(Icons.schedule_outlined),
-                        label: const Text('Stunden'),
-                      ),
-                    ],
+                  const SizedBox(height: 20),
+                  _buildUngroupedSection(context, refs),
+                  const SizedBox(height: 12),
+                  for (var i = 0; i < _groups.length; i++) ...[
+                    _buildGroupCard(context, i, refs),
+                    const SizedBox(height: 12),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        setState(() => _groups.add(_GroupDraft())),
+                    icon: const Icon(Icons.create_new_folder_outlined),
+                    label: const Text('Gruppe hinzufügen'),
                   ),
                   const Divider(height: 32),
-                  if (_groupSubtotals().isNotEmpty) ...[
-                    Text('Zwischensummen', style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    for (final group in _groupSubtotals())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(group.label!),
-                            Text(
-                              '${group.totalNet.toStringAsFixed(2)} € netto '
-                              '/ ${group.totalGross.toStringAsFixed(2)} € brutto',
-                            ),
-                          ],
-                        ),
-                      ),
-                    const Divider(height: 24),
-                  ],
                   Align(
                     alignment: Alignment.centerRight,
                     child: Column(
@@ -475,7 +450,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 8),
-                    Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    Text(_error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
                   ],
                 ],
               ),
@@ -486,13 +463,256 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     );
   }
 
+  Widget _buildUngroupedSection(BuildContext context, _Refs refs) {
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _sectionHeader(context, 'Allgemeine Positionen'),
+          if (_ungrouped.isNotEmpty) ...[
+            const Divider(height: 1),
+            for (var i = 0; i < _ungrouped.length; i++) ...[
+              _buildItemRow(
+                context,
+                _ungrouped[i],
+                () => setState(() {
+                  _ungrouped[i].dispose();
+                  _ungrouped.removeAt(i);
+                }),
+                refs,
+              ),
+              if (i < _ungrouped.length - 1) const Divider(height: 1),
+            ],
+          ],
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: _buildAddButtons(
+              refs,
+              onText: () => setState(
+                  () => _ungrouped.add(_ItemDraft(kind: QuoteItemKind.text))),
+              onArticle: refs.articles.isEmpty
+                  ? null
+                  : () {
+                      final a = refs.articles.first;
+                      setState(() => _ungrouped.add(_ItemDraft(
+                            kind: QuoteItemKind.article,
+                            articleId: a.id,
+                            description: a.name,
+                            unit: a.unit ?? '',
+                            unitPrice: a.salePrice ?? 0,
+                            vatRate: a.vatRate,
+                          )));
+                    },
+              onProduct: refs.products.isEmpty
+                  ? null
+                  : () {
+                      final p = refs.products.first;
+                      setState(() => _ungrouped.add(_ItemDraft(
+                            kind: QuoteItemKind.product,
+                            productId: p.id,
+                            description: p.name,
+                            unitPrice: p.salePrice,
+                            vatRate: p.vatRate,
+                          )));
+                    },
+              onHours: () => setState(() =>
+                  _ungrouped.add(_ItemDraft(kind: QuoteItemKind.hours, unit: 'h'))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupCard(BuildContext context, int gi, _Refs refs) {
+    final group = _groups[gi];
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: colorSurfaceContainerLow,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.folder_outlined, size: 18, color: steelBlue),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: group.titleController,
+                    decoration: const InputDecoration(
+                      hintText: 'Gruppenname eingeben …',
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  tooltip: 'Gruppe entfernen',
+                  onPressed: () => setState(() {
+                    _groups[gi].dispose();
+                    _groups.removeAt(gi);
+                  }),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+          if (group.items.isNotEmpty) ...[
+            const Divider(height: 1),
+            for (var i = 0; i < group.items.length; i++) ...[
+              _buildItemRow(
+                context,
+                group.items[i],
+                () => setState(() {
+                  group.items[i].dispose();
+                  group.items.removeAt(i);
+                }),
+                refs,
+              ),
+              if (i < group.items.length - 1) const Divider(height: 1),
+            ],
+          ],
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: _buildAddButtons(
+              refs,
+              onText: () => setState(
+                  () => group.items.add(_ItemDraft(kind: QuoteItemKind.text))),
+              onArticle: refs.articles.isEmpty
+                  ? null
+                  : () {
+                      final a = refs.articles.first;
+                      setState(() => group.items.add(_ItemDraft(
+                            kind: QuoteItemKind.article,
+                            articleId: a.id,
+                            description: a.name,
+                            unit: a.unit ?? '',
+                            unitPrice: a.salePrice ?? 0,
+                            vatRate: a.vatRate,
+                          )));
+                    },
+              onProduct: refs.products.isEmpty
+                  ? null
+                  : () {
+                      final p = refs.products.first;
+                      setState(() => group.items.add(_ItemDraft(
+                            kind: QuoteItemKind.product,
+                            productId: p.id,
+                            description: p.name,
+                            unitPrice: p.salePrice,
+                            vatRate: p.vatRate,
+                          )));
+                    },
+              onHours: () => setState(() =>
+                  group.items.add(_ItemDraft(kind: QuoteItemKind.hours, unit: 'h'))),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: colorSurfaceContainerLow,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  group.title.isEmpty ? 'Gruppe' : group.title,
+                  style: const TextStyle(
+                      color: colorOnSurfaceVariant, fontSize: 12),
+                ),
+                Text(
+                  '${group.totalNet.toStringAsFixed(2)} € netto',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      color: colorOnSurface),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeader(BuildContext context, String title) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: colorSurfaceContainerLow,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Text(
+        title,
+        style: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(color: colorOnSurfaceVariant),
+      ),
+    );
+  }
+
+  Widget _buildAddButtons(
+    _Refs refs, {
+    required VoidCallback onText,
+    required VoidCallback? onArticle,
+    required VoidCallback? onProduct,
+    required VoidCallback onHours,
+  }) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        TextButton.icon(
+          onPressed: onText,
+          icon: const Icon(Icons.notes_outlined, size: 16),
+          label: const Text('Freitext'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onArticle,
+          icon: const Icon(Icons.inventory_2_outlined, size: 16),
+          label: const Text('Artikel'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onProduct,
+          icon: const Icon(Icons.widgets_outlined, size: 16),
+          label: const Text('Produkt'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+        TextButton.icon(
+          onPressed: onHours,
+          icon: const Icon(Icons.schedule_outlined, size: 16),
+          label: const Text('Stunden'),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+        ),
+      ],
+    );
+  }
+
   Widget _buildItemRow(
     BuildContext context,
-    int index,
-    ({List<Customer> customers, List<Article> articles, List<Product> products}) refs,
+    _ItemDraft item,
+    VoidCallback onRemove,
+    _Refs refs,
   ) {
-    final item = _items[index];
-
     Widget descriptionField;
     switch (item.kind) {
       case QuoteItemKind.article:
@@ -504,13 +724,15 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               DropdownMenuItem(value: article.id, child: Text(article.name)),
           ],
           onChanged: (value) {
+            if (value == null) return;
             final article = refs.articles.firstWhere((a) => a.id == value);
             setState(() {
               item.articleId = value;
               item.descriptionController.text = article.name;
               item.unitController.text = article.unit ?? '';
-              item.unitPriceController.text = _ItemDraft._formatNumber(article.salePrice ?? 0);
-              item.vatRateController.text = _ItemDraft._formatNumber(article.vatRate);
+              item.unitPriceController.text =
+                  _ItemDraft._fmt(article.salePrice ?? 0);
+              item.vatRateController.text = _ItemDraft._fmt(article.vatRate);
             });
           },
         );
@@ -523,12 +745,14 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
               DropdownMenuItem(value: product.id, child: Text(product.name)),
           ],
           onChanged: (value) {
+            if (value == null) return;
             final product = refs.products.firstWhere((p) => p.id == value);
             setState(() {
               item.productId = value;
               item.descriptionController.text = product.name;
-              item.unitPriceController.text = _ItemDraft._formatNumber(product.salePrice);
-              item.vatRateController.text = _ItemDraft._formatNumber(product.vatRate);
+              item.unitPriceController.text =
+                  _ItemDraft._fmt(product.salePrice);
+              item.vatRateController.text = _ItemDraft._fmt(product.vatRate);
             });
           },
         );
@@ -540,81 +764,72 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
         );
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: descriptionField),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Position entfernen',
-                  onPressed: () => _removeItem(index),
-                ),
-              ],
-            ),
-            TextFormField(
-              controller: item.groupLabelController,
-              decoration: const InputDecoration(
-                labelText: 'Gruppe (optional)',
-                hintText: 'z. B. Elektroinstallation — für Zwischensummen',
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: descriptionField),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18),
+                tooltip: 'Position entfernen',
+                onPressed: onRemove,
+                visualDensity: VisualDensity.compact,
               ),
-              onChanged: (_) => setState(() {}),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: item.quantityController,
+                  decoration: const InputDecoration(labelText: 'Menge'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.unitController,
+                  decoration: const InputDecoration(labelText: 'Einheit'),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.unitPriceController,
+                  decoration: const InputDecoration(labelText: 'Preis (€)'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextFormField(
+                  controller: item.vatRateController,
+                  decoration: const InputDecoration(labelText: 'MwSt. %'),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${item.totalNet.toStringAsFixed(2)} € netto',
+              style: const TextStyle(
+                  fontSize: 12, color: colorOnSurfaceVariant),
             ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: item.quantityController,
-                    decoration: const InputDecoration(labelText: 'Menge'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.unitController,
-                    decoration: const InputDecoration(labelText: 'Einheit'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.unitPriceController,
-                    decoration: const InputDecoration(labelText: 'Preis (€)'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: item.vatRateController,
-                    decoration: const InputDecoration(labelText: 'MwSt. %'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-              ],
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text('${item.totalNet.toStringAsFixed(2)} € netto'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
-
-  String _statusLabel(QuoteStatus status) => switch (status) {
-        QuoteStatus.draft => 'Entwurf',
-        QuoteStatus.sent => 'Versendet',
-        QuoteStatus.accepted => 'Angenommen',
-        QuoteStatus.rejected => 'Abgelehnt',
-      };
 }

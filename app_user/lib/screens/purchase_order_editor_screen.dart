@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -250,6 +251,22 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
     }
   }
 
+  Future<void> _showPdf() async {
+    final auth = context.read<AuthController>();
+    try {
+      final bytes = await auth.apiClient.getPurchaseOrderPdf(
+          token: auth.token!, id: widget.purchaseOrder!.id);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: '${widget.purchaseOrder!.purchaseOrderNumber}.pdf',
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
+    }
+  }
+
   String _statusLabel(PurchaseOrderStatus status) => switch (status) {
         PurchaseOrderStatus.open => 'Offen',
         PurchaseOrderStatus.ordered => 'Bestellt',
@@ -265,6 +282,12 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
       appBar: AppBar(
         title: Text(isEdit ? 'Bestellung ${widget.purchaseOrder!.purchaseOrderNumber}' : 'Neue Bestellung'),
         actions: [
+          if (isEdit)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: 'PDF',
+              onPressed: _showPdf,
+            ),
           IconButton(
             icon: _saving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))

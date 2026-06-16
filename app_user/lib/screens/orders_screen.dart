@@ -115,11 +115,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return;
     }
 
-    final group = await showPurchaseProposalDialog(context: context, proposals: proposals);
-    if (group == null) return;
+    final selection = await showPurchaseProposalDialog(context: context, proposals: proposals);
+    if (selection == null) return;
     if (!mounted) return;
 
-    final items = group.items
+    final items = selection.items
         .map(
           (item) => PurchaseOrderItem(
             articleId: item.articleId,
@@ -136,7 +136,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       MaterialPageRoute(
         builder: (_) => PurchaseOrderEditorScreen(
           initial: CreatePurchaseOrderRequest(
-            supplierId: group.supplierId,
+            supplierId: selection.supplierId,
             orderId: order.id,
             items: items,
           ),
