@@ -35,15 +35,15 @@ class StatusChip extends StatelessWidget {
   Color _colorFor(StatusTone tone) {
     switch (tone) {
       case StatusTone.success:
-        return const Color(0xFF1E7E34);
+        return const Color(0xFF1B6E35);
       case StatusTone.warning:
-        return const Color(0xFFB07D00);
+        return const Color(0xFF8B5E00);
       case StatusTone.error:
-        return const Color(0xFFC62828);
+        return const Color(0xFFBA1A1A);
       case StatusTone.info:
         return steelBlue;
       case StatusTone.neutral:
-        return const Color(0xFF5F5F5F);
+        return colorOnSurfaceVariant;
     }
   }
 }
