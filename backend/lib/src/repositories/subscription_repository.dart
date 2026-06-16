@@ -9,7 +9,7 @@ class SubscriptionRepository {
 
   final Pool<void> _pool;
 
-  static const _columns = 'id, tenant_id, tier_id, payment_rhythm, term_months, '
+  static const _columns = 'id, tenant_id, tier_id, payment_rhythm, payment_method, term_months, '
       'start_date, end_date, down_payment, max_penalty, status, cancelled_at, notes, created_at';
 
   Future<List<Subscription>> listForTenant(String tenantId) async {
@@ -51,9 +51,9 @@ class SubscriptionRepository {
   Future<Subscription> create({required String tenantId, required CreateSubscriptionRequest req}) async {
     final result = await _pool.execute(
       Sql.named(
-        'INSERT INTO subscriptions (tenant_id, tier_id, payment_rhythm, term_months, '
+        'INSERT INTO subscriptions (tenant_id, tier_id, payment_rhythm, payment_method, term_months, '
         'start_date, end_date, down_payment, max_penalty, notes) '
-        'VALUES (@tenant_id, @tier_id, @payment_rhythm, @term_months, '
+        'VALUES (@tenant_id, @tier_id, @payment_rhythm, @payment_method, @term_months, '
         '@start_date, @end_date, @down_payment, @max_penalty, @notes) '
         'RETURNING $_columns',
       ),
@@ -61,6 +61,7 @@ class SubscriptionRepository {
         'tenant_id': tenantId,
         'tier_id': req.tierId,
         'payment_rhythm': req.paymentRhythm.toJson(),
+        'payment_method': req.paymentMethod.toJson(),
         'term_months': req.termMonths,
         'start_date': req.startDate,
         'end_date': req.endDate,
@@ -80,6 +81,7 @@ class SubscriptionRepository {
     final result = await _pool.execute(
       Sql.named(
         'UPDATE subscriptions SET tier_id = @tier_id, payment_rhythm = @payment_rhythm, '
+        'payment_method = @payment_method, '
         'term_months = @term_months, start_date = @start_date, end_date = @end_date, '
         'down_payment = @down_payment, max_penalty = @max_penalty, status = @status, '
         'cancelled_at = @cancelled_at, notes = @notes '
@@ -91,6 +93,7 @@ class SubscriptionRepository {
         'id': id,
         'tier_id': req.tierId,
         'payment_rhythm': req.paymentRhythm.toJson(),
+        'payment_method': req.paymentMethod.toJson(),
         'term_months': req.termMonths,
         'start_date': req.startDate,
         'end_date': req.endDate,
@@ -157,9 +160,9 @@ class SubscriptionRepository {
 
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO subscriptions (tenant_id, tier_id, payment_rhythm, term_months, '
+          'INSERT INTO subscriptions (tenant_id, tier_id, payment_rhythm, payment_method, term_months, '
           'start_date, end_date, down_payment, max_penalty, notes) '
-          'VALUES (@tenant_id, @tier_id, @payment_rhythm, @term_months, '
+          'VALUES (@tenant_id, @tier_id, @payment_rhythm, @payment_method, @term_months, '
           '@start_date, @end_date, @down_payment, @max_penalty, @notes) '
           'RETURNING $_columns',
         ),
@@ -167,6 +170,7 @@ class SubscriptionRepository {
           'tenant_id': tenantId,
           'tier_id': newTierId,
           'payment_rhythm': old.paymentRhythm.toJson(),
+          'payment_method': old.paymentMethod.toJson(),
           'term_months': old.termMonths,
           'start_date': now,
           'end_date': DateTime(now.year, now.month + old.termMonths, now.day),
@@ -184,6 +188,7 @@ class SubscriptionRepository {
         tenantId: row['tenant_id'] as String,
         tierId: row['tier_id'] as String?,
         paymentRhythm: PaymentRhythm.fromJson(row['payment_rhythm'] as String),
+        paymentMethod: PaymentMethod.fromJson(row['payment_method'] as String),
         termMonths: row['term_months'] as int,
         startDate: (row['start_date'] as DateTime).toUtc(),
         endDate: (row['end_date'] as DateTime).toUtc(),

@@ -15,6 +15,7 @@ export 'src/models/document.dart';
 export 'src/models/invoice.dart';
 export 'src/models/maintenance_contract.dart';
 export 'src/models/order.dart';
+export 'src/models/platform_invoice.dart';
 export 'src/models/price_import.dart';
 export 'src/models/product.dart';
 export 'src/models/project.dart';

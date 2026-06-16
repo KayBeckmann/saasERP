@@ -11,6 +11,36 @@ enum PaymentRhythm {
       );
 }
 
+/// Zahlungsweg eines Abos (M4 — Zahlungsabwicklung).
+enum PaymentMethod {
+  bankTransfer,
+  paypal,
+  sepaDebit;
+
+  String toJson() {
+    switch (this) {
+      case PaymentMethod.bankTransfer:
+        return 'bank_transfer';
+      case PaymentMethod.paypal:
+        return 'paypal';
+      case PaymentMethod.sepaDebit:
+        return 'sepa_debit';
+    }
+  }
+
+  static PaymentMethod fromJson(String value) {
+    switch (value) {
+      case 'paypal':
+        return PaymentMethod.paypal;
+      case 'sepa_debit':
+        return PaymentMethod.sepaDebit;
+      case 'bank_transfer':
+      default:
+        return PaymentMethod.bankTransfer;
+    }
+  }
+}
+
 /// Status eines saasERP-Abos eines Mandanten.
 enum SubscriptionStatus {
   active,
@@ -35,6 +65,7 @@ class Subscription {
     required this.tenantId,
     this.tierId,
     this.paymentRhythm = PaymentRhythm.monthly,
+    this.paymentMethod = PaymentMethod.bankTransfer,
     required this.termMonths,
     required this.startDate,
     required this.endDate,
@@ -50,6 +81,7 @@ class Subscription {
   final String tenantId;
   final String? tierId;
   final PaymentRhythm paymentRhythm;
+  final PaymentMethod paymentMethod;
   final int termMonths;
   final DateTime startDate;
   final DateTime endDate;
@@ -91,6 +123,7 @@ class Subscription {
         tenantId: json['tenant_id'] as String,
         tierId: json['tier_id'] as String?,
         paymentRhythm: PaymentRhythm.fromJson(json['payment_rhythm'] as String),
+        paymentMethod: PaymentMethod.fromJson(json['payment_method'] as String? ?? 'bank_transfer'),
         termMonths: json['term_months'] as int,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
@@ -107,6 +140,7 @@ class Subscription {
         'tenant_id': tenantId,
         'tier_id': tierId,
         'payment_rhythm': paymentRhythm.toJson(),
+        'payment_method': paymentMethod.toJson(),
         'term_months': termMonths,
         'start_date': _dateOnly(startDate),
         'end_date': _dateOnly(endDate),
@@ -154,6 +188,7 @@ class CreateSubscriptionRequest {
   const CreateSubscriptionRequest({
     this.tierId,
     this.paymentRhythm = PaymentRhythm.monthly,
+    this.paymentMethod = PaymentMethod.bankTransfer,
     required this.termMonths,
     required this.startDate,
     required this.endDate,
@@ -164,6 +199,7 @@ class CreateSubscriptionRequest {
 
   final String? tierId;
   final PaymentRhythm paymentRhythm;
+  final PaymentMethod paymentMethod;
   final int termMonths;
   final DateTime startDate;
   final DateTime endDate;
@@ -174,6 +210,7 @@ class CreateSubscriptionRequest {
   factory CreateSubscriptionRequest.fromJson(Map<String, dynamic> json) => CreateSubscriptionRequest(
         tierId: json['tier_id'] as String?,
         paymentRhythm: PaymentRhythm.fromJson(json['payment_rhythm'] as String? ?? 'monthly'),
+        paymentMethod: PaymentMethod.fromJson(json['payment_method'] as String? ?? 'bank_transfer'),
         termMonths: json['term_months'] as int,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
@@ -185,6 +222,7 @@ class CreateSubscriptionRequest {
   Map<String, dynamic> toJson() => {
         'tier_id': tierId,
         'payment_rhythm': paymentRhythm.toJson(),
+        'payment_method': paymentMethod.toJson(),
         'term_months': termMonths,
         'start_date': _dateOnly(startDate),
         'end_date': _dateOnly(endDate),
@@ -200,6 +238,7 @@ class UpdateSubscriptionRequest {
   const UpdateSubscriptionRequest({
     this.tierId,
     this.paymentRhythm = PaymentRhythm.monthly,
+    this.paymentMethod = PaymentMethod.bankTransfer,
     required this.termMonths,
     required this.startDate,
     required this.endDate,
@@ -212,6 +251,7 @@ class UpdateSubscriptionRequest {
 
   final String? tierId;
   final PaymentRhythm paymentRhythm;
+  final PaymentMethod paymentMethod;
   final int termMonths;
   final DateTime startDate;
   final DateTime endDate;
@@ -224,6 +264,7 @@ class UpdateSubscriptionRequest {
   factory UpdateSubscriptionRequest.fromJson(Map<String, dynamic> json) => UpdateSubscriptionRequest(
         tierId: json['tier_id'] as String?,
         paymentRhythm: PaymentRhythm.fromJson(json['payment_rhythm'] as String? ?? 'monthly'),
+        paymentMethod: PaymentMethod.fromJson(json['payment_method'] as String? ?? 'bank_transfer'),
         termMonths: json['term_months'] as int,
         startDate: DateTime.parse(json['start_date'] as String),
         endDate: DateTime.parse(json['end_date'] as String),
@@ -237,6 +278,7 @@ class UpdateSubscriptionRequest {
   Map<String, dynamic> toJson() => {
         'tier_id': tierId,
         'payment_rhythm': paymentRhythm.toJson(),
+        'payment_method': paymentMethod.toJson(),
         'term_months': termMonths,
         'start_date': _dateOnly(startDate),
         'end_date': _dateOnly(endDate),
