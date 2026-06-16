@@ -86,6 +86,40 @@ class NotificationService {
     );
   }
 
+  /// Benachrichtigt den Endkunden im Kundenportal, dass eine Mahnung
+  /// ausgestellt wurde — keine Aktion, falls kein Kunde zugeordnet ist oder
+  /// kein Portal-Zugang existiert (gleiche Guard-Logik wie die anderen
+  /// Customer-Methoden).
+  Future<void> notifyCustomerDunning({required String tenantId, required Invoice invoice}) async {
+    final customerId = invoice.customerId;
+    if (customerId == null) return;
+
+    final account = await _portalAccountRepository.findByCustomerId(
+      tenantId: tenantId,
+      customerId: customerId,
+    );
+    if (account == null) return;
+
+    final tenant = await _tenantRepository.findById(tenantId);
+    final tenantName = tenant?.name ?? 'Ihr Dienstleister';
+
+    final levelLabel = switch (invoice.dunningLevel) {
+      1 => 'Zahlungserinnerung',
+      2 => '1. Mahnung',
+      _ => '2. Mahnung',
+    };
+
+    await _emailService.sendMail(
+      to: account.email,
+      subject: '$levelLabel zu Rechnung ${invoice.invoiceNumber} — $tenantName',
+      text: 'Hallo,\n\n'
+          '$tenantName hat eine $levelLabel für die Rechnung ${invoice.invoiceNumber} ausgestellt.\n\n'
+          'Offener Betrag: ${invoice.totalDue.toStringAsFixed(2)} EUR\n\n'
+          'Bitte loggen Sie sich im Kundenportal ein, um die Rechnung einzusehen.\n\n'
+          'Mit freundlichen Grüßen\n$tenantName',
+    );
+  }
+
   /// Benachrichtigt den Mandanten-Inhaber, wenn ein Endkunde im
   /// Kundenportal über ein Angebot entschieden hat (angenommen/abgelehnt) —
   /// keine Aktion, falls kein Owner-Zugang existiert.

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/request_auth.dart';
@@ -45,5 +48,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (updated == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
+
+  unawaited(context.read<NotificationService>().notifyCustomerDunning(
+        tenantId: auth.tenantId,
+        invoice: updated,
+      ));
+
   return Response.json(body: updated.toJson());
 }
