@@ -44,6 +44,7 @@ final _customerRepository = CustomerRepository(_pool, _tenantEncryptionService, 
 final _customerPortalAccountRepository = CustomerPortalAccountRepository(_pool, _config);
 final _notificationService = NotificationService(
   emailService: _emailService,
+  config: _config,
   tenantRepository: _tenantRepository,
   customerRepository: _customerRepository,
   portalAccountRepository: _customerPortalAccountRepository,

@@ -19,6 +19,7 @@ class AppConfig {
     required this.smtpPassword,
     required this.smtpFrom,
     required this.smtpUseSsl,
+    required this.supportEmail,
   });
 
   factory AppConfig.fromEnvironment() {
@@ -39,6 +40,7 @@ class AppConfig {
       smtpPassword: env['SMTP_PASSWORD'] ?? '',
       smtpFrom: env['SMTP_FROM'] ?? 'noreply@saaserp.local',
       smtpUseSsl: env['SMTP_USE_SSL'] == 'true',
+      supportEmail: env['SUPPORT_EMAIL'] ?? '',
     );
   }
 
@@ -77,4 +79,8 @@ class AppConfig {
 
   /// `true` für direktes SSL/TLS (Port 465), `false` für STARTTLS/Klartext.
   final bool smtpUseSsl;
+
+  /// Ziel-E-Mail-Adresse für Support-Anfragen (`POST /api/support/contact`).
+  /// Leer = Anfragen werden nur geloggt (SMTP-Verhalten analog zu smtpHost).
+  final String supportEmail;
 }

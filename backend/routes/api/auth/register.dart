@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:backend/src/auth_service.dart';
+import 'package:backend/src/notification_service.dart';
 import 'package:backend/src/repositories/subscription_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
@@ -97,6 +99,11 @@ Future<Response> onRequest(RequestContext context) async {
     role: user.role.toJson(),
     isPlatformAdmin: user.isPlatformAdmin,
   );
+
+  unawaited(context.read<NotificationService>().notifyOwnerWelcome(
+        email: user.email,
+        companyName: tenant.name,
+      ));
 
   final response = AuthResponse(token: token, user: user, tenant: tenant);
   return Response.json(statusCode: 201, body: response.toJson());

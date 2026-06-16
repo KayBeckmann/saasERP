@@ -1,5 +1,6 @@
 import 'package:saaserp_shared/saaserp_shared.dart';
 
+import 'config.dart';
 import 'email_service.dart';
 import 'repositories/customer_portal_account_repository.dart';
 import 'repositories/customer_repository.dart';
@@ -16,17 +17,20 @@ import 'repositories/user_repository.dart';
 class NotificationService {
   NotificationService({
     required EmailService emailService,
+    required AppConfig config,
     required TenantRepository tenantRepository,
     required CustomerRepository customerRepository,
     required CustomerPortalAccountRepository portalAccountRepository,
     required UserRepository userRepository,
   })  : _emailService = emailService,
+        _config = config,
         _tenantRepository = tenantRepository,
         _customerRepository = customerRepository,
         _portalAccountRepository = portalAccountRepository,
         _userRepository = userRepository;
 
   final EmailService _emailService;
+  final AppConfig _config;
   final TenantRepository _tenantRepository;
   final CustomerRepository _customerRepository;
   final CustomerPortalAccountRepository _portalAccountRepository;
@@ -117,6 +121,44 @@ class NotificationService {
           'Offener Betrag: ${invoice.totalDue.toStringAsFixed(2)} EUR\n\n'
           'Bitte loggen Sie sich im Kundenportal ein, um die Rechnung einzusehen.\n\n'
           'Mit freundlichen Grüßen\n$tenantName',
+    );
+  }
+
+  /// Begrüßungs-E-Mail an den Mandanten-Inhaber nach der Registrierung
+  /// (M6 — Onboarding-Funnel). Enthält den App-Link zum direkten Einstieg.
+  Future<void> notifyOwnerWelcome({required String email, required String companyName}) async {
+    await _emailService.sendMail(
+      to: email,
+      subject: 'Willkommen bei saasERP — $companyName ist jetzt dabei!',
+      text: 'Hallo,\n\n'
+          'Ihr Unternehmen "$companyName" ist jetzt bei saasERP registriert.\n\n'
+          'Sie können sich direkt einloggen und loslegen:\n'
+          '${_config.appKundeUrl.replaceFirst(RegExp(r':\d+$'), ':8081')}\n\n'
+          'Bei Fragen stehen wir Ihnen über das Kontaktformular zur Verfügung.\n\n'
+          'Viel Erfolg!\nsaasERP',
+    );
+  }
+
+  /// Leitet eine Support-Anfrage (POST /api/support/contact) an die
+  /// konfigurierte [AppConfig.supportEmail] weiter. Ist [supportEmail] leer,
+  /// wird nur geloggt (analog zu SMTP_HOST leer).
+  Future<void> forwardSupportRequest({
+    required String name,
+    required String email,
+    required String message,
+    String? subject,
+  }) async {
+    final supportEmail = _config.supportEmail;
+    final effectiveSubject = 'Support-Anfrage von $name: ${subject ?? '(kein Betreff)'}';
+    if (supportEmail.isEmpty) {
+      // ignore: avoid_print
+      print('[NotificationService] Support-Anfrage von $email (kein SUPPORT_EMAIL konfiguriert): $effectiveSubject');
+      return;
+    }
+    await _emailService.sendMail(
+      to: supportEmail,
+      subject: effectiveSubject,
+      text: 'Von: $name <$email>\n\n$message',
     );
   }
 

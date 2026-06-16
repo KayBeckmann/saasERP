@@ -40,6 +40,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       SMTP_USE_SSL: ${SMTP_USE_SSL}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
     ports:
       - "${BACKEND_PORT}:8080"
 
