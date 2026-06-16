@@ -157,6 +157,7 @@ class Invoice {
     this.items = const [],
     this.invoiceType = InvoiceType.standard,
     this.priorInvoicedTotal,
+    this.priorInvoices = const [],
     this.dunningLevel = 0,
     this.dunningFeeTotal = 0,
     this.lastDunnedAt,
@@ -180,6 +181,10 @@ class Invoice {
   /// Nur bei [InvoiceType.closingInvoice]: Summe der Bruttobeträge aller
   /// vorherigen, nicht-stornierten Rechnungen desselben Auftrags.
   final double? priorInvoicedTotal;
+
+  /// Nur bei [InvoiceType.closingInvoice]: Liste der Einzel-Vorrechnungen
+  /// (Nummer, Typ, Bruttobetrag) — Grundlage für die Abzugsliste im PDF.
+  final List<PriorInvoiceRef> priorInvoices;
 
   /// Mahnstufe: 0 = noch nicht gemahnt, 1 = Zahlungserinnerung,
   /// 2 = 1. Mahnung, 3 = 2. Mahnung.
@@ -250,6 +255,9 @@ class Invoice {
             .toList(),
         invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
         priorInvoicedTotal: (json['prior_invoiced_total'] as num?)?.toDouble(),
+        priorInvoices: (json['prior_invoices'] as List? ?? [])
+            .map((e) => PriorInvoiceRef.fromJson(e as Map<String, dynamic>))
+            .toList(),
         dunningLevel: (json['dunning_level'] as num?)?.toInt() ?? 0,
         dunningFeeTotal: (json['dunning_fee_total'] as num?)?.toDouble() ?? 0,
         lastDunnedAt: json['last_dunned_at'] == null
@@ -271,9 +279,36 @@ class Invoice {
         'items': items.map((item) => item.toJson()).toList(),
         'invoice_type': invoiceType.toJson(),
         'prior_invoiced_total': priorInvoicedTotal,
+        'prior_invoices': priorInvoices.map((r) => r.toJson()).toList(),
         'dunning_level': dunningLevel,
         'dunning_fee_total': dunningFeeTotal,
         'last_dunned_at': lastDunnedAt?.toIso8601String(),
+      };
+}
+
+/// Kurzreferenz auf eine frühere (Teil-)Rechnung — wird in Schlussrechnungen
+/// als Abzugsliste mitgeliefert.
+class PriorInvoiceRef {
+  const PriorInvoiceRef({
+    required this.invoiceNumber,
+    required this.invoiceType,
+    required this.totalGross,
+  });
+
+  final String invoiceNumber;
+  final InvoiceType invoiceType;
+  final double totalGross;
+
+  factory PriorInvoiceRef.fromJson(Map<String, dynamic> json) => PriorInvoiceRef(
+        invoiceNumber: json['invoice_number'] as String,
+        invoiceType: InvoiceType.fromJson(json['invoice_type'] as String? ?? 'standard'),
+        totalGross: (json['total_gross'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'invoice_number': invoiceNumber,
+        'invoice_type': invoiceType.toJson(),
+        'total_gross': totalGross,
       };
 }
 

@@ -343,6 +343,34 @@ class InvoiceRepository {
     return (result.first.toColumnMap()['total'] as num).toDouble();
   }
 
+  /// Alle nicht-stornierten Vorrechnungen eines Auftrags als Kurzreferenz
+  /// (Nummer, Typ, Bruttobetrag) — Basis für die Abzugsliste in Schlussrechnungen.
+  Future<List<PriorInvoiceRef>> listPriorForOrder({
+    required String tenantId,
+    required String orderId,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT i.invoice_number, i.invoice_type, '
+        'COALESCE(SUM(ii.quantity * ii.unit_price * (1 + ii.vat_rate / 100.0)), 0) AS total_gross '
+        'FROM invoices i '
+        'LEFT JOIN invoice_items ii ON ii.invoice_id = i.id '
+        "WHERE i.tenant_id = @tenant_id AND i.order_id = @order_id AND i.status != 'cancelled' "
+        'GROUP BY i.id, i.invoice_number, i.invoice_type, i.created_at '
+        'ORDER BY i.created_at ASC',
+      ),
+      parameters: {'tenant_id': tenantId, 'order_id': orderId},
+    );
+    return result.map((row) {
+      final m = row.toColumnMap();
+      return PriorInvoiceRef(
+        invoiceNumber: m['invoice_number'] as String,
+        invoiceType: InvoiceType.fromJson(m['invoice_type'] as String),
+        totalGross: (m['total_gross'] as num).toDouble(),
+      );
+    }).toList();
+  }
+
   /// Netto-Summe aller Rechnungspositionen von Rechnungen, die aus Aufträgen
   /// dieses Projekts erzeugt wurden — Einnahmen-Seite der
   /// Projekt-Gewinn/Verlust-Übersicht.

@@ -66,11 +66,14 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   double? priorInvoicedTotal;
+  List<PriorInvoiceRef> priorInvoices = [];
   if (invoiceType == InvoiceType.closingInvoice) {
-    priorInvoicedTotal = await invoiceRepository.sumInvoicedGrossForOrder(
+    priorInvoices = await invoiceRepository.listPriorForOrder(
       tenantId: auth.tenantId,
       orderId: order.id,
     );
+    priorInvoicedTotal = priorInvoices.fold<double>(0.0, (sum, r) => sum + r.totalGross);
+    if (priorInvoicedTotal == 0) priorInvoicedTotal = null;
   }
 
   final req = CreateInvoiceRequest(
@@ -98,5 +101,9 @@ Future<Response> onRequest(RequestContext context, String id) async {
   );
 
   final invoice = await invoiceRepository.create(tenantId: auth.tenantId, req: req, orderId: order.id);
-  return Response.json(statusCode: 201, body: invoice.toJson());
+  final responseJson = invoice.toJson();
+  if (priorInvoices.isNotEmpty) {
+    responseJson['prior_invoices'] = priorInvoices.map((r) => r.toJson()).toList();
+  }
+  return Response.json(statusCode: 201, body: responseJson);
 }

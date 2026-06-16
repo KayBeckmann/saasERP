@@ -88,7 +88,25 @@ Future<Uint8List> buildInvoicePdf({
                   'Gesamt brutto: ${_formatAmount(invoice.totalGross)}',
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 ),
-                if (invoice.priorInvoicedTotal != null)
+                if (invoice.priorInvoices.isNotEmpty) ...[
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Bereits in Rechnung gestellt:',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                  ),
+                  for (final prior in invoice.priorInvoices)
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          '  ${prior.invoiceNumber} '
+                          '(${_invoiceTypeLabel(prior.invoiceType)})',
+                        ),
+                        pw.Text('- ${_formatAmount(prior.totalGross)}'),
+                      ],
+                    ),
+                  pw.Divider(thickness: 0.5),
+                ] else if (invoice.priorInvoicedTotal != null)
                   pw.Text(
                     'Bereits in Rechnung gestellt: ${_formatAmount(invoice.priorInvoicedTotal!)}',
                   ),
@@ -191,3 +209,10 @@ String _formatAmount(double value) => '${value.toStringAsFixed(2)} EUR';
 String _formatNumber(double value) => value == value.roundToDouble()
     ? value.toInt().toString()
     : value.toStringAsFixed(2);
+
+String _invoiceTypeLabel(InvoiceType type) => switch (type) {
+      InvoiceType.standard => 'Rechnung',
+      InvoiceType.partial => 'Materialabschlag',
+      InvoiceType.downPayment => 'Abschlagsrechnung',
+      InvoiceType.closingInvoice => 'Schlussrechnung',
+    };

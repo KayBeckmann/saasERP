@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/closing_invoice_dialog.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 import '../widgets/material_invoice_dialog.dart';
 
@@ -283,6 +284,13 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     );
   }
 
+  Future<void> _createClosingInvoice() async {
+    await showClosingInvoiceDialog(
+      context: context,
+      orderId: widget.order!.id,
+    );
+  }
+
   String _statusLabel(OrderStatus status) => switch (status) {
         OrderStatus.open => 'Offen',
         OrderStatus.inProgress => 'In Bearbeitung',
@@ -311,10 +319,15 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                   value: 'material',
                   child: Text('Materialabschlag erstellen'),
                 ),
+                const PopupMenuItem(
+                  value: 'closing',
+                  child: Text('Endrechnung erstellen'),
+                ),
               ],
               onSelected: (value) {
                 if (value == 'standard') _convertToInvoice();
                 if (value == 'material') _createMaterialInvoice();
+                if (value == 'closing') _createClosingInvoice();
               },
             ),
           ],
