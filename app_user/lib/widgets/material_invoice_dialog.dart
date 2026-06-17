@@ -118,19 +118,6 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
     return grouped;
   }
 
-  double get _selectedTotal {
-    double total = 0;
-    for (final id in _selected) {
-      // find the item — we'll compute from snapshot if available
-      _itemsFuture.then((items) {
-        for (final i in items) {
-          if (i.id == id) total += i.totalNet;
-        }
-      });
-    }
-    return total;
-  }
-
   Future<void> _create(BuildContext context) async {
     if (_selected.isEmpty) {
       setState(() => _error = 'Bitte mindestens eine Position auswählen.');

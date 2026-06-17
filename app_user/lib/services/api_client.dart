@@ -654,9 +654,8 @@ class ApiClient {
       },
       body: jsonEncode({
         'invoice_type': invoiceType.toJson(),
-        if (itemIds != null) 'item_ids': itemIds,
-        if (extraItems != null && extraItems.isNotEmpty)
-          'extra_items': extraItems,
+        if (itemIds?.isNotEmpty == true) 'item_ids': itemIds,
+        if (extraItems?.isNotEmpty == true) 'extra_items': extraItems,
       }),
     );
     return Invoice.fromJson(_decode(response));
