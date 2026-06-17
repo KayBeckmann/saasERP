@@ -4,8 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 
 /// Dialog zum Erstellen einer Materialabschlag-Rechnung aus einem Auftrag.
-/// Zeigt nur direkte Artikel-Positionen (kind = article), gruppiert nach
-/// [groupLabel]. Produkte und Leistungen erscheinen in der Endrechnung.
+/// Zeigt alle Positionen des Auftrags gruppiert nach [groupLabel].
+/// Bereits abgerechnete Positionen sind deaktiviert.
 Future<void> showMaterialInvoiceDialog({
   required BuildContext context,
   required ApiClient apiClient,
@@ -76,7 +76,6 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
     final raw = await widget.apiClient
         .getBillableOrderItems(token: widget.token, orderId: widget.orderId);
     final items = raw
-        .where((item) => (item['kind'] as String?) == 'article')
         .map((item) => _MaterialItem(
               id: item['id'] as String,
               description: item['description'] as String? ?? '',
@@ -154,8 +153,7 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
             final items = snapshot.data!;
             if (items.isEmpty) {
               return const Text(
-                'Keine abrechenbaren Artikel-Positionen vorhanden. '
-                'Produkte und Leistungen werden in der Endrechnung abgerechnet.',
+                'Keine abrechenbaren Positionen vorhanden.',
               );
             }
 
