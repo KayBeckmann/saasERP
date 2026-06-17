@@ -8,7 +8,7 @@ class ArticleRepository {
 
   final Pool<void> _pool;
 
-  static const _columns = 'id, tenant_id, sku, name, unit, purchase_price, '
+  static const _columns = 'id, tenant_id, sku, supplier_sku, name, unit, purchase_price, '
       'sale_price, vat_rate, usage_count, stock_quantity, minimum_stock, default_supplier_id, notes, created_at';
 
   Future<Article> create({
@@ -18,13 +18,14 @@ class ArticleRepository {
     final result = await _pool.execute(
       Sql.named(
         'INSERT INTO articles '
-        '(tenant_id, sku, name, unit, purchase_price, sale_price, vat_rate, stock_quantity, minimum_stock, default_supplier_id, notes) '
-        'VALUES (@tenant_id, @sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @stock_quantity, @minimum_stock, @default_supplier_id, @notes) '
+        '(tenant_id, sku, supplier_sku, name, unit, purchase_price, sale_price, vat_rate, stock_quantity, minimum_stock, default_supplier_id, notes) '
+        'VALUES (@tenant_id, @sku, @supplier_sku, @name, @unit, @purchase_price, @sale_price, @vat_rate, @stock_quantity, @minimum_stock, @default_supplier_id, @notes) '
         'RETURNING $_columns',
       ),
       parameters: {
         'tenant_id': tenantId,
         'sku': req.sku,
+        'supplier_sku': req.supplierSku,
         'name': req.name,
         'unit': req.unit,
         'purchase_price': req.purchasePrice,
@@ -80,7 +81,7 @@ class ArticleRepository {
     final result = await _pool.execute(
       Sql.named(
         'UPDATE articles SET '
-        'sku = @sku, name = @name, unit = @unit, purchase_price = @purchase_price, '
+        'sku = @sku, supplier_sku = @supplier_sku, name = @name, unit = @unit, purchase_price = @purchase_price, '
         'sale_price = @sale_price, vat_rate = @vat_rate, stock_quantity = @stock_quantity, '
         'minimum_stock = @minimum_stock, default_supplier_id = @default_supplier_id, notes = @notes '
         'WHERE tenant_id = @tenant_id AND id = @id '
@@ -90,6 +91,7 @@ class ArticleRepository {
         'tenant_id': tenantId,
         'id': id,
         'sku': req.sku,
+        'supplier_sku': req.supplierSku,
         'name': req.name,
         'unit': req.unit,
         'purchase_price': req.purchasePrice,
@@ -168,6 +170,7 @@ class ArticleRepository {
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,
         sku: row['sku'] as String?,
+        supplierSku: row['supplier_sku'] as String?,
         name: row['name'] as String,
         unit: row['unit'] as String?,
         purchasePrice: (row['purchase_price'] as num?)?.toDouble(),

@@ -1,4 +1,5 @@
 import 'package:backend/src/pdf/purchase_order_pdf_builder.dart';
+import 'package:backend/src/repositories/article_repository.dart';
 import 'package:backend/src/repositories/purchase_order_repository.dart';
 import 'package:backend/src/repositories/supplier_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
@@ -36,10 +37,23 @@ Future<Response> onRequest(RequestContext context, String id) async {
           .read<SupplierRepository>()
           .findById(tenantId: auth.tenantId, id: supplierId);
 
+  // Lieferanten-Artikelnummern für alle Positionen mit article_id laden.
+  final articleIds = purchaseOrder.items
+      .map((i) => i.articleId)
+      .whereType<String>()
+      .toSet();
+  final articles = await context
+      .read<ArticleRepository>()
+      .findByIds(tenantId: auth.tenantId, ids: articleIds);
+  final supplierSkus = {
+    for (final a in articles) a.id: a.supplierSku,
+  };
+
   final bytes = await buildPurchaseOrderPdf(
     purchaseOrder: purchaseOrder,
     tenant: tenant,
     supplier: supplier,
+    supplierSkus: supplierSkus,
   );
 
   return Response.bytes(

@@ -1,0 +1,1 @@
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS supplier_sku TEXT;

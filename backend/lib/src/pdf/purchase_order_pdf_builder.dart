@@ -6,10 +6,13 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// Erzeugt das PDF-Dokument für eine Bestellung — Mandanten-Briefkopf,
 /// Lieferantenadresse, Positionstabelle mit Menge und Einzelpreis, Gesamtsumme.
+/// [supplierSkus] bildet article_id → Lieferanten-Artikelnummer; Einträge
+/// ohne Treffer oder Freitextpositionen bleiben leer.
 Future<Uint8List> buildPurchaseOrderPdf({
   required PurchaseOrder purchaseOrder,
   required Tenant tenant,
   Supplier? supplier,
+  Map<String, String?> supplierSkus = const {},
 }) async {
   final totalNet = purchaseOrder.items
       .fold<double>(0, (s, i) => s + i.quantity * i.unitPrice);
@@ -52,7 +55,7 @@ Future<Uint8List> buildPurchaseOrderPdf({
           pw.SizedBox(height: 4),
           pw.Text('Datum: ${_formatDate(purchaseOrder.createdAt)}'),
           pw.SizedBox(height: 16),
-          _itemsTable(purchaseOrder.items),
+          _itemsTable(purchaseOrder.items, supplierSkus),
           pw.SizedBox(height: 8),
           pw.Divider(),
           pw.Align(
@@ -78,21 +81,37 @@ Future<Uint8List> buildPurchaseOrderPdf({
   return doc.save();
 }
 
-pw.Widget _itemsTable(List<PurchaseOrderItem> items) {
+pw.Widget _itemsTable(
+  List<PurchaseOrderItem> items,
+  Map<String, String?> supplierSkus,
+) {
+  final hasSkus = items.any(
+    (i) => i.articleId != null && (supplierSkus[i.articleId] ?? '').isNotEmpty,
+  );
+
   return pw.Table(
     border: const pw.TableBorder(
       horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
     ),
-    columnWidths: const {
-      0: pw.FlexColumnWidth(4),
-      1: pw.FlexColumnWidth(1.2),
-      2: pw.FlexColumnWidth(1.5),
-      3: pw.FlexColumnWidth(1.5),
-    },
+    columnWidths: hasSkus
+        ? const {
+            0: pw.FlexColumnWidth(1.8),
+            1: pw.FlexColumnWidth(3),
+            2: pw.FlexColumnWidth(1.2),
+            3: pw.FlexColumnWidth(1.5),
+            4: pw.FlexColumnWidth(1.5),
+          }
+        : const {
+            0: pw.FlexColumnWidth(4),
+            1: pw.FlexColumnWidth(1.2),
+            2: pw.FlexColumnWidth(1.5),
+            3: pw.FlexColumnWidth(1.5),
+          },
     children: [
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: PdfColors.grey200),
         children: [
+          if (hasSkus) _cell('Lief.-Art.-Nr.', bold: true),
           _cell('Beschreibung', bold: true),
           _cell('Menge', bold: true, align: pw.TextAlign.right),
           _cell('Einzelpreis', bold: true, align: pw.TextAlign.right),
@@ -102,6 +121,12 @@ pw.Widget _itemsTable(List<PurchaseOrderItem> items) {
       for (final item in items)
         pw.TableRow(
           children: [
+            if (hasSkus)
+              _cell(
+                item.articleId != null
+                    ? (supplierSkus[item.articleId] ?? '')
+                    : '',
+              ),
             _cell(item.description),
             _cell(
               '${_formatNumber(item.quantity)}${item.unit != null ? ' ${item.unit}' : ''}',

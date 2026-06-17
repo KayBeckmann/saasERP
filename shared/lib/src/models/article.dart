@@ -8,6 +8,7 @@ class Article {
     required this.id,
     required this.tenantId,
     this.sku,
+    this.supplierSku,
     required this.name,
     this.unit,
     this.purchasePrice,
@@ -24,8 +25,11 @@ class Article {
   final String id;
   final String tenantId;
 
-  /// Artikelnummer / SKU — frei vergeben, kein Nummernkreis.
+  /// Eigene interne Artikelnummer / SKU — frei vergeben, kein Nummernkreis.
   final String? sku;
+
+  /// Artikelnummer des Lieferanten — wird auf Bestellungen abgedruckt.
+  final String? supplierSku;
 
   final String name;
 
@@ -57,6 +61,7 @@ class Article {
         id: json['id'] as String,
         tenantId: json['tenant_id'] as String,
         sku: json['sku'] as String?,
+        supplierSku: json['supplier_sku'] as String?,
         name: json['name'] as String,
         unit: json['unit'] as String?,
         purchasePrice: (json['purchase_price'] as num?)?.toDouble(),
@@ -74,6 +79,7 @@ class Article {
         'id': id,
         'tenant_id': tenantId,
         'sku': sku,
+        'supplier_sku': supplierSku,
         'name': name,
         'unit': unit,
         'purchase_price': purchasePrice,
@@ -92,6 +98,7 @@ class Article {
 class CreateArticleRequest {
   const CreateArticleRequest({
     this.sku,
+    this.supplierSku,
     required this.name,
     this.unit,
     this.purchasePrice,
@@ -104,6 +111,7 @@ class CreateArticleRequest {
   });
 
   final String? sku;
+  final String? supplierSku;
   final String name;
   final String? unit;
   final double? purchasePrice;
@@ -116,6 +124,7 @@ class CreateArticleRequest {
 
   factory CreateArticleRequest.fromJson(Map<String, dynamic> json) => CreateArticleRequest(
         sku: json['sku'] as String?,
+        supplierSku: json['supplier_sku'] as String?,
         name: json['name'] as String,
         unit: json['unit'] as String?,
         purchasePrice: (json['purchase_price'] as num?)?.toDouble(),
@@ -129,6 +138,7 @@ class CreateArticleRequest {
 
   Map<String, dynamic> toJson() => {
         'sku': sku,
+        'supplier_sku': supplierSku,
         'name': name,
         'unit': unit,
         'purchase_price': purchasePrice,
@@ -146,6 +156,7 @@ class CreateArticleRequest {
 class UpdateArticleRequest {
   const UpdateArticleRequest({
     this.sku,
+    this.supplierSku,
     required this.name,
     this.unit,
     this.purchasePrice,
@@ -158,6 +169,7 @@ class UpdateArticleRequest {
   });
 
   final String? sku;
+  final String? supplierSku;
   final String name;
   final String? unit;
   final double? purchasePrice;
@@ -170,6 +182,7 @@ class UpdateArticleRequest {
 
   factory UpdateArticleRequest.fromJson(Map<String, dynamic> json) => UpdateArticleRequest(
         sku: json['sku'] as String?,
+        supplierSku: json['supplier_sku'] as String?,
         name: json['name'] as String,
         unit: json['unit'] as String?,
         purchasePrice: (json['purchase_price'] as num?)?.toDouble(),
@@ -183,6 +196,7 @@ class UpdateArticleRequest {
 
   Map<String, dynamic> toJson() => {
         'sku': sku,
+        'supplier_sku': supplierSku,
         'name': name,
         'unit': unit,
         'purchase_price': purchasePrice,

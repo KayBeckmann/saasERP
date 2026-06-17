@@ -149,6 +149,7 @@ class _ArticleFormDialog extends StatefulWidget {
 class _ArticleFormDialogState extends State<_ArticleFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _skuController;
+  late final TextEditingController _supplierSkuController;
   late final TextEditingController _nameController;
   late final TextEditingController _unitController;
   late final TextEditingController _purchasePriceController;
@@ -167,6 +168,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
     super.initState();
     final a = widget.article;
     _skuController = TextEditingController(text: a?.sku ?? '');
+    _supplierSkuController = TextEditingController(text: a?.supplierSku ?? '');
     _nameController = TextEditingController(text: a?.name ?? '');
     _unitController = TextEditingController(text: a?.unit ?? '');
     _purchasePriceController = TextEditingController(text: a?.purchasePrice?.toString() ?? '');
@@ -188,6 +190,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
   @override
   void dispose() {
     _skuController.dispose();
+    _supplierSkuController.dispose();
     _nameController.dispose();
     _unitController.dispose();
     _purchasePriceController.dispose();
@@ -222,6 +225,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
           token: auth.token!,
           req: CreateArticleRequest(
             sku: _orNull(_skuController.text),
+            supplierSku: _orNull(_supplierSkuController.text),
             name: _nameController.text.trim(),
             unit: _orNull(_unitController.text),
             purchasePrice: purchasePrice,
@@ -239,6 +243,7 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
           id: widget.article!.id,
           req: UpdateArticleRequest(
             sku: _orNull(_skuController.text),
+            supplierSku: _orNull(_supplierSkuController.text),
             name: _nameController.text.trim(),
             unit: _orNull(_unitController.text),
             purchasePrice: purchasePrice,
@@ -281,7 +286,15 @@ class _ArticleFormDialogState extends State<_ArticleFormDialog> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _skuController,
-                decoration: const InputDecoration(labelText: 'SKU / Artikelnummer'),
+                decoration: const InputDecoration(labelText: 'SKU / Eigene Artikelnummer'),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _supplierSkuController,
+                decoration: const InputDecoration(
+                  labelText: 'Lieferanten-Artikelnummer',
+                  hintText: 'Wird auf Bestellungen abgedruckt',
+                ),
               ),
               const SizedBox(height: 8),
               TextFormField(
