@@ -65,6 +65,36 @@ Future<Uint8List> buildDunningPdf({
           ),
           pw.SizedBox(height: 16),
           pw.Text(_dunningClosing(invoice.dunningLevel)),
+          if (tenant.companyIban != null) ...[
+            pw.SizedBox(height: 16),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                borderRadius:
+                    const pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Zahlungshinweis',
+                    style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold, fontSize: 10),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                      'Bitte überweisen Sie den offenen Betrag auf folgendes Konto:',
+                      style: const pw.TextStyle(fontSize: 10)),
+                  pw.Text('IBAN: ${tenant.companyIban}',
+                      style: pw.TextStyle(
+                          fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                  pw.Text('Empfänger: ${tenant.name}',
+                      style: const pw.TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

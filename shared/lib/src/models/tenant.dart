@@ -6,6 +6,7 @@ class Tenant {
     this.brandingColor,
     this.companyAddress,
     this.companyTaxId,
+    this.companyIban,
     this.logoUrl,
     this.defaultVatRate = 19.0,
     this.reducedVatRate = 7.0,
@@ -29,6 +30,9 @@ class Tenant {
 
   /// Steuernummer/USt-IdNr. für Briefkopf/Belege.
   final String? companyTaxId;
+
+  /// IBAN des Mandanten — erscheint als Zahlungshinweis auf Rechnungen.
+  final String? companyIban;
 
   /// URL des Firmenlogos (Briefkopf/Belege, Whitelabel).
   final String? logoUrl;
@@ -59,6 +63,7 @@ class Tenant {
         brandingColor: json['branding_color'] as String?,
         companyAddress: json['company_address'] as String?,
         companyTaxId: json['company_tax_id'] as String?,
+        companyIban: json['company_iban'] as String?,
         logoUrl: json['logo_url'] as String?,
         defaultVatRate: (json['default_vat_rate'] as num?)?.toDouble() ?? 19.0,
         reducedVatRate: (json['reduced_vat_rate'] as num?)?.toDouble() ?? 7.0,
@@ -75,6 +80,7 @@ class Tenant {
         'branding_color': brandingColor,
         'company_address': companyAddress,
         'company_tax_id': companyTaxId,
+        'company_iban': companyIban,
         'logo_url': logoUrl,
         'default_vat_rate': defaultVatRate,
         'reduced_vat_rate': reducedVatRate,
@@ -91,6 +97,7 @@ class UpdateTenantConfigRequest {
   const UpdateTenantConfigRequest({
     this.companyAddress,
     this.companyTaxId,
+    this.companyIban,
     this.logoUrl,
     required this.defaultVatRate,
     required this.reducedVatRate,
@@ -102,6 +109,7 @@ class UpdateTenantConfigRequest {
 
   final String? companyAddress;
   final String? companyTaxId;
+  final String? companyIban;
   final String? logoUrl;
   final double defaultVatRate;
   final double reducedVatRate;
@@ -114,6 +122,7 @@ class UpdateTenantConfigRequest {
       UpdateTenantConfigRequest(
         companyAddress: json['company_address'] as String?,
         companyTaxId: json['company_tax_id'] as String?,
+        companyIban: json['company_iban'] as String?,
         logoUrl: json['logo_url'] as String?,
         defaultVatRate: (json['default_vat_rate'] as num).toDouble(),
         reducedVatRate: (json['reduced_vat_rate'] as num).toDouble(),
@@ -126,6 +135,7 @@ class UpdateTenantConfigRequest {
   Map<String, dynamic> toJson() => {
         'company_address': companyAddress,
         'company_tax_id': companyTaxId,
+        'company_iban': companyIban,
         'logo_url': logoUrl,
         'default_vat_rate': defaultVatRate,
         'reduced_vat_rate': reducedVatRate,

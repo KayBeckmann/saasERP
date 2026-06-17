@@ -7,7 +7,7 @@ class TenantRepository {
   final Pool<void> _pool;
 
   static const _columns = 'id, name, created_at, branding_color, '
-      'company_address, company_tax_id, logo_url, '
+      'company_address, company_tax_id, company_iban, logo_url, '
       'default_vat_rate, reduced_vat_rate, '
       'dunning_fee_level1, dunning_fee_level2, dunning_fee_level3, '
       'default_hourly_rate';
@@ -63,6 +63,7 @@ class TenantRepository {
         'UPDATE tenants SET '
         'company_address = @company_address, '
         'company_tax_id = @company_tax_id, '
+        'company_iban = @company_iban, '
         'logo_url = @logo_url, '
         'default_vat_rate = @default_vat_rate, '
         'reduced_vat_rate = @reduced_vat_rate, '
@@ -77,6 +78,7 @@ class TenantRepository {
         'id': tenantId,
         'company_address': config.companyAddress,
         'company_tax_id': config.companyTaxId,
+        'company_iban': config.companyIban,
         'logo_url': config.logoUrl,
         'default_vat_rate': config.defaultVatRate,
         'reduced_vat_rate': config.reducedVatRate,
@@ -96,6 +98,7 @@ class TenantRepository {
         brandingColor: row['branding_color'] as String?,
         companyAddress: row['company_address'] as String?,
         companyTaxId: row['company_tax_id'] as String?,
+        companyIban: row['company_iban'] as String?,
         logoUrl: row['logo_url'] as String?,
         defaultVatRate: (row['default_vat_rate'] as num).toDouble(),
         reducedVatRate: (row['reduced_vat_rate'] as num).toDouble(),

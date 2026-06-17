@@ -287,6 +287,8 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
       TextEditingController(text: widget.tenant?.companyAddress ?? '');
   late final TextEditingController _taxIdController =
       TextEditingController(text: widget.tenant?.companyTaxId ?? '');
+  late final TextEditingController _ibanController =
+      TextEditingController(text: widget.tenant?.companyIban ?? '');
   late final TextEditingController _logoUrlController =
       TextEditingController(text: widget.tenant?.logoUrl ?? '');
   late final TextEditingController _defaultVatController =
@@ -309,6 +311,7 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
   void dispose() {
     _addressController.dispose();
     _taxIdController.dispose();
+    _ibanController.dispose();
     _logoUrlController.dispose();
     _defaultVatController.dispose();
     _reducedVatController.dispose();
@@ -339,6 +342,15 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
           controller: _taxIdController,
           decoration: const InputDecoration(
             labelText: 'Steuernummer / USt-IdNr.',
+            isDense: true,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _ibanController,
+          decoration: const InputDecoration(
+            labelText: 'IBAN (Zahlungshinweis auf Rechnungen)',
+            hintText: 'DE12 3456 7890 1234 5678 90',
             isDense: true,
           ),
         ),
@@ -446,6 +458,9 @@ class _CompanyConfigEditorState extends State<_CompanyConfigEditor> {
                   companyTaxId: _taxIdController.text.trim().isEmpty
                       ? null
                       : _taxIdController.text.trim(),
+                  companyIban: _ibanController.text.trim().isEmpty
+                      ? null
+                      : _ibanController.text.trim(),
                   logoUrl: _logoUrlController.text.trim().isEmpty
                       ? null
                       : _logoUrlController.text.trim(),
