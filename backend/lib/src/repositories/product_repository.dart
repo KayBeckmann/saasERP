@@ -297,7 +297,7 @@ class ProductRepository {
     final result = await _pool.execute(
       Sql.named(
         'SELECT pc.id, pc.product_id, pc.label, pc.quantity, pc.unit_cost, '
-        '       a.description AS article_description, a.unit AS article_unit '
+        '       a.name AS article_description, a.unit AS article_unit '
         'FROM product_components pc '
         'LEFT JOIN articles a ON a.id = pc.article_id '
         "WHERE pc.kind = 'article' AND pc.product_id IN ($placeholders) "
