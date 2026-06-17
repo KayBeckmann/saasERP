@@ -485,9 +485,11 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
           _sectionHeader(context, 'Allgemeine Positionen'),
           if (_ungrouped.isNotEmpty) ...[
             const Divider(height: 1),
-            for (var i = 0; i < _ungrouped.length; i++) ...[
+            _buildItemsHeader(),
+            for (var i = 0; i < _ungrouped.length; i++)
               _buildItemRow(
                 context,
+                i,
                 _ungrouped[i],
                 () => setState(() {
                   _ungrouped[i].dispose();
@@ -495,8 +497,6 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                 }),
                 refs,
               ),
-              if (i < _ungrouped.length - 1) const Divider(height: 1),
-            ],
           ],
           const Divider(height: 1),
           Padding(
@@ -583,9 +583,11 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
           ),
           if (group.items.isNotEmpty) ...[
             const Divider(height: 1),
-            for (var i = 0; i < group.items.length; i++) ...[
+            _buildItemsHeader(),
+            for (var i = 0; i < group.items.length; i++)
               _buildItemRow(
                 context,
+                i,
                 group.items[i],
                 () => setState(() {
                   group.items[i].dispose();
@@ -593,8 +595,6 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                 }),
                 refs,
               ),
-              if (i < group.items.length - 1) const Divider(height: 1),
-            ],
           ],
           const Divider(height: 1),
           Padding(
@@ -721,8 +721,41 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     );
   }
 
+  static const _compactDec = InputDecoration(
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+    border: OutlineInputBorder(),
+  );
+
+  Widget _buildItemsHeader() {
+    const style = TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54);
+    return Container(
+      color: const Color(0xFFF5F5F5),
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Row(
+        children: const [
+          SizedBox(width: 28),
+          SizedBox(width: 4),
+          Expanded(flex: 4, child: Text('Beschreibung', style: style)),
+          SizedBox(width: 4),
+          SizedBox(width: 72, child: Text('Menge', style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 4),
+          SizedBox(width: 52, child: Text('Einh.', style: style)),
+          SizedBox(width: 4),
+          SizedBox(width: 80, child: Text('EP €', style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 4),
+          SizedBox(width: 60, child: Text('MwSt %', style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 4),
+          SizedBox(width: 84, child: Text('Gesamt €', style: style, textAlign: TextAlign.right)),
+          SizedBox(width: 36),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItemRow(
     BuildContext context,
+    int index,
     _ItemDraft item,
     VoidCallback onRemove,
     _Refs refs,
@@ -732,10 +765,13 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       case OrderItemKind.article:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.articleId,
-          decoration: const InputDecoration(labelText: 'Artikel'),
+          isExpanded: true,
+          decoration: _compactDec.copyWith(labelText: 'Artikel'),
           items: [
             for (final article in refs.articles)
-              DropdownMenuItem(value: article.id, child: Text(article.name)),
+              DropdownMenuItem(
+                  value: article.id,
+                  child: Text(article.name, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: (value) {
             if (value == null) return;
@@ -753,10 +789,13 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       case OrderItemKind.product:
         descriptionField = DropdownButtonFormField<String>(
           initialValue: item.productId,
-          decoration: const InputDecoration(labelText: 'Produkt'),
+          isExpanded: true,
+          decoration: _compactDec.copyWith(labelText: 'Produkt'),
           items: [
             for (final product in refs.products)
-              DropdownMenuItem(value: product.id, child: Text(product.name)),
+              DropdownMenuItem(
+                  value: product.id,
+                  child: Text(product.name, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: (value) {
             if (value == null) return;
@@ -774,72 +813,88 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       case OrderItemKind.hours:
         descriptionField = TextFormField(
           controller: item.descriptionController,
-          decoration: const InputDecoration(labelText: 'Beschreibung'),
+          decoration: _compactDec.copyWith(
+            hintText: item.kind == OrderItemKind.hours
+                ? 'Leistungsbeschreibung …'
+                : 'Freitext …',
+          ),
         );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
+    return Container(
+      color: index.isOdd ? const Color(0xFFFAFAFA) : null,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Expanded(child: descriptionField),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18),
-                tooltip: 'Position entfernen',
-                onPressed: onRemove,
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: item.quantityController,
-                  decoration: const InputDecoration(labelText: 'Menge'),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: TextFormField(
-                  controller: item.unitController,
-                  decoration: const InputDecoration(labelText: 'Einheit'),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: TextFormField(
-                  controller: item.unitPriceController,
-                  decoration: const InputDecoration(labelText: 'Preis (€)'),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: TextFormField(
-                  controller: item.vatRateController,
-                  decoration: const InputDecoration(labelText: 'MwSt. %'),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-          Align(
-            alignment: Alignment.centerRight,
+          SizedBox(
+            width: 28,
             child: Text(
-              '${item.totalNet.toStringAsFixed(2)} € netto',
-              style: const TextStyle(
-                  fontSize: 12, color: colorOnSurfaceVariant),
+              '${index + 1}',
+              style: const TextStyle(color: Colors.black38, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(flex: 4, child: descriptionField),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 72,
+            child: TextFormField(
+              controller: item.quantityController,
+              decoration: _compactDec,
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 52,
+            child: TextFormField(
+              controller: item.unitController,
+              decoration: _compactDec,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 80,
+            child: TextFormField(
+              controller: item.unitPriceController,
+              decoration: _compactDec,
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 60,
+            child: TextFormField(
+              controller: item.vatRateController,
+              decoration: _compactDec,
+              textAlign: TextAlign.right,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 84,
+            child: Text(
+              '${item.totalNet.toStringAsFixed(2)} €',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+          ),
+          SizedBox(
+            width: 36,
+            child: IconButton(
+              icon: const Icon(Icons.close, size: 16, color: Colors.red),
+              tooltip: 'Position entfernen',
+              onPressed: onRemove,
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
             ),
           ),
         ],
