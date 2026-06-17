@@ -91,8 +91,8 @@ class _ClosingInvoiceDialogState extends State<_ClosingInvoiceDialog> {
             ))
         .toList();
 
-    // Pre-select all not yet invoiced
-    _selected.addAll(items.where((i) => !i.alreadyInvoiced).map((i) => i.id));
+    // Pre-select ALL positions — closing invoice shows the full sum
+    _selected.addAll(items.map((i) => i.id));
 
     return _LoadResult(items: items);
   }
@@ -165,9 +165,9 @@ class _ClosingInvoiceDialogState extends State<_ClosingInvoiceDialog> {
                 shrinkWrap: true,
                 children: [
                   const Text(
-                    'Wähle die Positionen für die Endrechnung. '
-                    'Bereits abgerechnete Positionen sind ausgeblendet. '
-                    'Alle Vorrechnungen werden automatisch abgezogen.',
+                    'In der Endrechnung werden alle Positionen aufgeführt. '
+                    'Bereits abgerechnete Positionen können abgewählt werden. '
+                    'Alle Vorrechnungen werden automatisch von der Gesamtsumme abgezogen.',
                     style: TextStyle(fontSize: 12),
                   ),
                   const SizedBox(height: 8),
@@ -179,23 +179,17 @@ class _ClosingInvoiceDialogState extends State<_ClosingInvoiceDialog> {
                           Checkbox(
                             tristate: false,
                             value: entry.value
-                                .where((i) => !i.alreadyInvoiced)
                                 .every((i) => _selected.contains(i.id)),
-                            onChanged: entry.value
-                                    .any((i) => !i.alreadyInvoiced)
-                                ? (v) {
-                                    setState(() {
-                                      final ids = entry.value
-                                          .where((i) => !i.alreadyInvoiced)
-                                          .map((i) => i.id);
-                                      if (v == true) {
-                                        _selected.addAll(ids);
-                                      } else {
-                                        _selected.removeAll(ids);
-                                      }
-                                    });
-                                  }
-                                : null,
+                            onChanged: (v) {
+                              setState(() {
+                                final ids = entry.value.map((i) => i.id);
+                                if (v == true) {
+                                  _selected.addAll(ids);
+                                } else {
+                                  _selected.removeAll(ids);
+                                }
+                              });
+                            },
                           ),
                           Expanded(
                             child: Text(
@@ -209,26 +203,16 @@ class _ClosingInvoiceDialogState extends State<_ClosingInvoiceDialog> {
                     for (final item in entry.value)
                       CheckboxListTile(
                         dense: true,
-                        value: item.alreadyInvoiced
-                            ? false
-                            : _selected.contains(item.id),
-                        enabled: !item.alreadyInvoiced,
-                        title: Text(
-                          item.description,
-                          style: item.alreadyInvoiced
-                              ? TextStyle(
-                                  color: Theme.of(context).disabledColor)
-                              : null,
+                        value: _selected.contains(item.id),
+                        title: Text(item.description),
+                        subtitle: Text(
+                          '${item.kindLabel} · '
+                          '${_fmtQty(item.quantity)}'
+                          '${item.unit != null ? ' ${item.unit}' : ''} × '
+                          '${item.unitPrice.toStringAsFixed(2)} € = '
+                          '${item.totalNet.toStringAsFixed(2)} € netto'
+                          '${item.alreadyInvoiced ? '  ·  bereits abgerechnet' : ''}',
                         ),
-                        subtitle: item.alreadyInvoiced
-                            ? const Text('bereits abgerechnet')
-                            : Text(
-                                '${item.kindLabel} · '
-                                '${_fmtQty(item.quantity)}'
-                                '${item.unit != null ? ' ${item.unit}' : ''} × '
-                                '${item.unitPrice.toStringAsFixed(2)} € = '
-                                '${item.totalNet.toStringAsFixed(2)} € netto',
-                              ),
                         onChanged: (checked) {
                           setState(() {
                             if (checked == true) {

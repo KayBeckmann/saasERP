@@ -52,7 +52,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   final invoicedIds = await invoiceRepository.invoicedOrderItemIds(tenantId: auth.tenantId, orderId: order.id);
 
-  var items = order.items.where((item) => item.id == null || !invoicedIds.contains(item.id)).toList();
+  // Closing invoices include ALL positions (already-invoiced ones appear as full sum;
+  // prior invoices are deducted separately). All other types exclude already-invoiced items.
+  var items = invoiceType == InvoiceType.closingInvoice
+      ? order.items.toList()
+      : order.items.where((item) => item.id == null || !invoicedIds.contains(item.id)).toList();
   if (itemIds != null) {
     final selected = itemIds.toSet();
     items = items.where((item) => item.id != null && selected.contains(item.id)).toList();
