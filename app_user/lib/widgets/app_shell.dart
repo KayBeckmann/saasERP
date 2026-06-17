@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../screens/articles_screen.dart';
 import '../screens/customers_screen.dart';
@@ -15,6 +16,7 @@ import '../screens/quotes_screen.dart';
 import '../screens/stock_overview_screen.dart';
 import '../screens/suppliers_screen.dart';
 import '../screens/time_entries_screen.dart';
+import '../screens/users_screen.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
 
@@ -33,6 +35,7 @@ enum AppNavItem {
   stock,
   timeEntries,
   maintenanceContracts,
+  users,
 }
 
 class _NavEntry {
@@ -57,6 +60,11 @@ const _navEntries = [
   _NavEntry(AppNavItem.timeEntries, Icons.timer_outlined, 'Stundenerfassung'),
   _NavEntry(AppNavItem.maintenanceContracts, Icons.handshake_outlined, 'Wartungsverträge'),
   _NavEntry(AppNavItem.suppliers, Icons.local_shipping_outlined, 'Lieferanten'),
+];
+
+// Einträge, die nur für Owner sichtbar sind
+const _ownerOnlyNavEntries = [
+  _NavEntry(AppNavItem.users, Icons.manage_accounts_outlined, 'Benutzerverwaltung'),
 ];
 
 // Items that open screens which also serve as landing screens for sub-items.
@@ -91,6 +99,8 @@ Widget _screenFor(AppNavItem item) {
       return const TimeEntriesScreen();
     case AppNavItem.maintenanceContracts:
       return const MaintenanceContractsScreen();
+    case AppNavItem.users:
+      return const UsersScreen();
   }
 }
 
@@ -400,6 +410,15 @@ class _Sidebar extends StatelessWidget {
                       selected: entry.item == currentItem,
                       showLabel: true,
                     ),
+                  if (auth.user?.role == UserRole.owner) ...[
+                    const Divider(height: 16, indent: 16, endIndent: 16),
+                    for (final entry in _ownerOnlyNavEntries)
+                      _NavTile(
+                        entry: entry,
+                        selected: entry.item == currentItem,
+                        showLabel: true,
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -437,6 +456,7 @@ class _IconRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
     return Container(
       width: AppShell.railWidth,
       decoration: const BoxDecoration(
@@ -463,6 +483,9 @@ class _IconRail extends StatelessWidget {
                 children: [
                   for (final entry in _navEntries)
                     _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
+                  if (auth.user?.role == UserRole.owner)
+                    for (final entry in _ownerOnlyNavEntries)
+                      _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
                 ],
               ),
             ),

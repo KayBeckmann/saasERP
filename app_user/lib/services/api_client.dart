@@ -1080,6 +1080,58 @@ class ApiClient {
     return response.bodyBytes;
   }
 
+  // ── Benutzerverwaltung ──────────────────────────────────────────────────
+
+  Future<List<AppUser>> listUsers(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/users'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['users'] as List).map((u) => AppUser.fromJson(u as Map<String, dynamic>)).toList();
+  }
+
+  Future<AppUser> createEmployee({
+    required String token,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/users'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password, 'role': 'employee'}),
+    );
+    if (response.statusCode == 409) throw ApiException(409, 'E-Mail bereits registriert.');
+    return AppUser.fromJson(_decode(response));
+  }
+
+  Future<void> deleteUser({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/users/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 404) throw ApiException(404, 'Benutzer nicht gefunden.');
+    if (response.statusCode >= 400) {
+      throw ApiException(response.statusCode, 'Fehler beim Entfernen des Benutzers.');
+    }
+  }
+
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/me/password'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'current_password': currentPassword, 'new_password': newPassword}),
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(response.statusCode, (json['message'] ?? json['error'] ?? 'Fehler').toString());
+    }
+  }
+
   Future<({AppUser user, Tenant tenant})> me(String token) async {
     final response = await _httpClient.get(
       _uri('/api/me'),

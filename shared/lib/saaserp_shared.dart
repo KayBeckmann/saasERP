@@ -12,6 +12,7 @@ export 'src/models/customer_portal_account.dart';
 export 'src/models/customer_portal_overview.dart';
 export 'src/models/dashboard_summary.dart';
 export 'src/models/document.dart';
+export 'src/models/employee.dart';
 export 'src/models/invoice.dart';
 export 'src/models/maintenance_contract.dart';
 export 'src/models/order.dart';

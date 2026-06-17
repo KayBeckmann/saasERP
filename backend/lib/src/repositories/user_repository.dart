@@ -67,6 +67,51 @@ class UserRepository {
     return _userFromRow(result.first.toColumnMap());
   }
 
+  /// Alle Benutzer eines Mandanten (via user_tenant_access), geordnet nach Erstelldatum.
+  Future<List<AppUser>> listForTenant(String tenantId) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT u.id, u.tenant_id, u.email, uta.role, u.created_at, u.is_platform_admin '
+        'FROM users u '
+        'JOIN user_tenant_access uta ON uta.user_id = u.id '
+        'WHERE uta.tenant_id = @tenant_id '
+        'ORDER BY u.created_at ASC',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    return result.map((r) => _userFromRow(r.toColumnMap())).toList();
+  }
+
+  /// Aktualisiert den Passwort-Hash eines Benutzers.
+  Future<void> updatePassword({
+    required String userId,
+    required String newPasswordHash,
+  }) async {
+    await _pool.execute(
+      Sql.named(
+        'UPDATE users SET password_hash = @hash WHERE id = @id',
+      ),
+      parameters: {'id': userId, 'hash': newPasswordHash},
+    );
+  }
+
+  /// Entfernt einen Benutzer aus einem Mandanten (user_tenant_access löschen).
+  /// Gibt `true` zurück wenn die Zeile existiert hat, sonst `false`.
+  Future<bool> removeFromTenant({
+    required String userId,
+    required String tenantId,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'DELETE FROM user_tenant_access '
+        'WHERE user_id = @user_id AND tenant_id = @tenant_id '
+        'RETURNING user_id',
+      ),
+      parameters: {'user_id': userId, 'tenant_id': tenantId},
+    );
+    return result.isNotEmpty;
+  }
+
   /// E-Mail-Adresse des Inhabers (`role = 'owner'`) eines Mandanten — für
   /// Benachrichtigungen über Status-Änderungen (z. B. Kundenentscheidung zu
   /// einem Angebot). `null`, falls kein Owner-Zugang existiert.
