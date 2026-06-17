@@ -24,7 +24,11 @@ class ApiClient {
 
   final http.Client _httpClient;
 
-  Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}$path');
+  Uri _uri(String path, {Map<String, String>? queryParameters}) {
+    final base = Uri.parse('${AppConfig.apiBaseUrl}$path');
+    if (queryParameters == null || queryParameters.isEmpty) return base;
+    return base.replace(queryParameters: queryParameters);
+  }
 
   Future<AuthResponse> register({
     required String companyName,
@@ -640,6 +644,7 @@ class ApiClient {
     required String orderId,
     InvoiceType invoiceType = InvoiceType.standard,
     List<String>? itemIds,
+    List<Map<String, dynamic>>? extraItems,
   }) async {
     final response = await _httpClient.post(
       _uri('/api/orders/$orderId/to-invoice'),
@@ -650,19 +655,28 @@ class ApiClient {
       body: jsonEncode({
         'invoice_type': invoiceType.toJson(),
         if (itemIds != null) 'item_ids': itemIds,
+        if (extraItems != null && extraItems.isNotEmpty)
+          'extra_items': extraItems,
       }),
     );
     return Invoice.fromJson(_decode(response));
   }
 
-  /// Liefert die Positionen eines Auftrags inkl. `already_invoiced`-Flag —
-  /// Basis für die Positions-Checkliste bei Teil-/Abschlags-/Schlussrechnungen.
+  /// Liefert die Positionen eines Auftrags inkl. `already_invoiced`-Flag.
+  /// Mit [expandProducts] werden Produkt-Positionen in ihre Artikel-Komponenten
+  /// aufgelöst (für den Materialabschlag-Dialog).
   Future<List<Map<String, dynamic>>> getBillableOrderItems({
     required String token,
     required String orderId,
+    bool expandProducts = false,
   }) async {
+    final uri = _uri(
+      '/api/orders/$orderId/billable-items',
+      queryParameters:
+          expandProducts ? {'expand_products': '1'} : null,
+    );
     final response = await _httpClient.get(
-      _uri('/api/orders/$orderId/billable-items'),
+      uri,
       headers: {'Authorization': 'Bearer $token'},
     );
     final json = _decode(response);

@@ -25,6 +25,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   var invoiceType = InvoiceType.standard;
   List<String>? itemIds;
+  List<Map<String, dynamic>>? extraItems;
 
   final rawBody = await context.request.body();
   if (rawBody.trim().isNotEmpty) {
@@ -39,6 +40,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
     if (body['item_ids'] != null) {
       itemIds = (body['item_ids'] as List).map((e) => e as String).toList();
+    }
+    if (body['extra_items'] != null) {
+      extraItems =
+          (body['extra_items'] as List).cast<Map<String, dynamic>>();
     }
   }
 
@@ -62,7 +67,22 @@ Future<Response> onRequest(RequestContext context, String id) async {
     items = items.where((item) => item.id != null && selected.contains(item.id)).toList();
   }
 
-  if (items.isEmpty) {
+  // Build extra invoice items from component expansion (no order_item_id tracking).
+  final extraInvoiceItems = (extraItems ?? [])
+      .map(
+        (e) => InvoiceItem(
+          kind: InvoiceItemKind.article,
+          description: e['description'] as String? ?? '',
+          quantity: (e['quantity'] as num?)?.toDouble() ?? 1,
+          unit: e['unit'] as String?,
+          unitPrice: (e['unit_price'] as num?)?.toDouble() ?? 0,
+          vatRate: (e['vat_rate'] as num?)?.toDouble() ?? 19.0,
+          groupLabel: e['group_label'] as String?,
+        ),
+      )
+      .toList();
+
+  if (items.isEmpty && extraInvoiceItems.isEmpty) {
     return Response.json(
       statusCode: 400,
       body: {'error': 'no_billable_items', 'message': 'Keine abrechenbaren Positionen vorhanden.'},
@@ -86,22 +106,23 @@ Future<Response> onRequest(RequestContext context, String id) async {
     notes: order.notes,
     invoiceType: invoiceType,
     priorInvoicedTotal: priorInvoicedTotal,
-    items: items
-        .map(
-          (item) => InvoiceItem(
-            kind: InvoiceItemKind.fromJson(item.kind.toJson()),
-            articleId: item.articleId,
-            productId: item.productId,
-            description: item.description,
-            quantity: item.quantity,
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            vatRate: item.vatRate,
-            groupLabel: item.groupLabel,
-            orderItemId: item.id,
-          ),
-        )
-        .toList(),
+    items: [
+      ...items.map(
+        (item) => InvoiceItem(
+          kind: InvoiceItemKind.fromJson(item.kind.toJson()),
+          articleId: item.articleId,
+          productId: item.productId,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          vatRate: item.vatRate,
+          groupLabel: item.groupLabel,
+          orderItemId: item.id,
+        ),
+      ),
+      ...extraInvoiceItems,
+    ],
   );
 
   final invoice = await invoiceRepository.create(tenantId: auth.tenantId, req: req, orderId: order.id);

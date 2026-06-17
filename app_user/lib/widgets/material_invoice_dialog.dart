@@ -4,7 +4,8 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 
 /// Dialog zum Erstellen einer Materialabschlag-Rechnung aus einem Auftrag.
-/// Zeigt alle Positionen des Auftrags gruppiert nach [groupLabel].
+/// Zeigt alle Artikel-Positionen des Auftrags gruppiert nach [groupLabel],
+/// inklusive der Artikel-Komponenten aus Produkt-Positionen.
 /// Bereits abgerechnete Positionen sind deaktiviert.
 Future<void> showMaterialInvoiceDialog({
   required BuildContext context,
@@ -29,8 +30,11 @@ class _MaterialItem {
     required this.quantity,
     required this.unit,
     required this.unitPrice,
+    required this.vatRate,
     required this.groupLabel,
     required this.alreadyInvoiced,
+    required this.parentDescription,
+    required this.rawData,
   });
 
   final String id;
@@ -38,8 +42,15 @@ class _MaterialItem {
   final double quantity;
   final String? unit;
   final double unitPrice;
+  final double vatRate;
   final String? groupLabel;
   final bool alreadyInvoiced;
+  /// For synthetic items: the description of the parent product order item.
+  final String? parentDescription;
+  /// Raw JSON from the billable-items endpoint — used to build extra_items.
+  final Map<String, dynamic> rawData;
+
+  bool get isSynthetic => id.startsWith('cmp:');
 
   double get totalNet => quantity * unitPrice;
 }
@@ -73,8 +84,11 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
   }
 
   Future<List<_MaterialItem>> _loadItems() async {
-    final raw = await widget.apiClient
-        .getBillableOrderItems(token: widget.token, orderId: widget.orderId);
+    final raw = await widget.apiClient.getBillableOrderItems(
+      token: widget.token,
+      orderId: widget.orderId,
+      expandProducts: true,
+    );
     final items = raw
         .map((item) => _MaterialItem(
               id: item['id'] as String,
@@ -82,24 +96,39 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
               quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
               unit: item['unit'] as String?,
               unitPrice: (item['unit_price'] as num?)?.toDouble() ?? 0,
+              vatRate: (item['vat_rate'] as num?)?.toDouble() ?? 19.0,
               groupLabel: item['group_label'] as String?,
               alreadyInvoiced: item['already_invoiced'] as bool? ?? false,
+              parentDescription: item['parent_description'] as String?,
+              rawData: item,
             ))
         .toList();
 
-    // pre-select all not already invoiced
     _selected.addAll(
         items.where((i) => !i.alreadyInvoiced).map((i) => i.id));
     return items;
   }
 
-  /// Groups by label in order of first occurrence; null label = "Allgemeine Positionen".
+  /// Groups items by [groupLabel]; null label → "Allgemeine Positionen".
   Map<String?, List<_MaterialItem>> _groupItems(List<_MaterialItem> items) {
     final grouped = <String?, List<_MaterialItem>>{};
     for (final item in items) {
       grouped.putIfAbsent(item.groupLabel, () => []).add(item);
     }
     return grouped;
+  }
+
+  double get _selectedTotal {
+    double total = 0;
+    for (final id in _selected) {
+      // find the item — we'll compute from snapshot if available
+      _itemsFuture.then((items) {
+        for (final i in items) {
+          if (i.id == id) total += i.totalNet;
+        }
+      });
+    }
+    return total;
   }
 
   Future<void> _create(BuildContext context) async {
@@ -111,19 +140,44 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
       _saving = true;
       _error = null;
     });
+
+    // Separate regular order-item IDs from synthetic component IDs.
+    final regularIds = <String>[];
+    final extraItems = <Map<String, dynamic>>[];
+    for (final id in _selected) {
+      if (id.startsWith('cmp:')) {
+        // Synthetic item: pass full data as extra_item
+        final snapshot = await _itemsFuture;
+        final item = snapshot.firstWhere((i) => i.id == id);
+        extraItems.add({
+          'kind': 'article',
+          'description': item.description,
+          'quantity': item.quantity,
+          'unit': item.unit,
+          'unit_price': item.unitPrice,
+          'vat_rate': item.vatRate,
+          'group_label': item.groupLabel,
+        });
+      } else {
+        regularIds.add(id);
+      }
+    }
+
     try {
       final invoice = await widget.apiClient.convertOrderToInvoice(
         token: widget.token,
         orderId: widget.orderId,
         invoiceType: InvoiceType.partial,
-        itemIds: _selected.toList(),
+        itemIds: regularIds.isEmpty ? null : regularIds,
+        extraItems: extraItems.isEmpty ? null : extraItems,
       );
       if (!context.mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(
-                'Materialabschlag ${invoice.invoiceNumber} erstellt.')),
+          content:
+              Text('Materialabschlag ${invoice.invoiceNumber} erstellt.'),
+        ),
       );
     } on ApiException catch (e) {
       setState(() {
@@ -135,134 +189,207 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Materialabschlag erstellen'),
-      content: SizedBox(
-        width: 460,
-        child: FutureBuilder<List<_MaterialItem>>(
-          future: _itemsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const SizedBox(
-                  height: 80,
-                  child: Center(child: CircularProgressIndicator()));
-            }
-            if (snapshot.hasError) {
-              return Text('Fehler: ${snapshot.error}');
-            }
-            final items = snapshot.data!;
-            if (items.isEmpty) {
-              return const Text(
-                'Keine abrechenbaren Positionen vorhanden.',
-              );
-            }
-
-            final grouped = _groupItems(items);
-
-            return ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 380),
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final entry in grouped.entries) ...[
-                    _GroupHeader(
-                      label: entry.key ?? 'Allgemeine Positionen',
-                      items: entry.value,
-                      selected: _selected,
-                      onToggleGroup: (allSelected) {
-                        setState(() {
-                          final ids = entry.value
-                              .where((i) => !i.alreadyInvoiced)
-                              .map((i) => i.id);
-                          if (allSelected) {
-                            _selected.addAll(ids);
-                          } else {
-                            _selected.removeAll(ids);
-                          }
-                        });
-                      },
-                    ),
-                    for (final item in entry.value)
-                      CheckboxListTile(
-                        dense: true,
-                        value: item.alreadyInvoiced
-                            ? false
-                            : _selected.contains(item.id),
-                        enabled: !item.alreadyInvoiced,
-                        title: Text(
-                          item.description,
-                          style: item.alreadyInvoiced
-                              ? TextStyle(
-                                  color: Theme.of(context).disabledColor)
-                              : null,
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title
+              Text(
+                'Materialabschlag erstellen',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Wähle die Artikel, die in dieser Abschlagsrechnung verrechnet werden sollen.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              // Column header
+              _ColumnHeader(),
+              const Divider(height: 1),
+              // Item list
+              Flexible(
+                child: FutureBuilder<List<_MaterialItem>>(
+                  future: _itemsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const SizedBox(
+                        height: 120,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Fehler: ${snapshot.error}'),
+                      );
+                    }
+                    final items = snapshot.data!;
+                    if (items.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(
+                          child: Text(
+                            'Keine abrechenbaren Artikel-Positionen vorhanden.',
+                          ),
                         ),
-                        subtitle: item.alreadyInvoiced
-                            ? const Text('bereits abgerechnet')
-                            : Text(
-                                '${_fmtQty(item.quantity)}${item.unit != null ? ' ${item.unit}' : ''} × '
-                                '${item.unitPrice.toStringAsFixed(2)} € = '
-                                '${item.totalNet.toStringAsFixed(2)} € netto',
-                              ),
-                        onChanged: (checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _selected.add(item.id);
-                            } else {
-                              _selected.remove(item.id);
-                            }
-                          });
-                        },
+                      );
+                    }
+
+                    final grouped = _groupItems(items);
+                    return ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final entry in grouped.entries) ...[
+                          _GroupHeaderRow(
+                            label: entry.key ?? 'Allgemeine Positionen',
+                            items: entry.value,
+                            selected: _selected,
+                            onToggle: (allSelected) => setState(() {
+                              final ids = entry.value
+                                  .where((i) => !i.alreadyInvoiced)
+                                  .map((i) => i.id);
+                              if (allSelected) {
+                                _selected.addAll(ids);
+                              } else {
+                                _selected.removeAll(ids);
+                              }
+                            }),
+                          ),
+                          for (final item in entry.value)
+                            _ItemRow(
+                              item: item,
+                              isSelected: _selected.contains(item.id),
+                              onToggle: item.alreadyInvoiced
+                                  ? null
+                                  : (v) => setState(() {
+                                        if (v) {
+                                          _selected.add(item.id);
+                                        } else {
+                                          _selected.remove(item.id);
+                                        }
+                                      }),
+                            ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              // Footer: summary + error + actions
+              const SizedBox(height: 12),
+              FutureBuilder<List<_MaterialItem>>(
+                future: _itemsFuture,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox.shrink();
+                  final items = snapshot.data!;
+                  final selectedItems =
+                      items.where((i) => _selected.contains(i.id));
+                  final total = selectedItems.fold<double>(
+                      0, (sum, i) => sum + i.totalNet);
+                  final count = selectedItems.length;
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          count == 0
+                              ? 'Keine Positionen ausgewählt'
+                              : '$count Position${count == 1 ? '' : 'en'} ausgewählt  ·  '
+                                  '${total.toStringAsFixed(2)} € netto',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                  ],
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error),
-                    ),
-                  ],
+                    ],
+                  );
+                },
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _error!,
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed:
+                        _saving ? null : () => Navigator.pop(context),
+                    child: const Text('Abbrechen'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _saving ? null : () => _create(context),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Rechnung erstellen'),
+                  ),
                 ],
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Abbrechen'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : () => _create(context),
-          child: _saving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : const Text('Rechnung erstellen'),
-        ),
-      ],
     );
   }
-
-  String _fmtQty(double v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
 }
 
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({
+class _ColumnHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context)
+        .textTheme
+        .labelSmall
+        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(48, 0, 0, 6),
+      child: Row(
+        children: [
+          Expanded(child: Text('Beschreibung', style: style)),
+          SizedBox(
+              width: 80,
+              child: Text('Menge',
+                  style: style, textAlign: TextAlign.right)),
+          SizedBox(
+              width: 90,
+              child:
+                  Text('EP (€)', style: style, textAlign: TextAlign.right)),
+          SizedBox(
+              width: 90,
+              child: Text('Gesamt netto',
+                  style: style, textAlign: TextAlign.right)),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupHeaderRow extends StatelessWidget {
+  const _GroupHeaderRow({
     required this.label,
     required this.items,
     required this.selected,
-    required this.onToggleGroup,
+    required this.onToggle,
   });
 
   final String label;
   final List<_MaterialItem> items;
   final Set<String> selected;
-  final void Function(bool allSelected) onToggleGroup;
+  final void Function(bool) onToggle;
 
   bool get _allSelected => items
       .where((i) => !i.alreadyInvoiced)
@@ -272,18 +399,22 @@ class _GroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
+    return Container(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          if (_hasSelectable)
-            Checkbox(
-              value: _allSelected,
-              tristate: false,
-              onChanged: (v) => onToggleGroup(v ?? false),
-            )
-          else
-            const SizedBox(width: 48),
+          SizedBox(
+            width: 48,
+            child: _hasSelectable
+                ? Checkbox(
+                    value: _allSelected,
+                    tristate: false,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (v) => onToggle(v ?? false),
+                  )
+                : null,
+          ),
           Expanded(
             child: Text(
               label,
@@ -297,4 +428,100 @@ class _GroupHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ItemRow extends StatelessWidget {
+  const _ItemRow({
+    required this.item,
+    required this.isSelected,
+    required this.onToggle,
+  });
+
+  final _MaterialItem item;
+  final bool isSelected;
+  final void Function(bool)? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = item.alreadyInvoiced;
+    final textColor = disabled
+        ? Theme.of(context).disabledColor
+        : Theme.of(context).colorScheme.onSurface;
+    final style = Theme.of(context)
+        .textTheme
+        .bodySmall
+        ?.copyWith(color: textColor);
+
+    return InkWell(
+      onTap: onToggle == null ? null : () => onToggle!(!isSelected),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 48,
+              child: Checkbox(
+                value: disabled ? false : isSelected,
+                tristate: false,
+                visualDensity: VisualDensity.compact,
+                onChanged: disabled ? null : (v) => onToggle!(v ?? false),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.description, style: style),
+                  if (item.isSynthetic && item.parentDescription != null)
+                    Text(
+                      'aus Produkt: ${item.parentDescription}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant,
+                          ),
+                    ),
+                  if (disabled)
+                    Text(
+                      'bereits abgerechnet',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Theme.of(context).disabledColor,
+                          ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 80,
+              child: Text(
+                '${_fmtQty(item.quantity)}${item.unit != null ? ' ${item.unit}' : ''}',
+                style: style,
+                textAlign: TextAlign.right,
+              ),
+            ),
+            SizedBox(
+              width: 90,
+              child: Text(
+                item.unitPrice.toStringAsFixed(2),
+                style: style,
+                textAlign: TextAlign.right,
+              ),
+            ),
+            SizedBox(
+              width: 90,
+              child: Text(
+                item.totalNet.toStringAsFixed(2),
+                style: style?.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmtQty(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
 }

@@ -279,6 +279,42 @@ class ProductRepository {
     }
   }
 
+  /// Loads all article-kind components for the given product IDs, enriched
+  /// with article description and unit via JOIN. Returns data grouped by
+  /// product_id. Used by the billable-items endpoint for Materialabschlag
+  /// expansion.
+  Future<Map<String, List<Map<String, dynamic>>>> loadArticleComponentsForProductIds(
+    List<String> productIds,
+  ) async {
+    if (productIds.isEmpty) return {};
+
+    final placeholders =
+        List.generate(productIds.length, (i) => '@id$i').join(', ');
+    final params = <String, dynamic>{
+      for (var i = 0; i < productIds.length; i++) 'id$i': productIds[i],
+    };
+
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT pc.id, pc.product_id, pc.label, pc.quantity, pc.unit_cost, '
+        '       a.description AS article_description, a.unit AS article_unit '
+        'FROM product_components pc '
+        'LEFT JOIN articles a ON a.id = pc.article_id '
+        "WHERE pc.kind = 'article' AND pc.product_id IN ($placeholders) "
+        'ORDER BY pc.product_id, pc.sort_order',
+      ),
+      parameters: params,
+    );
+
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final row in result) {
+      final map = row.toColumnMap();
+      final pid = map['product_id'] as String;
+      grouped.putIfAbsent(pid, () => []).add(map);
+    }
+    return grouped;
+  }
+
   Future<List<ProductComponent>> _loadComponents(Session session, {required String productId}) async {
     final result = await session.execute(
       Sql.named(
