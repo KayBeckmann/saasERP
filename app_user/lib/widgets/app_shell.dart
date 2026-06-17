@@ -307,11 +307,23 @@ class _PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
     return Container(
       color: colorSurface,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: EdgeInsets.only(
+        left: canPop ? 8 : 24,
+        right: 24,
+        top: 20,
+        bottom: 20,
+      ),
       child: Row(
         children: [
+          if (canPop)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              color: deepNavy,
+              onPressed: () => Navigator.pop(context),
+            ),
           Expanded(
             child: Text(
               title,

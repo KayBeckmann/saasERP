@@ -6,6 +6,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/app_shell.dart';
 
 class _ItemDraft {
   _ItemDraft({
@@ -309,34 +310,33 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.quote != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Angebot ${widget.quote!.quoteNumber}' : 'Neues Angebot'),
-        actions: [
-          if (isEdit) ...[
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              tooltip: 'PDF',
-              onPressed: _showPdf,
-            ),
-            IconButton(
-              icon: const Icon(Icons.assignment_turned_in_outlined),
-              tooltip: 'In Auftrag wandeln',
-              onPressed: _convertToOrder,
-            ),
-          ],
+    return AppShell(
+      currentItem: AppNavItem.quotes,
+      title: isEdit ? 'Angebot ${widget.quote!.quoteNumber}' : 'Neues Angebot',
+      actions: [
+        if (isEdit) ...[
           IconButton(
-            icon: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            tooltip: 'Speichern',
-            onPressed: _saving ? null : _save,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'PDF',
+            onPressed: _showPdf,
+          ),
+          IconButton(
+            icon: const Icon(Icons.assignment_turned_in_outlined),
+            tooltip: 'In Auftrag wandeln',
+            onPressed: _convertToOrder,
           ),
         ],
-      ),
+        IconButton(
+          icon: _saving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save_outlined),
+          tooltip: 'Speichern',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
       body: FutureBuilder(
         future: _refsFuture,
         builder: (context, snapshot) {

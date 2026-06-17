@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_shell.dart';
 
 /// Preisimport für Artikel-Einkaufspreise: CSV (`sku,einkaufspreis`) wird
 /// eingefügt, betroffene Artikel werden aktualisiert und für Produkte mit
@@ -76,8 +77,9 @@ class _PriceImportScreenState extends State<PriceImportScreen> {
   Widget build(BuildContext context) {
     final result = _result;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Preisimport')),
+    return AppShell(
+      currentItem: AppNavItem.articles,
+      title: 'Preisimport',
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

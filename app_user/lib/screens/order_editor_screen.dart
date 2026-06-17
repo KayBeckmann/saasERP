@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/closing_invoice_dialog.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 import '../widgets/material_invoice_dialog.dart';
@@ -302,47 +303,46 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.order != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag'),
-        actions: [
-          if (isEdit) ...[
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.receipt_long_outlined),
-              tooltip: 'Rechnung erstellen',
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'standard',
-                  child: Text('Rechnung erstellen'),
-                ),
-                const PopupMenuItem(
-                  value: 'material',
-                  child: Text('Materialabschlag erstellen'),
-                ),
-                const PopupMenuItem(
-                  value: 'closing',
-                  child: Text('Endrechnung erstellen'),
-                ),
-              ],
-              onSelected: (value) {
-                if (value == 'standard') _convertToInvoice();
-                if (value == 'material') _createMaterialInvoice();
-                if (value == 'closing') _createClosingInvoice();
-              },
-            ),
-          ],
-          IconButton(
-            icon: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            tooltip: 'Speichern',
-            onPressed: _saving ? null : _save,
+    return AppShell(
+      currentItem: AppNavItem.orders,
+      title: isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag',
+      actions: [
+        if (isEdit) ...[
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Rechnung erstellen',
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'standard',
+                child: Text('Rechnung erstellen'),
+              ),
+              const PopupMenuItem(
+                value: 'material',
+                child: Text('Materialabschlag erstellen'),
+              ),
+              const PopupMenuItem(
+                value: 'closing',
+                child: Text('Endrechnung erstellen'),
+              ),
+            ],
+            onSelected: (value) {
+              if (value == 'standard') _convertToInvoice();
+              if (value == 'material') _createMaterialInvoice();
+              if (value == 'closing') _createClosingInvoice();
+            },
           ),
         ],
-      ),
+        IconButton(
+          icon: _saving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save_outlined),
+          tooltip: 'Speichern',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
       body: FutureBuilder(
         future: _refsFuture,
         builder: (context, snapshot) {

@@ -5,6 +5,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_shell.dart';
 
 /// Anlegen/Bearbeiten einer Bestellung: Lieferant, Status, Notizen plus
 /// Positions-Editor (Artikel oder Freitext) und — im Bearbeitungsmodus —
@@ -278,25 +279,24 @@ class _PurchaseOrderEditorScreenState extends State<PurchaseOrderEditorScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.purchaseOrder != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Bestellung ${widget.purchaseOrder!.purchaseOrderNumber}' : 'Neue Bestellung'),
-        actions: [
-          if (isEdit)
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              tooltip: 'PDF',
-              onPressed: _showPdf,
-            ),
+    return AppShell(
+      currentItem: AppNavItem.purchaseOrders,
+      title: isEdit ? 'Bestellung ${widget.purchaseOrder!.purchaseOrderNumber}' : 'Neue Bestellung',
+      actions: [
+        if (isEdit)
           IconButton(
-            icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            tooltip: 'Speichern',
-            onPressed: _saving ? null : _save,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'PDF',
+            onPressed: _showPdf,
           ),
-        ],
-      ),
+        IconButton(
+          icon: _saving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save_outlined),
+          tooltip: 'Speichern',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
       body: FutureBuilder(
         future: _refsFuture,
         builder: (context, snapshot) {

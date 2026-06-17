@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 
 /// Anlegen/Bearbeiten einer Rechnung: Stammdaten (Kunde, Titel, Status,
@@ -283,19 +284,18 @@ class _InvoiceEditorScreenState extends State<InvoiceEditorScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.invoice != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Rechnung ${widget.invoice!.invoiceNumber}' : 'Neue Rechnung'),
-        actions: [
-          IconButton(
-            icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            tooltip: 'Speichern',
-            onPressed: _saving ? null : _save,
-          ),
-        ],
-      ),
+    return AppShell(
+      currentItem: AppNavItem.invoices,
+      title: isEdit ? 'Rechnung ${widget.invoice!.invoiceNumber}' : 'Neue Rechnung',
+      actions: [
+        IconButton(
+          icon: _saving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save_outlined),
+          tooltip: 'Speichern',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
       body: FutureBuilder(
         future: _refsFuture,
         builder: (context, snapshot) {

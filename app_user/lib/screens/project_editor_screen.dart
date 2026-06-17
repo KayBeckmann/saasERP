@@ -4,6 +4,7 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../services/api_client.dart';
 import '../state/auth_controller.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/project_transaction_dialog.dart';
 
 /// Anlegen/Bearbeiten eines Projekts: Stammdaten (Name, Kunde, Status,
@@ -188,19 +189,18 @@ class _ProjectEditorScreenState extends State<ProjectEditorScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.project != null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(isEdit ? 'Projekt ${widget.project!.projectNumber}' : 'Neues Projekt'),
-        actions: [
-          IconButton(
-            icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
-            tooltip: 'Speichern',
-            onPressed: _saving ? null : _save,
-          ),
-        ],
-      ),
+    return AppShell(
+      currentItem: AppNavItem.projects,
+      title: isEdit ? 'Projekt ${widget.project!.projectNumber}' : 'Neues Projekt',
+      actions: [
+        IconButton(
+          icon: _saving
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save_outlined),
+          tooltip: 'Speichern',
+          onPressed: _saving ? null : _save,
+        ),
+      ],
       body: FutureBuilder(
         future: _customersFuture,
         builder: (context, snapshot) {
