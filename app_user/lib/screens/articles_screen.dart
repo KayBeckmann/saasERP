@@ -7,6 +7,7 @@ import '../state/auth_controller.dart';
 import '../widgets/app_data_table.dart';
 import '../widgets/app_shell.dart';
 import 'price_import_screen.dart';
+import 'products_screen.dart';
 
 /// Artikelliste des aktuellen Mandanten — Freitext-first: nur `name` ist
 /// Pflicht, alle anderen Felder sind optional.
@@ -67,8 +68,17 @@ class _ArticlesScreenState extends State<ArticlesScreen> {
   Widget build(BuildContext context) {
     return AppShell(
       currentItem: AppNavItem.articles,
-      title: 'Artikel',
+      title: 'Artikel & Produkte',
       actions: [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.category_outlined, size: 18),
+          label: const Text('Produkte'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductsScreen()),
+          ),
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.upload_file_outlined),
           tooltip: 'Preisimport',

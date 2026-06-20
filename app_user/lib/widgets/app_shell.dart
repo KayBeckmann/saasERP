@@ -13,6 +13,7 @@ import '../screens/products_screen.dart';
 import '../screens/projects_screen.dart';
 import '../screens/purchase_orders_screen.dart';
 import '../screens/quotes_screen.dart';
+import '../screens/reports_screen.dart';
 import '../screens/stock_overview_screen.dart';
 import '../screens/suppliers_screen.dart';
 import '../screens/time_entries_screen.dart';
@@ -36,6 +37,7 @@ enum AppNavItem {
   timeEntries,
   maintenanceContracts,
   users,
+  reports,
 }
 
 class _NavEntry {
@@ -46,6 +48,7 @@ class _NavEntry {
   final String label;
 }
 
+// Primäre Nav-Einträge — entsprechen dem Mockup-Layout
 const _navEntries = [
   _NavEntry(AppNavItem.dashboard, Icons.dashboard_outlined, 'Dashboard'),
   _NavEntry(AppNavItem.customers, Icons.group_outlined, 'Kunden'),
@@ -53,19 +56,24 @@ const _navEntries = [
   _NavEntry(AppNavItem.orders, Icons.assignment_outlined, 'Aufträge'),
   _NavEntry(AppNavItem.invoices, Icons.receipt_outlined, 'Rechnungen'),
   _NavEntry(AppNavItem.dunning, Icons.assignment_late_outlined, 'Mahnwesen'),
-  _NavEntry(AppNavItem.articles, Icons.inventory_2_outlined, 'Artikel'),
-  _NavEntry(AppNavItem.products, Icons.category_outlined, 'Produkte'),
+  _NavEntry(AppNavItem.articles, Icons.inventory_2_outlined, 'Artikel & Produkte'),
   _NavEntry(AppNavItem.purchaseOrders, Icons.shopping_cart_outlined, 'Bestellungen'),
   _NavEntry(AppNavItem.stock, Icons.warehouse_outlined, 'Lager'),
   _NavEntry(AppNavItem.projects, Icons.account_tree_outlined, 'Projekte'),
+  _NavEntry(AppNavItem.reports, Icons.analytics_outlined, 'Berichte'),
+];
+
+// Sekundäre Nav-Einträge (Zusatzfunktionen, nicht im Kern-Mockup)
+const _secondaryNavEntries = [
   _NavEntry(AppNavItem.timeEntries, Icons.timer_outlined, 'Stundenerfassung'),
   _NavEntry(AppNavItem.maintenanceContracts, Icons.handshake_outlined, 'Wartungsverträge'),
   _NavEntry(AppNavItem.suppliers, Icons.local_shipping_outlined, 'Lieferanten'),
+  _NavEntry(AppNavItem.products, Icons.category_outlined, 'Produkte'),
 ];
 
 // Einträge, die nur für Owner sichtbar sind
 const _ownerOnlyNavEntries = [
-  _NavEntry(AppNavItem.users, Icons.manage_accounts_outlined, 'Benutzerverwaltung'),
+  _NavEntry(AppNavItem.users, Icons.manage_accounts_outlined, 'Einstellungen'),
 ];
 
 // Items that open screens which also serve as landing screens for sub-items.
@@ -102,6 +110,8 @@ Widget _screenFor(AppNavItem item) {
       return const MaintenanceContractsScreen();
     case AppNavItem.users:
       return const UsersScreen();
+    case AppNavItem.reports:
+      return const ReportsScreen();
   }
 }
 
@@ -143,7 +153,8 @@ class AppShell extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: colorSurface,
-          drawer: isDesktop ? null : Drawer(child: _Sidebar(currentItem: currentItem)),
+          // Drawer nur auf Mobile (<768px) — Tablet nutzt IconRail, Desktop die volle Sidebar
+          drawer: isTablet ? null : Drawer(child: _Sidebar(currentItem: currentItem)),
           body: Row(
             children: [
               if (isDesktop) _Sidebar(currentItem: currentItem),
@@ -152,7 +163,8 @@ class AppShell extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _TopBar(showMenuButton: !isDesktop),
+                    // Menu-Button nur auf Mobile (<768px), nicht auf Tablet oder Desktop
+                    _TopBar(showMenuButton: !isTablet),
                     const Divider(height: 1),
                     _PageHeader(title: title, actions: actions),
                     Expanded(child: body),
@@ -423,6 +435,13 @@ class _Sidebar extends StatelessWidget {
                       selected: entry.item == currentItem,
                       showLabel: true,
                     ),
+                  const Divider(height: 16, indent: 16, endIndent: 16),
+                  for (final entry in _secondaryNavEntries)
+                    _NavTile(
+                      entry: entry,
+                      selected: entry.item == currentItem,
+                      showLabel: true,
+                    ),
                   if (auth.user?.role == UserRole.owner) ...[
                     const Divider(height: 16, indent: 16, endIndent: 16),
                     for (final entry in _ownerOnlyNavEntries)
@@ -496,9 +515,14 @@ class _IconRail extends StatelessWidget {
                 children: [
                   for (final entry in _navEntries)
                     _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
-                  if (auth.user?.role == UserRole.owner)
+                  const Divider(height: 8, indent: 8, endIndent: 8),
+                  for (final entry in _secondaryNavEntries)
+                    _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
+                  if (auth.user?.role == UserRole.owner) ...[
+                    const Divider(height: 8, indent: 8, endIndent: 8),
                     for (final entry in _ownerOnlyNavEntries)
                       _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
+                  ],
                 ],
               ),
             ),
