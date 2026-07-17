@@ -133,9 +133,13 @@ App-Domain (Ziel: der Host-Port der jeweiligen App, siehe `APP_USER_PORT`/
 `APP_KUNDE_PORT`), eine eigene API-Domain entfällt. `.env` dafür:
 
 ```env
-API_BASE_URL_USER=https://app.meinedomain.de/api
-API_BASE_URL_KUNDE=https://portal.meinedomain.de/api
+API_BASE_URL_USER=https://app.meinedomain.de
+API_BASE_URL_KUNDE=https://portal.meinedomain.de
 ```
+
+**Wichtig:** Beide Werte **ohne** `/api`-Suffix — der App-Code hängt
+`/api/...` bei jedem Aufruf selbst an (`lib/services/api_client.dart`). Mit
+Suffix entstehen doppelte Pfade wie `/api/api/auth/login` (404).
 
 Jede App ruft die API dann same-origin über die eigene Domain auf — CORS
 spielt in diesem Setup keine Rolle mehr, `CORS_ORIGIN` kann auf die
