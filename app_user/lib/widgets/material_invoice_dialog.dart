@@ -118,6 +118,15 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
     return grouped;
   }
 
+  void _selectAll(List<_MaterialItem> items) {
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(items.where((i) => !i.alreadyInvoiced).map((i) => i.id));
+      _error = null;
+    });
+  }
+
   Future<void> _create(BuildContext context) async {
     if (_selected.isEmpty) {
       setState(() => _error = 'Bitte mindestens eine Position auswählen.');
@@ -195,7 +204,27 @@ class _MaterialInvoiceDialogState extends State<_MaterialInvoiceDialog> {
                 'Wähle die Artikel, die in dieser Abschlagsrechnung verrechnet werden sollen.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              // "Alle Artikel auswählen" — unabhängig vom Scroll-Zustand
+              // oder eventuellen Gruppen-Checkboxen werden alle noch nicht
+              // abgerechneten Positionen auf einen Schlag ausgewählt.
+              FutureBuilder<List<_MaterialItem>>(
+                future: _itemsFuture,
+                builder: (context, snapshot) {
+                  final items = snapshot.data;
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: (items == null || items.isEmpty)
+                          ? null
+                          : () => _selectAll(items),
+                      icon: const Icon(Icons.select_all, size: 18),
+                      label: const Text('Alle Artikel auswählen'),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
               // Column header
               _ColumnHeader(),
               const Divider(height: 1),

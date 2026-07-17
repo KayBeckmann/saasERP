@@ -79,8 +79,15 @@ Future<Response> onRequest(RequestContext context, String id) async {
             (comp['label'] as String?)?.isNotEmpty == true
                 ? comp['label'] as String
                 : (comp['article_description'] as String?) ?? '';
+        // ID muss die konkrete Auftragsposition (item.id) einschließen, nicht
+        // nur die Produkt-Komponenten-ID: Dieselbe Produkt-Definition kann in
+        // mehreren Auftragspositionen (z.B. mehreren Räumen) verwendet
+        // werden. Ohne item.id wären die synthetischen IDs über alle
+        // Vorkommen hinweg identisch, das Frontend-Set würde sie
+        // deduplizieren und beim Rechnungserstellen nur ein Vorkommen
+        // übernehmen — die anderen Räume/Positionen verschwinden lautlos.
         billableItems.add({
-          'id': 'cmp:${comp['id']}',
+          'id': 'cmp:${item.id}:${comp['id']}',
           'kind': 'article',
           'description': description,
           'quantity': item.quantity * compQty,

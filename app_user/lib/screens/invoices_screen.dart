@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
+import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../widgets/app_data_table.dart';
 import '../widgets/app_shell.dart';
@@ -63,6 +65,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     final auth = context.read<AuthController>();
     await auth.apiClient.deleteInvoice(token: auth.token!, id: invoice.id);
     _reload();
+  }
+
+  Future<void> _showPdf(Invoice invoice) async {
+    final auth = context.read<AuthController>();
+    try {
+      final bytes = await auth.apiClient.getInvoicePdf(token: auth.token!, id: invoice.id);
+      await Printing.layoutPdf(onLayout: (_) async => bytes, name: '${invoice.invoiceNumber}.pdf');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF-Fehler: ${e.message}')));
+    }
   }
 
   String? _customerName(String? customerId, List<Customer> customers) {
@@ -128,10 +141,20 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     Text('${invoice.totalGross.toStringAsFixed(2)} €'),
                     StatusChip(label: _statusLabel(invoice.status), tone: _statusTone(invoice.status)),
                   ],
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Löschen',
-                    onPressed: () => _delete(invoice),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        tooltip: 'PDF',
+                        onPressed: () => _showPdf(invoice),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        tooltip: 'Löschen',
+                        onPressed: () => _delete(invoice),
+                      ),
+                    ],
                   ),
                 ),
             ],
