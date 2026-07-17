@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -42,14 +42,18 @@ services:
       SMTP_USE_SSL: ${SMTP_USE_SSL}
       SUPPORT_EMAIL: ${SUPPORT_EMAIL:-}
     ports:
-      - "${BACKEND_PORT}:8080"
+      - "127.0.0.1:${BACKEND_PORT}:8080"
 
   app_user:
     build:
       context: .
       dockerfile: app_user/Dockerfile
       args:
-        API_BASE_URL: ${API_BASE_URL}
+        # Eigene Origin je App (Pfad-Proxy /api/ in app_user/nginx.conf),
+        # damit User-App und Kunden-App auf getrennten Domains laufen können,
+        # ohne dass CORS konfiguriert werden muss. Fällt auf API_BASE_URL
+        # zurück, falls nur eine gemeinsame Domain genutzt wird (z. B. lokal).
+        API_BASE_URL: ${API_BASE_URL_USER:-${API_BASE_URL}}
     restart: unless-stopped
     depends_on:
       - backend
@@ -61,7 +65,7 @@ services:
       context: .
       dockerfile: app_kunde/Dockerfile
       args:
-        API_BASE_URL: ${API_BASE_URL}
+        API_BASE_URL: ${API_BASE_URL_KUNDE:-${API_BASE_URL}}
     restart: unless-stopped
     depends_on:
       - backend

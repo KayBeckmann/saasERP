@@ -123,6 +123,25 @@ APP_KUNDE_URL=https://portal.meinedomain.de
 API_BASE_URL=https://api.meinedomain.de
 ```
 
+### Alternative: nur zwei Domains, ohne eigene API-Subdomain
+
+Falls keine dritte Subdomain für die API angelegt werden soll (z. B. wenn nur
+`app.meinedomain.de` und `portal.meinedomain.de` existieren), proxied
+`app_user/nginx.conf` bzw. `app_kunde/nginx.conf` `/api/` bereits intern zum
+Backend-Container weiter. In diesem Fall reicht ein Reverse-Proxy-Eintrag pro
+App-Domain (Ziel: der Host-Port der jeweiligen App, siehe `APP_USER_PORT`/
+`APP_KUNDE_PORT`), eine eigene API-Domain entfällt. `.env` dafür:
+
+```env
+API_BASE_URL_USER=https://app.meinedomain.de/api
+API_BASE_URL_KUNDE=https://portal.meinedomain.de/api
+```
+
+Jede App ruft die API dann same-origin über die eigene Domain auf — CORS
+spielt in diesem Setup keine Rolle mehr, `CORS_ORIGIN` kann auf die
+User-App-Domain gesetzt bleiben (dient nur als Absicherung, falls doch einmal
+direkt aufs Backend zugegriffen wird).
+
 ---
 
 ## E-Mail-Benachrichtigungen (optional)
