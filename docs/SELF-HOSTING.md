@@ -43,7 +43,9 @@ ENCRYPTION_MASTER_KEY=<mindestens_64_zufaellige_zeichen>
 # URLs (auf deinen Domainnamen anpassen)
 CORS_ORIGIN=https://app.meinedomain.de
 APP_KUNDE_URL=https://portal.meinedomain.de
-API_BASE_URL=https://api.meinedomain.de
+# Beide Apps nutzen dieselbe API-Subdomain (kein "/api"-Suffix, siehe unten).
+API_BASE_URL_USER=https://api.meinedomain.de
+API_BASE_URL_KUNDE=https://api.meinedomain.de
 ```
 
 > **Sicherheitshinweis:** `JWT_SECRET` und `ENCRYPTION_MASTER_KEY` sollten mindestens 64 zufällige Zeichen lang sein. Generieren mit:
@@ -120,7 +122,8 @@ Passe anschließend in `.env` die URLs entsprechend an:
 ```env
 CORS_ORIGIN=https://app.meinedomain.de
 APP_KUNDE_URL=https://portal.meinedomain.de
-API_BASE_URL=https://api.meinedomain.de
+API_BASE_URL_USER=https://api.meinedomain.de
+API_BASE_URL_KUNDE=https://api.meinedomain.de
 ```
 
 ### Alternative: nur zwei Domains, ohne eigene API-Subdomain

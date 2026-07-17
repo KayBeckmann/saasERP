@@ -51,9 +51,12 @@ services:
       args:
         # Eigene Origin je App (Pfad-Proxy /api/ in app_user/nginx.conf),
         # damit User-App und Kunden-App auf getrennten Domains laufen können,
-        # ohne dass CORS konfiguriert werden muss. Fällt auf API_BASE_URL
-        # zurück, falls nur eine gemeinsame Domain genutzt wird (z. B. lokal).
-        API_BASE_URL: ${API_BASE_URL_USER:-${API_BASE_URL}}
+        # ohne dass CORS konfiguriert werden muss. Kein verschachteltes
+        # ${A:-${B}}-Fallback hier — docker-compose v1 löst das nicht sauber
+        # auf (hängt eine überzählige "}" an den Wert an). Deshalb: fester,
+        # einfacher Verweis auf API_BASE_URL_USER, in .env.example mit
+        # sinnvollem Default für Ein-Domain-Setups vorbelegt.
+        API_BASE_URL: ${API_BASE_URL_USER}
     restart: unless-stopped
     depends_on:
       - backend
@@ -65,7 +68,7 @@ services:
       context: .
       dockerfile: app_kunde/Dockerfile
       args:
-        API_BASE_URL: ${API_BASE_URL_KUNDE:-${API_BASE_URL}}
+        API_BASE_URL: ${API_BASE_URL_KUNDE}
     restart: unless-stopped
     depends_on:
       - backend
