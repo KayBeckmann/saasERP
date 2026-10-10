@@ -1,3 +1,4 @@
+import '../subscription_validation.dart';
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -12,8 +13,9 @@ class QuoteRepository {
   final Pool<void> _pool;
   final NumberSequenceRepository _numberSequences;
 
-  static const _quoteColumns = 'id, tenant_id, quote_number, customer_id, title, status, valid_until, notes, '
-      'created_at, customer_decision_at, customer_comment';
+  static const _quoteColumns =
+      'id, tenant_id, quote_number, customer_id, title, status, valid_until, notes, '
+      'created_at, customer_decision_at, customer_comment, is_subscription, billing_interval, billing_start_date';
 
   static const _itemColumns =
       'id, quote_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
@@ -22,6 +24,12 @@ class QuoteRepository {
     required String tenantId,
     required CreateQuoteRequest req,
   }) async {
+    validateSubscription(
+      req.isSubscription,
+      req.billingInterval,
+      req.billingStartDate,
+      req.customerId,
+    );
     final quoteNumber = await _numberSequences.next(
       tenantId: tenantId,
       sequenceKey: 'quote',
@@ -29,16 +37,29 @@ class QuoteRepository {
     );
 
     return _pool.runTx((session) async {
+      if (req.isSubscription) {
+        final customer = await session.execute(
+          Sql.named(
+            'SELECT 1 FROM customers WHERE id = @id AND tenant_id = @tenant',
+          ),
+          parameters: {'id': req.customerId, 'tenant': tenantId},
+        );
+        if (customer.isEmpty)
+          throw ArgumentError('Customer does not belong to tenant');
+      }
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO quotes (tenant_id, quote_number, customer_id, title, valid_until, notes) '
-          'VALUES (@tenant_id, @quote_number, @customer_id, @title, @valid_until, @notes) '
+          'INSERT INTO quotes (tenant_id, quote_number, customer_id, title, valid_until, notes, is_subscription, billing_interval, billing_start_date) '
+          'VALUES (@tenant_id, @quote_number, @customer_id, @title, @valid_until, @notes, @is_subscription, @billing_interval, @billing_start_date) '
           'RETURNING $_quoteColumns',
         ),
         parameters: {
           'tenant_id': tenantId,
           'quote_number': quoteNumber,
           'customer_id': req.customerId,
+          'is_subscription': req.isSubscription,
+          'billing_interval': req.billingInterval,
+          'billing_start_date': req.billingStartDate,
           'title': req.title,
           'valid_until': req.validUntil,
           'notes': req.notes,
@@ -46,7 +67,12 @@ class QuoteRepository {
       );
       final quoteId = result.first.toColumnMap()['id'] as String;
 
-      await _insertItems(session, tenantId: tenantId, quoteId: quoteId, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        quoteId: quoteId,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, quoteId: quoteId);
       return _fromRow(result.first.toColumnMap(), items);
@@ -66,7 +92,9 @@ class QuoteRepository {
 
   Future<List<Quote>> list(String tenantId) async {
     final quoteRows = await _pool.execute(
-      Sql.named('SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),
+      Sql.named(
+        'SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id ORDER BY created_at DESC',
+      ),
       parameters: {'tenant_id': tenantId},
     );
     if (quoteRows.isEmpty) return [];
@@ -87,13 +115,21 @@ class QuoteRepository {
     }
 
     return quoteRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByQuote[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByQuote[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
   /// Angebote eines bestimmten Kunden — für die Kundenportal-Übersicht
   /// (`app_kunde`).
-  Future<List<Quote>> listForCustomer({required String tenantId, required String customerId}) async {
+  Future<List<Quote>> listForCustomer({
+    required String tenantId,
+    required String customerId,
+  }) async {
     final quoteRows = await _pool.execute(
       Sql.named(
         'SELECT $_quoteColumns FROM quotes '
@@ -119,7 +155,12 @@ class QuoteRepository {
     }
 
     return quoteRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByQuote[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByQuote[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
@@ -155,9 +196,14 @@ class QuoteRepository {
     });
   }
 
-  Future<Quote?> findById({required String tenantId, required String id}) async {
+  Future<Quote?> findById({
+    required String tenantId,
+    required String id,
+  }) async {
     final result = await _pool.execute(
-      Sql.named('SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id AND id = @id'),
+      Sql.named(
+        'SELECT $_quoteColumns FROM quotes WHERE tenant_id = @tenant_id AND id = @id',
+      ),
       parameters: {'tenant_id': tenantId, 'id': id},
     );
     if (result.isEmpty) return null;
@@ -171,11 +217,27 @@ class QuoteRepository {
     required String id,
     required UpdateQuoteRequest req,
   }) async {
+    validateSubscription(
+      req.isSubscription,
+      req.billingInterval,
+      req.billingStartDate,
+      req.customerId,
+    );
     return _pool.runTx((session) async {
+      if (req.isSubscription) {
+        final customer = await session.execute(
+          Sql.named(
+            'SELECT 1 FROM customers WHERE id = @id AND tenant_id = @tenant',
+          ),
+          parameters: {'id': req.customerId, 'tenant': tenantId},
+        );
+        if (customer.isEmpty)
+          throw ArgumentError('Customer does not belong to tenant');
+      }
       final result = await session.execute(
         Sql.named(
           'UPDATE quotes SET customer_id = @customer_id, title = @title, status = @status, '
-          'valid_until = @valid_until, notes = @notes '
+          'valid_until = @valid_until, notes = @notes, is_subscription = @is_subscription, billing_interval = @billing_interval, billing_start_date = @billing_start_date '
           'WHERE tenant_id = @tenant_id AND id = @id '
           'RETURNING $_quoteColumns',
         ),
@@ -183,6 +245,9 @@ class QuoteRepository {
           'tenant_id': tenantId,
           'id': id,
           'customer_id': req.customerId,
+          'is_subscription': req.isSubscription,
+          'billing_interval': req.billingInterval,
+          'billing_start_date': req.billingStartDate,
           'title': req.title,
           'status': req.status.toJson(),
           'valid_until': req.validUntil,
@@ -195,7 +260,12 @@ class QuoteRepository {
         Sql.named('DELETE FROM quote_items WHERE quote_id = @quote_id'),
         parameters: {'quote_id': id},
       );
-      await _insertItems(session, tenantId: tenantId, quoteId: id, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        quoteId: id,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, quoteId: id);
       return _fromRow(result.first.toColumnMap(), items);
@@ -242,39 +312,47 @@ class QuoteRepository {
     }
   }
 
-  Future<List<QuoteItem>> _loadItems(Session session, {required String quoteId}) async {
+  Future<List<QuoteItem>> _loadItems(
+    Session session, {
+    required String quoteId,
+  }) async {
     final result = await session.execute(
-      Sql.named('SELECT $_itemColumns FROM quote_items WHERE quote_id = @quote_id ORDER BY sort_order'),
+      Sql.named(
+        'SELECT $_itemColumns FROM quote_items WHERE quote_id = @quote_id ORDER BY sort_order',
+      ),
       parameters: {'quote_id': quoteId},
     );
     return result.map((row) => _itemFromRow(row.toColumnMap())).toList();
   }
 
   QuoteItem _itemFromRow(Map<String, dynamic> row) => QuoteItem(
-        id: row['id'] as String,
-        kind: QuoteItemKind.fromJson(row['kind'] as String),
-        articleId: row['article_id'] as String?,
-        productId: row['product_id'] as String?,
-        description: row['description'] as String,
-        quantity: (row['quantity'] as num).toDouble(),
-        unit: row['unit'] as String?,
-        unitPrice: (row['unit_price'] as num).toDouble(),
-        vatRate: (row['vat_rate'] as num).toDouble(),
-        groupLabel: row['group_label'] as String?,
-      );
+    id: row['id'] as String,
+    kind: QuoteItemKind.fromJson(row['kind'] as String),
+    articleId: row['article_id'] as String?,
+    productId: row['product_id'] as String?,
+    description: row['description'] as String,
+    quantity: (row['quantity'] as num).toDouble(),
+    unit: row['unit'] as String?,
+    unitPrice: (row['unit_price'] as num).toDouble(),
+    vatRate: (row['vat_rate'] as num).toDouble(),
+    groupLabel: row['group_label'] as String?,
+  );
 
   Quote _fromRow(Map<String, dynamic> row, List<QuoteItem> items) => Quote(
-        id: row['id'] as String,
-        tenantId: row['tenant_id'] as String,
-        quoteNumber: row['quote_number'] as String,
-        customerId: row['customer_id'] as String?,
-        title: row['title'] as String,
-        status: QuoteStatus.fromJson(row['status'] as String),
-        validUntil: (row['valid_until'] as DateTime?)?.toUtc(),
-        notes: row['notes'] as String?,
-        createdAt: (row['created_at'] as DateTime).toUtc(),
-        items: items,
-        customerDecisionAt: (row['customer_decision_at'] as DateTime?)?.toUtc(),
-        customerComment: row['customer_comment'] as String?,
-      );
+    id: row['id'] as String,
+    tenantId: row['tenant_id'] as String,
+    quoteNumber: row['quote_number'] as String,
+    customerId: row['customer_id'] as String?,
+    isSubscription: row['is_subscription'] as bool,
+    billingInterval: row['billing_interval'] as String?,
+    billingStartDate: (row['billing_start_date'] as DateTime?)?.toUtc(),
+    title: row['title'] as String,
+    status: QuoteStatus.fromJson(row['status'] as String),
+    validUntil: (row['valid_until'] as DateTime?)?.toUtc(),
+    notes: row['notes'] as String?,
+    createdAt: (row['created_at'] as DateTime).toUtc(),
+    items: items,
+    customerDecisionAt: (row['customer_decision_at'] as DateTime?)?.toUtc(),
+    customerComment: row['customer_comment'] as String?,
+  );
 }

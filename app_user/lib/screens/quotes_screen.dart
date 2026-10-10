@@ -8,6 +8,7 @@ import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../widgets/app_data_table.dart';
 import '../widgets/app_shell.dart';
+import '../widgets/subscription_fields.dart';
 import '../widgets/status_chip.dart';
 import 'quote_editor_screen.dart';
 
@@ -157,7 +158,15 @@ class _QuotesScreenState extends State<QuotesScreen> {
                 AppDataRow(
                   onTap: () => _openEditor(quote: quote),
                   cells: [
-                    Text('${quote.quoteNumber} — ${quote.title}'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${quote.quoteNumber} — ${quote.title}'),
+                        if (quote.isSubscription)
+                          Text(subscriptionSummary(true, quote.billingInterval,
+                              quote.billingStartDate)!),
+                      ],
+                    ),
                     Text(_customerName(quote.customerId, data.customers) ?? '-'),
                     Text('${quote.totalGross.toStringAsFixed(2)} €'),
                     StatusChip(label: _statusLabel(quote.status), tone: _statusTone(quote.status)),

@@ -7,7 +7,8 @@ enum OrderItemKind {
 
   String toJson() => name;
 
-  static OrderItemKind fromJson(String value) => OrderItemKind.values.firstWhere(
+  static OrderItemKind fromJson(String value) =>
+      OrderItemKind.values.firstWhere(
         (kind) => kind.name == value,
         orElse: () => OrderItemKind.text,
       );
@@ -21,18 +22,18 @@ enum OrderStatus {
   cancelled;
 
   String toJson() => switch (this) {
-        OrderStatus.open => 'open',
-        OrderStatus.inProgress => 'in_progress',
-        OrderStatus.completed => 'completed',
-        OrderStatus.cancelled => 'cancelled',
-      };
+    OrderStatus.open => 'open',
+    OrderStatus.inProgress => 'in_progress',
+    OrderStatus.completed => 'completed',
+    OrderStatus.cancelled => 'cancelled',
+  };
 
   static OrderStatus fromJson(String value) => switch (value) {
-        'in_progress' => OrderStatus.inProgress,
-        'completed' => OrderStatus.completed,
-        'cancelled' => OrderStatus.cancelled,
-        _ => OrderStatus.open,
-      };
+    'in_progress' => OrderStatus.inProgress,
+    'completed' => OrderStatus.completed,
+    'cancelled' => OrderStatus.cancelled,
+    _ => OrderStatus.open,
+  };
 }
 
 /// Position eines Auftrags. `unitPrice`/`vatRate` sind Schnappschüsse zum
@@ -72,30 +73,30 @@ class OrderItem {
   double get totalGross => totalNet * (1 + vatRate / 100);
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
-        id: json['id'] as String?,
-        kind: OrderItemKind.fromJson(json['kind'] as String),
-        articleId: json['article_id'] as String?,
-        productId: json['product_id'] as String?,
-        description: json['description'] as String,
-        quantity: (json['quantity'] as num).toDouble(),
-        unit: json['unit'] as String?,
-        unitPrice: (json['unit_price'] as num).toDouble(),
-        vatRate: (json['vat_rate'] as num).toDouble(),
-        groupLabel: json['group_label'] as String?,
-      );
+    id: json['id'] as String?,
+    kind: OrderItemKind.fromJson(json['kind'] as String),
+    articleId: json['article_id'] as String?,
+    productId: json['product_id'] as String?,
+    description: json['description'] as String,
+    quantity: (json['quantity'] as num).toDouble(),
+    unit: json['unit'] as String?,
+    unitPrice: (json['unit_price'] as num).toDouble(),
+    vatRate: (json['vat_rate'] as num).toDouble(),
+    groupLabel: json['group_label'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'id': id,
-        'kind': kind.toJson(),
-        'article_id': articleId,
-        'product_id': productId,
-        'description': description,
-        'quantity': quantity,
-        'unit': unit,
-        'unit_price': unitPrice,
-        'vat_rate': vatRate,
-        'group_label': groupLabel,
-      };
+    if (id != null) 'id': id,
+    'kind': kind.toJson(),
+    'article_id': articleId,
+    'product_id': productId,
+    'description': description,
+    'quantity': quantity,
+    'unit': unit,
+    'unit_price': unitPrice,
+    'vat_rate': vatRate,
+    'group_label': groupLabel,
+  };
 }
 
 /// Zwischensumme einer Gruppe von Auftragspositionen mit gleichem
@@ -122,6 +123,9 @@ class Order {
     required this.orderNumber,
     this.quoteId,
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     this.projectId,
     required this.title,
     this.status = OrderStatus.open,
@@ -135,6 +139,9 @@ class Order {
   final String orderNumber;
   final String? quoteId;
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
 
   /// Optionale Zuordnung zu einem Projekt (Verhältnis Projekt ↔ Auftrag ist
   /// 1:n, ein Projekt ist nicht verpflichtend).
@@ -172,7 +179,8 @@ class Order {
     }
 
     final result = [
-      for (final label in order) OrderGroupSummary(label: label, items: byLabel[label]!),
+      for (final label in order)
+        OrderGroupSummary(label: label, items: byLabel[label]!),
     ];
     if (ungrouped.isNotEmpty) {
       result.add(OrderGroupSummary(items: ungrouped));
@@ -181,40 +189,51 @@ class Order {
   }
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
-        id: json['id'] as String,
-        tenantId: json['tenant_id'] as String,
-        orderNumber: json['order_number'] as String,
-        quoteId: json['quote_id'] as String?,
-        customerId: json['customer_id'] as String?,
-        projectId: json['project_id'] as String?,
-        title: json['title'] as String,
-        status: OrderStatus.fromJson(json['status'] as String),
-        notes: json['notes'] as String?,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        items: (json['items'] as List? ?? [])
-            .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    id: json['id'] as String,
+    tenantId: json['tenant_id'] as String,
+    orderNumber: json['order_number'] as String,
+    quoteId: json['quote_id'] as String?,
+    customerId: json['customer_id'] as String?,
+    isSubscription: json['is_subscription'] as bool? ?? false,
+    billingInterval: json['billing_interval'] as String?,
+    billingStartDate: json['billing_start_date'] == null
+        ? null
+        : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
+    projectId: json['project_id'] as String?,
+    title: json['title'] as String,
+    status: OrderStatus.fromJson(json['status'] as String),
+    notes: json['notes'] as String?,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    items: (json['items'] as List? ?? [])
+        .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'tenant_id': tenantId,
-        'order_number': orderNumber,
-        'quote_id': quoteId,
-        'customer_id': customerId,
-        'project_id': projectId,
-        'title': title,
-        'status': status.toJson(),
-        'notes': notes,
-        'created_at': createdAt.toIso8601String(),
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+    'id': id,
+    'tenant_id': tenantId,
+    'order_number': orderNumber,
+    'quote_id': quoteId,
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'project_id': projectId,
+    'title': title,
+    'status': status.toJson(),
+    'notes': notes,
+    'created_at': createdAt.toIso8601String(),
+    'items': items.map((item) => item.toJson()).toList(),
+  };
 }
 
 /// Legt einen neuen Auftrag an — `order_number` wird serverseitig vergeben.
 class CreateOrderRequest {
   const CreateOrderRequest({
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     this.projectId,
     required this.title,
     this.notes,
@@ -222,13 +241,22 @@ class CreateOrderRequest {
   });
 
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
   final String? projectId;
   final String title;
   final String? notes;
   final List<OrderItem> items;
 
-  factory CreateOrderRequest.fromJson(Map<String, dynamic> json) => CreateOrderRequest(
+  factory CreateOrderRequest.fromJson(Map<String, dynamic> json) =>
+      CreateOrderRequest(
         customerId: json['customer_id'] as String?,
+        isSubscription: json['is_subscription'] as bool? ?? false,
+        billingInterval: json['billing_interval'] as String?,
+        billingStartDate: json['billing_start_date'] == null
+            ? null
+            : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
         projectId: json['project_id'] as String?,
         title: json['title'] as String,
         notes: json['notes'] as String?,
@@ -238,12 +266,15 @@ class CreateOrderRequest {
       );
 
   Map<String, dynamic> toJson() => {
-        'customer_id': customerId,
-        'project_id': projectId,
-        'title': title,
-        'notes': notes,
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'project_id': projectId,
+    'title': title,
+    'notes': notes,
+    'items': items.map((item) => item.toJson()).toList(),
+  };
 }
 
 /// Aktualisiert einen Auftrag — `order_number` und `quote_id` bleiben
@@ -251,6 +282,9 @@ class CreateOrderRequest {
 class UpdateOrderRequest {
   const UpdateOrderRequest({
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     this.projectId,
     required this.title,
     this.status = OrderStatus.open,
@@ -259,14 +293,23 @@ class UpdateOrderRequest {
   });
 
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
   final String? projectId;
   final String title;
   final OrderStatus status;
   final String? notes;
   final List<OrderItem> items;
 
-  factory UpdateOrderRequest.fromJson(Map<String, dynamic> json) => UpdateOrderRequest(
+  factory UpdateOrderRequest.fromJson(Map<String, dynamic> json) =>
+      UpdateOrderRequest(
         customerId: json['customer_id'] as String?,
+        isSubscription: json['is_subscription'] as bool? ?? false,
+        billingInterval: json['billing_interval'] as String?,
+        billingStartDate: json['billing_start_date'] == null
+            ? null
+            : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
         projectId: json['project_id'] as String?,
         title: json['title'] as String,
         status: OrderStatus.fromJson(json['status'] as String),
@@ -277,11 +320,14 @@ class UpdateOrderRequest {
       );
 
   Map<String, dynamic> toJson() => {
-        'customer_id': customerId,
-        'project_id': projectId,
-        'title': title,
-        'status': status.toJson(),
-        'notes': notes,
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'project_id': projectId,
+    'title': title,
+    'status': status.toJson(),
+    'notes': notes,
+    'items': items.map((item) => item.toJson()).toList(),
+  };
 }

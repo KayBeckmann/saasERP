@@ -7,7 +7,8 @@ enum QuoteItemKind {
 
   String toJson() => name;
 
-  static QuoteItemKind fromJson(String value) => QuoteItemKind.values.firstWhere(
+  static QuoteItemKind fromJson(String value) =>
+      QuoteItemKind.values.firstWhere(
         (kind) => kind.name == value,
         orElse: () => QuoteItemKind.text,
       );
@@ -23,9 +24,9 @@ enum QuoteStatus {
   String toJson() => name;
 
   static QuoteStatus fromJson(String value) => QuoteStatus.values.firstWhere(
-        (status) => status.name == value,
-        orElse: () => QuoteStatus.draft,
-      );
+    (status) => status.name == value,
+    orElse: () => QuoteStatus.draft,
+  );
 }
 
 /// Position eines Angebots. `unitPrice`/`vatRate` sind Schnappschüsse zum
@@ -65,30 +66,30 @@ class QuoteItem {
   double get totalGross => totalNet * (1 + vatRate / 100);
 
   factory QuoteItem.fromJson(Map<String, dynamic> json) => QuoteItem(
-        id: json['id'] as String?,
-        kind: QuoteItemKind.fromJson(json['kind'] as String),
-        articleId: json['article_id'] as String?,
-        productId: json['product_id'] as String?,
-        description: json['description'] as String,
-        quantity: (json['quantity'] as num).toDouble(),
-        unit: json['unit'] as String?,
-        unitPrice: (json['unit_price'] as num).toDouble(),
-        vatRate: (json['vat_rate'] as num).toDouble(),
-        groupLabel: json['group_label'] as String?,
-      );
+    id: json['id'] as String?,
+    kind: QuoteItemKind.fromJson(json['kind'] as String),
+    articleId: json['article_id'] as String?,
+    productId: json['product_id'] as String?,
+    description: json['description'] as String,
+    quantity: (json['quantity'] as num).toDouble(),
+    unit: json['unit'] as String?,
+    unitPrice: (json['unit_price'] as num).toDouble(),
+    vatRate: (json['vat_rate'] as num).toDouble(),
+    groupLabel: json['group_label'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        if (id != null) 'id': id,
-        'kind': kind.toJson(),
-        'article_id': articleId,
-        'product_id': productId,
-        'description': description,
-        'quantity': quantity,
-        'unit': unit,
-        'unit_price': unitPrice,
-        'vat_rate': vatRate,
-        'group_label': groupLabel,
-      };
+    if (id != null) 'id': id,
+    'kind': kind.toJson(),
+    'article_id': articleId,
+    'product_id': productId,
+    'description': description,
+    'quantity': quantity,
+    'unit': unit,
+    'unit_price': unitPrice,
+    'vat_rate': vatRate,
+    'group_label': groupLabel,
+  };
 }
 
 /// Zwischensumme einer Gruppe von Angebotspositionen mit gleichem
@@ -113,6 +114,9 @@ class Quote {
     required this.tenantId,
     required this.quoteNumber,
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     required this.title,
     this.status = QuoteStatus.draft,
     this.validUntil,
@@ -127,6 +131,9 @@ class Quote {
   final String tenantId;
   final String quoteNumber;
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
   final String title;
   final QuoteStatus status;
   final DateTime? validUntil;
@@ -169,7 +176,8 @@ class Quote {
     }
 
     final result = [
-      for (final label in order) QuoteGroupSummary(label: label, items: byLabel[label]!),
+      for (final label in order)
+        QuoteGroupSummary(label: label, items: byLabel[label]!),
     ];
     if (ungrouped.isNotEmpty) {
       result.add(QuoteGroupSummary(items: ungrouped));
@@ -178,43 +186,57 @@ class Quote {
   }
 
   factory Quote.fromJson(Map<String, dynamic> json) => Quote(
-        id: json['id'] as String,
-        tenantId: json['tenant_id'] as String,
-        quoteNumber: json['quote_number'] as String,
-        customerId: json['customer_id'] as String?,
-        title: json['title'] as String,
-        status: QuoteStatus.fromJson(json['status'] as String),
-        validUntil: json['valid_until'] == null ? null : DateTime.parse(json['valid_until'] as String),
-        notes: json['notes'] as String?,
-        createdAt: DateTime.parse(json['created_at'] as String),
-        items: (json['items'] as List? ?? [])
-            .map((e) => QuoteItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        customerDecisionAt:
-            json['customer_decision_at'] == null ? null : DateTime.parse(json['customer_decision_at'] as String),
-        customerComment: json['customer_comment'] as String?,
-      );
+    id: json['id'] as String,
+    tenantId: json['tenant_id'] as String,
+    quoteNumber: json['quote_number'] as String,
+    customerId: json['customer_id'] as String?,
+    isSubscription: json['is_subscription'] as bool? ?? false,
+    billingInterval: json['billing_interval'] as String?,
+    billingStartDate: json['billing_start_date'] == null
+        ? null
+        : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
+    title: json['title'] as String,
+    status: QuoteStatus.fromJson(json['status'] as String),
+    validUntil: json['valid_until'] == null
+        ? null
+        : DateTime.parse(json['valid_until'] as String),
+    notes: json['notes'] as String?,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    items: (json['items'] as List? ?? [])
+        .map((e) => QuoteItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    customerDecisionAt: json['customer_decision_at'] == null
+        ? null
+        : DateTime.parse(json['customer_decision_at'] as String),
+    customerComment: json['customer_comment'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'tenant_id': tenantId,
-        'quote_number': quoteNumber,
-        'customer_id': customerId,
-        'title': title,
-        'status': status.toJson(),
-        'valid_until': validUntil?.toIso8601String().split('T').first,
-        'notes': notes,
-        'created_at': createdAt.toIso8601String(),
-        'items': items.map((item) => item.toJson()).toList(),
-        'customer_decision_at': customerDecisionAt?.toIso8601String(),
-        'customer_comment': customerComment,
-      };
+    'id': id,
+    'tenant_id': tenantId,
+    'quote_number': quoteNumber,
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'title': title,
+    'status': status.toJson(),
+    'valid_until': validUntil?.toIso8601String().split('T').first,
+    'notes': notes,
+    'created_at': createdAt.toIso8601String(),
+    'items': items.map((item) => item.toJson()).toList(),
+    'customer_decision_at': customerDecisionAt?.toIso8601String(),
+    'customer_comment': customerComment,
+  };
 }
 
 /// Legt ein neues Angebot an — `quote_number` wird serverseitig vergeben.
 class CreateQuoteRequest {
   const CreateQuoteRequest({
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     required this.title,
     this.validUntil,
     this.notes,
@@ -222,15 +244,26 @@ class CreateQuoteRequest {
   });
 
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
   final String title;
   final DateTime? validUntil;
   final String? notes;
   final List<QuoteItem> items;
 
-  factory CreateQuoteRequest.fromJson(Map<String, dynamic> json) => CreateQuoteRequest(
+  factory CreateQuoteRequest.fromJson(Map<String, dynamic> json) =>
+      CreateQuoteRequest(
         customerId: json['customer_id'] as String?,
+        isSubscription: json['is_subscription'] as bool? ?? false,
+        billingInterval: json['billing_interval'] as String?,
+        billingStartDate: json['billing_start_date'] == null
+            ? null
+            : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
         title: json['title'] as String,
-        validUntil: json['valid_until'] == null ? null : DateTime.parse(json['valid_until'] as String),
+        validUntil: json['valid_until'] == null
+            ? null
+            : DateTime.parse(json['valid_until'] as String),
         notes: json['notes'] as String?,
         items: (json['items'] as List? ?? [])
             .map((e) => QuoteItem.fromJson(e as Map<String, dynamic>))
@@ -238,18 +271,24 @@ class CreateQuoteRequest {
       );
 
   Map<String, dynamic> toJson() => {
-        'customer_id': customerId,
-        'title': title,
-        'valid_until': validUntil?.toIso8601String().split('T').first,
-        'notes': notes,
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'title': title,
+    'valid_until': validUntil?.toIso8601String().split('T').first,
+    'notes': notes,
+    'items': items.map((item) => item.toJson()).toList(),
+  };
 }
 
 /// Aktualisiert ein Angebot — `quote_number` bleibt unverändert.
 class UpdateQuoteRequest {
   const UpdateQuoteRequest({
     this.customerId,
+    this.isSubscription = false,
+    this.billingInterval,
+    this.billingStartDate,
     required this.title,
     this.status = QuoteStatus.draft,
     this.validUntil,
@@ -258,17 +297,28 @@ class UpdateQuoteRequest {
   });
 
   final String? customerId;
+  final bool isSubscription;
+  final String? billingInterval;
+  final DateTime? billingStartDate;
   final String title;
   final QuoteStatus status;
   final DateTime? validUntil;
   final String? notes;
   final List<QuoteItem> items;
 
-  factory UpdateQuoteRequest.fromJson(Map<String, dynamic> json) => UpdateQuoteRequest(
+  factory UpdateQuoteRequest.fromJson(Map<String, dynamic> json) =>
+      UpdateQuoteRequest(
         customerId: json['customer_id'] as String?,
+        isSubscription: json['is_subscription'] as bool? ?? false,
+        billingInterval: json['billing_interval'] as String?,
+        billingStartDate: json['billing_start_date'] == null
+            ? null
+            : DateTime.parse('${json['billing_start_date']}T00:00:00Z'),
         title: json['title'] as String,
         status: QuoteStatus.fromJson(json['status'] as String),
-        validUntil: json['valid_until'] == null ? null : DateTime.parse(json['valid_until'] as String),
+        validUntil: json['valid_until'] == null
+            ? null
+            : DateTime.parse(json['valid_until'] as String),
         notes: json['notes'] as String?,
         items: (json['items'] as List? ?? [])
             .map((e) => QuoteItem.fromJson(e as Map<String, dynamic>))
@@ -276,13 +326,16 @@ class UpdateQuoteRequest {
       );
 
   Map<String, dynamic> toJson() => {
-        'customer_id': customerId,
-        'title': title,
-        'status': status.toJson(),
-        'valid_until': validUntil?.toIso8601String().split('T').first,
-        'notes': notes,
-        'items': items.map((item) => item.toJson()).toList(),
-      };
+    'customer_id': customerId,
+    'is_subscription': isSubscription,
+    'billing_interval': billingInterval,
+    'billing_start_date': billingStartDate?.toIso8601String().split('T').first,
+    'title': title,
+    'status': status.toJson(),
+    'valid_until': validUntil?.toIso8601String().split('T').first,
+    'notes': notes,
+    'items': items.map((item) => item.toJson()).toList(),
+  };
 }
 
 /// Entscheidung des Endkunden zu einem versendeten Angebot im Kundenportal
@@ -294,13 +347,14 @@ class CustomerQuoteDecisionRequest {
   final QuoteStatus decision;
   final String? comment;
 
-  factory CustomerQuoteDecisionRequest.fromJson(Map<String, dynamic> json) => CustomerQuoteDecisionRequest(
+  factory CustomerQuoteDecisionRequest.fromJson(Map<String, dynamic> json) =>
+      CustomerQuoteDecisionRequest(
         decision: QuoteStatus.fromJson(json['decision'] as String),
         comment: json['comment'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
-        'decision': decision.toJson(),
-        if (comment != null) 'comment': comment,
-      };
+    'decision': decision.toJson(),
+    if (comment != null) 'comment': comment,
+  };
 }

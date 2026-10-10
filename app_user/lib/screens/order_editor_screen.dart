@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
 import '../widgets/app_shell.dart';
+import '../widgets/subscription_fields.dart';
 import '../widgets/closing_invoice_dialog.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 import '../widgets/material_invoice_dialog.dart';
@@ -123,6 +124,10 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
   String? _projectId;
   OrderStatus _status = OrderStatus.open;
 
+  bool _isSubscription = false;
+  String? _billingInterval;
+  DateTime? _billingStartDate;
+
   final List<_ItemDraft> _ungrouped = [];
   final List<_GroupDraft> _groups = [];
 
@@ -139,6 +144,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
     _customerId = o?.customerId;
     _projectId = o?.projectId;
     _status = o?.status ?? OrderStatus.open;
+    _isSubscription = o?.isSubscription ?? false;
+    _billingInterval = o?.billingInterval;
+    _billingStartDate = o?.billingStartDate;
 
     if (o != null) {
       for (final item in o.items) {
@@ -220,6 +228,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            isSubscription: _isSubscription,
+            billingInterval: _isSubscription ? _billingInterval : null,
+            billingStartDate: _isSubscription ? _billingStartDate : null,
             items: _collectItems(),
           ),
         );
@@ -235,6 +246,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            isSubscription: _isSubscription,
+            billingInterval: _isSubscription ? _billingInterval : null,
+            billingStartDate: _isSubscription ? _billingStartDate : null,
             items: _collectItems(),
           ),
         );
@@ -307,7 +321,7 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
       currentItem: AppNavItem.orders,
       title: isEdit ? 'Auftrag ${widget.order!.orderNumber}' : 'Neuer Auftrag',
       actions: [
-        if (isEdit) ...[
+        if (isEdit && !_isSubscription) ...[
           PopupMenuButton<String>(
             icon: const Icon(Icons.receipt_long_outlined),
             tooltip: 'Rechnung erstellen',
@@ -389,6 +403,9 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                                   value: customer.id,
                                   child: Text(customer.name)),
                           ],
+                          validator: (value) => _isSubscription && value == null
+                              ? 'Kunde für Abo erforderlich'
+                              : null,
                           onChanged: (value) =>
                               setState(() => _customerId = value),
                         ),
@@ -428,6 +445,18 @@ class _OrderEditorScreenState extends State<OrderEditorScreen> {
                         ),
                     ],
                     onChanged: (value) => setState(() => _projectId = value),
+                  ),
+                  const SizedBox(height: 8),
+                  SubscriptionFields(
+                    isSubscription: _isSubscription,
+                    billingInterval: _billingInterval,
+                    billingStartDate: _billingStartDate,
+                    isQuote: false,
+                    onChanged: (enabled, interval, date) => setState(() {
+                      _isSubscription = enabled;
+                      _billingInterval = interval;
+                      _billingStartDate = date;
+                    }),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(

@@ -7,7 +7,6 @@ import '../screens/customers_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/dunning_screen.dart';
 import '../screens/invoices_screen.dart';
-import '../screens/maintenance_contracts_screen.dart';
 import '../screens/orders_screen.dart';
 import '../screens/products_screen.dart';
 import '../screens/projects_screen.dart';
@@ -35,7 +34,6 @@ enum AppNavItem {
   purchaseOrders,
   stock,
   timeEntries,
-  maintenanceContracts,
   users,
   reports,
 }
@@ -66,7 +64,6 @@ const _navEntries = [
 // Sekundäre Nav-Einträge (Zusatzfunktionen, nicht im Kern-Mockup)
 const _secondaryNavEntries = [
   _NavEntry(AppNavItem.timeEntries, Icons.timer_outlined, 'Stundenerfassung'),
-  _NavEntry(AppNavItem.maintenanceContracts, Icons.handshake_outlined, 'Wartungsverträge'),
   _NavEntry(AppNavItem.suppliers, Icons.local_shipping_outlined, 'Lieferanten'),
   _NavEntry(AppNavItem.products, Icons.category_outlined, 'Produkte'),
 ];
@@ -106,8 +103,6 @@ Widget _screenFor(AppNavItem item) {
       return const StockOverviewScreen();
     case AppNavItem.timeEntries:
       return const TimeEntriesScreen();
-    case AppNavItem.maintenanceContracts:
-      return const MaintenanceContractsScreen();
     case AppNavItem.users:
       return const UsersScreen();
     case AppNavItem.reports:

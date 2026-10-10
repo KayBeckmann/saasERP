@@ -6,6 +6,7 @@ import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../widgets/app_data_table.dart';
 import '../widgets/app_shell.dart';
+import '../widgets/subscription_fields.dart';
 import '../widgets/invoice_conversion_dialog.dart';
 import '../widgets/purchase_proposal_dialog.dart';
 import '../widgets/status_chip.dart';
@@ -199,7 +200,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 AppDataRow(
                   onTap: () => _openEditor(order: order),
                   cells: [
-                    Text('${order.orderNumber} — ${order.title}'),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${order.orderNumber} — ${order.title}'),
+                        if (order.isSubscription)
+                          Text(subscriptionSummary(true, order.billingInterval,
+                              order.billingStartDate)!),
+                      ],
+                    ),
                     Text(_customerName(order.customerId, data.customers) ?? '-'),
                     Text('${order.totalGross.toStringAsFixed(2)} €'),
                     StatusChip(label: _statusLabel(order.status), tone: _statusTone(order.status)),
@@ -207,11 +216,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.receipt_long_outlined),
-                        tooltip: 'Rechnung erstellen',
-                        onPressed: () => _convertToInvoice(order),
-                      ),
+                      if (!order.isSubscription)
+                        IconButton(
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          tooltip: 'Rechnung erstellen',
+                          onPressed: () => _convertToInvoice(order),
+                        ),
                       IconButton(
                         icon: const Icon(Icons.local_shipping_outlined),
                         tooltip: 'Bestellvorschlag',

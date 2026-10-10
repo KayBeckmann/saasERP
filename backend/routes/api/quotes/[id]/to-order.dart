@@ -27,6 +27,9 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   final req = CreateOrderRequest(
     customerId: quote.customerId,
+    isSubscription: quote.isSubscription,
+    billingInterval: quote.billingInterval,
+    billingStartDate: quote.billingStartDate,
     title: quote.title,
     notes: quote.notes,
     items: quote.items
@@ -46,6 +49,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
         .toList(),
   );
 
-  final order = await orderRepository.create(tenantId: auth.tenantId, req: req, quoteId: quote.id);
+  final order = await orderRepository.create(
+    tenantId: auth.tenantId,
+    req: req,
+    quoteId: quote.id,
+  );
   return Response.json(statusCode: 201, body: order.toJson());
 }
