@@ -1,3 +1,4 @@
+import 'package:backend/src/subscription_validation.dart';
 import 'dart:convert';
 
 import 'package:backend/src/repositories/article_repository.dart';
@@ -19,7 +20,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final orderRepository = context.read<OrderRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final order = await orderRepository.findById(tenantId: auth.tenantId, id: id);
+    final order = await orderRepository.findById(
+      tenantId: auth.tenantId,
+      id: id,
+    );
     if (order == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -37,23 +41,52 @@ Future<Response> onRequest(RequestContext context, String id) async {
     late final UpdateOrderRequest req;
     try {
       req = UpdateOrderRequest.fromJson(body);
+    } on FormatException {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
     } on TypeError {
       return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
+    }
+
+    try {
+      validateSubscription(
+        req.isSubscription,
+        req.billingInterval,
+        req.billingStartDate,
+        req.customerId,
+      );
+    } on ArgumentError {
+      return Response.json(
+        statusCode: 400,
+        body: {
+          'error': 'validation_failed',
+          'message': 'Abo benötigt Kunde, Intervall und Startdatum.',
+        },
+      );
     }
 
     if (req.title.trim().isEmpty) {
       return Response.json(
         statusCode: 400,
-        body: {'error': 'validation_failed', 'message': 'title darf nicht leer sein.'},
+        body: {
+          'error': 'validation_failed',
+          'message': 'title darf nicht leer sein.',
+        },
       );
     }
 
-    final existing = await orderRepository.findById(tenantId: auth.tenantId, id: id);
+    final existing = await orderRepository.findById(
+      tenantId: auth.tenantId,
+      id: id,
+    );
     if (existing == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
 
-    final order = await orderRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final order = await orderRepository.update(
+      tenantId: auth.tenantId,
+      id: id,
+      req: req,
+    );
     if (order == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -61,7 +94,8 @@ Future<Response> onRequest(RequestContext context, String id) async {
     // Lagerentnahme: beim Übergang in den Status "completed" wird der Bedarf
     // aus den Auftragspositionen (inkl. Artikel aus Produkt-Komponenten) vom
     // Lagerbestand abgezogen — analog zur Bedarfsermittlung im Bestellvorschlag.
-    if (existing.status != OrderStatus.completed && order.status == OrderStatus.completed) {
+    if (existing.status != OrderStatus.completed &&
+        order.status == OrderStatus.completed) {
       await _consumeStock(context, tenantId: auth.tenantId, order: order);
     }
 
@@ -69,7 +103,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await orderRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await orderRepository.delete(
+      tenantId: auth.tenantId,
+      id: id,
+    );
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -82,29 +119,43 @@ Future<Response> onRequest(RequestContext context, String id) async {
 /// Summiert die benötigte Menge je Artikel aus direkten Artikel-Positionen
 /// und aus den Artikel-Komponenten verwendeter Produkte und bucht sie als
 /// Lagerentnahme (negativer Bestand möglich, signalisiert Überverbrauch).
-Future<void> _consumeStock(RequestContext context, {required String tenantId, required Order order}) async {
+Future<void> _consumeStock(
+  RequestContext context, {
+  required String tenantId,
+  required Order order,
+}) async {
   final productRepository = context.read<ProductRepository>();
   final articleRepository = context.read<ArticleRepository>();
 
   final consumedQuantities = <String, double>{};
   for (final item in order.items) {
     if (item.kind == OrderItemKind.article && item.articleId != null) {
-      consumedQuantities[item.articleId!] = (consumedQuantities[item.articleId!] ?? 0) + item.quantity;
+      consumedQuantities[item.articleId!] =
+          (consumedQuantities[item.articleId!] ?? 0) + item.quantity;
       continue;
     }
     if (item.kind == OrderItemKind.product && item.productId != null) {
-      final product = await productRepository.findById(tenantId: tenantId, id: item.productId!);
+      final product = await productRepository.findById(
+        tenantId: tenantId,
+        id: item.productId!,
+      );
       if (product == null) continue;
       for (final component in product.components) {
-        if (component.kind == ProductComponentKind.article && component.articleId != null) {
+        if (component.kind == ProductComponentKind.article &&
+            component.articleId != null) {
           consumedQuantities[component.articleId!] =
-              (consumedQuantities[component.articleId!] ?? 0) + component.quantity * item.quantity;
+              (consumedQuantities[component.articleId!] ?? 0) +
+              component.quantity * item.quantity;
         }
       }
     }
   }
 
   for (final entry in consumedQuantities.entries) {
-    await articleRepository.adjustStock(tenantId: tenantId, id: entry.key, delta: -entry.value);
+    await articleRepository.adjustStock(
+      tenantId: tenantId,
+      id: entry.key,
+      delta: -entry.value,
+    );
   }
 }

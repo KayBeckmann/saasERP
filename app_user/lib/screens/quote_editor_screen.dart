@@ -7,6 +7,7 @@ import '../services/api_client.dart';
 import '../state/auth_controller.dart';
 import '../theme.dart';
 import '../widgets/app_shell.dart';
+import '../widgets/subscription_fields.dart';
 
 class _ItemDraft {
   _ItemDraft({
@@ -122,6 +123,10 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
   QuoteStatus _status = QuoteStatus.draft;
   DateTime? _validUntil;
 
+  bool _isSubscription = false;
+  String? _billingInterval;
+  DateTime? _billingStartDate;
+
   final List<_ItemDraft> _ungrouped = [];
   final List<_GroupDraft> _groups = [];
 
@@ -137,6 +142,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
     _notesController = TextEditingController(text: q?.notes ?? '');
     _customerId = q?.customerId;
     _status = q?.status ?? QuoteStatus.draft;
+    _isSubscription = q?.isSubscription ?? false;
+    _billingInterval = q?.billingInterval;
+    _billingStartDate = q?.billingStartDate;
     _validUntil = q?.validUntil;
 
     if (q != null) {
@@ -213,6 +221,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            isSubscription: _isSubscription,
+            billingInterval: _isSubscription ? _billingInterval : null,
+            billingStartDate: _isSubscription ? _billingStartDate : null,
             items: _collectItems(),
           ),
         );
@@ -228,6 +239,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
             notes: _notesController.text.trim().isEmpty
                 ? null
                 : _notesController.text.trim(),
+            isSubscription: _isSubscription,
+            billingInterval: _isSubscription ? _billingInterval : null,
+            billingStartDate: _isSubscription ? _billingStartDate : null,
             items: _collectItems(),
           ),
         );
@@ -374,6 +388,9 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                         DropdownMenuItem<String?>(
                             value: customer.id, child: Text(customer.name)),
                     ],
+                    validator: (value) => _isSubscription && value == null
+                        ? 'Kunde für Abo erforderlich'
+                        : null,
                     onChanged: (value) => setState(() => _customerId = value),
                   ),
                   const SizedBox(height: 8),
@@ -414,6 +431,18 @@ class _QuoteEditorScreenState extends State<QuoteEditorScreen> {
                         ),
                       ],
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  SubscriptionFields(
+                    isSubscription: _isSubscription,
+                    billingInterval: _billingInterval,
+                    billingStartDate: _billingStartDate,
+                    isQuote: true,
+                    onChanged: (enabled, interval, date) => setState(() {
+                      _isSubscription = enabled;
+                      _billingInterval = interval;
+                      _billingStartDate = date;
+                    }),
                   ),
                   const SizedBox(height: 8),
                   TextFormField(

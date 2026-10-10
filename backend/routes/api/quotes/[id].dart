@@ -1,3 +1,4 @@
+import 'package:backend/src/subscription_validation.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -19,7 +20,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final quoteRepository = context.read<QuoteRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final quote = await quoteRepository.findById(tenantId: auth.tenantId, id: id);
+    final quote = await quoteRepository.findById(
+      tenantId: auth.tenantId,
+      id: id,
+    );
     if (quote == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -37,33 +41,71 @@ Future<Response> onRequest(RequestContext context, String id) async {
     late final UpdateQuoteRequest req;
     try {
       req = UpdateQuoteRequest.fromJson(body);
+    } on FormatException {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
     } on TypeError {
       return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
+    }
+
+    try {
+      validateSubscription(
+        req.isSubscription,
+        req.billingInterval,
+        req.billingStartDate,
+        req.customerId,
+      );
+    } on ArgumentError {
+      return Response.json(
+        statusCode: 400,
+        body: {
+          'error': 'validation_failed',
+          'message': 'Abo benötigt Kunde, Intervall und Startdatum.',
+        },
+      );
     }
 
     if (req.title.trim().isEmpty) {
       return Response.json(
         statusCode: 400,
-        body: {'error': 'validation_failed', 'message': 'title darf nicht leer sein.'},
+        body: {
+          'error': 'validation_failed',
+          'message': 'title darf nicht leer sein.',
+        },
       );
     }
 
-    final existing = await quoteRepository.findById(tenantId: auth.tenantId, id: id);
-    final quote = await quoteRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final existing = await quoteRepository.findById(
+      tenantId: auth.tenantId,
+      id: id,
+    );
+    final quote = await quoteRepository.update(
+      tenantId: auth.tenantId,
+      id: id,
+      req: req,
+    );
     if (quote == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
 
-    if (quote.status == QuoteStatus.sent && existing?.status != QuoteStatus.sent) {
+    if (quote.status == QuoteStatus.sent &&
+        existing?.status != QuoteStatus.sent) {
       final notificationService = context.read<NotificationService>();
-      unawaited(notificationService.notifyCustomerNewQuote(tenantId: auth.tenantId, quote: quote));
+      unawaited(
+        notificationService.notifyCustomerNewQuote(
+          tenantId: auth.tenantId,
+          quote: quote,
+        ),
+      );
     }
 
     return Response.json(body: quote.toJson());
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await quoteRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await quoteRepository.delete(
+      tenantId: auth.tenantId,
+      id: id,
+    );
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }

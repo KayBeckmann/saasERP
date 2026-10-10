@@ -54,6 +54,15 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (order == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
+  if (order.isSubscription) {
+    return Response.json(
+      statusCode: 409,
+      body: {
+        'error': 'subscription_billed_automatically',
+        'message': 'Abo-Aufträge werden automatisch abgerechnet. Sonderleistungen bitte separat fakturieren.',
+      },
+    );
+  }
 
   final invoicedIds = await invoiceRepository.invoicedOrderItemIds(tenantId: auth.tenantId, orderId: order.id);
 

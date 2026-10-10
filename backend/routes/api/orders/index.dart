@@ -1,3 +1,4 @@
+import 'package:backend/src/subscription_validation.dart';
 import 'dart:convert';
 
 import 'package:backend/src/repositories/order_repository.dart';
@@ -17,7 +18,9 @@ Future<Response> onRequest(RequestContext context) async {
 
   if (context.request.method == HttpMethod.get) {
     final orders = await orderRepository.list(auth.tenantId);
-    return Response.json(body: {'orders': orders.map((o) => o.toJson()).toList()});
+    return Response.json(
+      body: {'orders': orders.map((o) => o.toJson()).toList()},
+    );
   }
 
   if (context.request.method == HttpMethod.post) {
@@ -31,18 +34,43 @@ Future<Response> onRequest(RequestContext context) async {
     late final CreateOrderRequest req;
     try {
       req = CreateOrderRequest.fromJson(body);
+    } on FormatException {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
     } on TypeError {
       return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
+    }
+
+    try {
+      validateSubscription(
+        req.isSubscription,
+        req.billingInterval,
+        req.billingStartDate,
+        req.customerId,
+      );
+    } on ArgumentError {
+      return Response.json(
+        statusCode: 400,
+        body: {
+          'error': 'validation_failed',
+          'message': 'Abo benötigt Kunde, Intervall und Startdatum.',
+        },
+      );
     }
 
     if (req.title.trim().isEmpty) {
       return Response.json(
         statusCode: 400,
-        body: {'error': 'validation_failed', 'message': 'title darf nicht leer sein.'},
+        body: {
+          'error': 'validation_failed',
+          'message': 'title darf nicht leer sein.',
+        },
       );
     }
 
-    final order = await orderRepository.create(tenantId: auth.tenantId, req: req);
+    final order = await orderRepository.create(
+      tenantId: auth.tenantId,
+      req: req,
+    );
     return Response.json(statusCode: 201, body: order.toJson());
   }
 

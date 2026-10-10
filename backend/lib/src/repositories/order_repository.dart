@@ -1,3 +1,4 @@
+import '../subscription_validation.dart';
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
@@ -13,7 +14,7 @@ class OrderRepository {
   final NumberSequenceRepository _numberSequences;
 
   static const _orderColumns =
-      'id, tenant_id, order_number, quote_id, customer_id, project_id, title, status, notes, created_at';
+      'id, tenant_id, order_number, quote_id, customer_id, project_id, title, status, notes, created_at, is_subscription, billing_interval, billing_start_date';
 
   static const _itemColumns =
       'id, order_id, kind, article_id, product_id, description, quantity, unit, unit_price, vat_rate, group_label';
@@ -23,6 +24,12 @@ class OrderRepository {
     required CreateOrderRequest req,
     String? quoteId,
   }) async {
+    validateSubscription(
+      req.isSubscription,
+      req.billingInterval,
+      req.billingStartDate,
+      req.customerId,
+    );
     final orderNumber = await _numberSequences.next(
       tenantId: tenantId,
       sequenceKey: 'order',
@@ -30,10 +37,20 @@ class OrderRepository {
     );
 
     return _pool.runTx((session) async {
+      if (req.isSubscription) {
+        final customer = await session.execute(
+          Sql.named(
+            'SELECT 1 FROM customers WHERE id = @id AND tenant_id = @tenant',
+          ),
+          parameters: {'id': req.customerId, 'tenant': tenantId},
+        );
+        if (customer.isEmpty)
+          throw ArgumentError('Customer does not belong to tenant');
+      }
       final result = await session.execute(
         Sql.named(
-          'INSERT INTO orders (tenant_id, order_number, quote_id, customer_id, project_id, title, notes) '
-          'VALUES (@tenant_id, @order_number, @quote_id, @customer_id, @project_id, @title, @notes) '
+          'INSERT INTO orders (tenant_id, order_number, quote_id, customer_id, project_id, title, notes, is_subscription, billing_interval, billing_start_date) '
+          'VALUES (@tenant_id, @order_number, @quote_id, @customer_id, @project_id, @title, @notes, @is_subscription, @billing_interval, @billing_start_date) '
           'RETURNING $_orderColumns',
         ),
         parameters: {
@@ -41,6 +58,9 @@ class OrderRepository {
           'order_number': orderNumber,
           'quote_id': quoteId,
           'customer_id': req.customerId,
+          'is_subscription': req.isSubscription,
+          'billing_interval': req.billingInterval,
+          'billing_start_date': req.billingStartDate,
           'project_id': req.projectId,
           'title': req.title,
           'notes': req.notes,
@@ -48,7 +68,12 @@ class OrderRepository {
       );
       final orderId = result.first.toColumnMap()['id'] as String;
 
-      await _insertItems(session, tenantId: tenantId, orderId: orderId, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        orderId: orderId,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, orderId: orderId);
       return _fromRow(result.first.toColumnMap(), items);
@@ -68,7 +93,9 @@ class OrderRepository {
 
   Future<List<Order>> list(String tenantId) async {
     final orderRows = await _pool.execute(
-      Sql.named('SELECT $_orderColumns FROM orders WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),
+      Sql.named(
+        'SELECT $_orderColumns FROM orders WHERE tenant_id = @tenant_id ORDER BY created_at DESC',
+      ),
       parameters: {'tenant_id': tenantId},
     );
     if (orderRows.isEmpty) return [];
@@ -89,13 +116,23 @@ class OrderRepository {
     }
 
     return orderRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByOrder[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByOrder[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
-  Future<Order?> findById({required String tenantId, required String id}) async {
+  Future<Order?> findById({
+    required String tenantId,
+    required String id,
+  }) async {
     final result = await _pool.execute(
-      Sql.named('SELECT $_orderColumns FROM orders WHERE tenant_id = @tenant_id AND id = @id'),
+      Sql.named(
+        'SELECT $_orderColumns FROM orders WHERE tenant_id = @tenant_id AND id = @id',
+      ),
       parameters: {'tenant_id': tenantId, 'id': id},
     );
     if (result.isEmpty) return null;
@@ -109,11 +146,27 @@ class OrderRepository {
     required String id,
     required UpdateOrderRequest req,
   }) async {
+    validateSubscription(
+      req.isSubscription,
+      req.billingInterval,
+      req.billingStartDate,
+      req.customerId,
+    );
     return _pool.runTx((session) async {
+      if (req.isSubscription) {
+        final customer = await session.execute(
+          Sql.named(
+            'SELECT 1 FROM customers WHERE id = @id AND tenant_id = @tenant',
+          ),
+          parameters: {'id': req.customerId, 'tenant': tenantId},
+        );
+        if (customer.isEmpty)
+          throw ArgumentError('Customer does not belong to tenant');
+      }
       final result = await session.execute(
         Sql.named(
           'UPDATE orders SET customer_id = @customer_id, project_id = @project_id, title = @title, '
-          'status = @status, notes = @notes '
+          'status = @status, notes = @notes, is_subscription = @is_subscription, billing_interval = @billing_interval, billing_start_date = @billing_start_date '
           'WHERE tenant_id = @tenant_id AND id = @id '
           'RETURNING $_orderColumns',
         ),
@@ -121,6 +174,9 @@ class OrderRepository {
           'tenant_id': tenantId,
           'id': id,
           'customer_id': req.customerId,
+          'is_subscription': req.isSubscription,
+          'billing_interval': req.billingInterval,
+          'billing_start_date': req.billingStartDate,
           'project_id': req.projectId,
           'title': req.title,
           'status': req.status.toJson(),
@@ -133,7 +189,12 @@ class OrderRepository {
         Sql.named('DELETE FROM order_items WHERE order_id = @order_id'),
         parameters: {'order_id': id},
       );
-      await _insertItems(session, tenantId: tenantId, orderId: id, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        orderId: id,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, orderId: id);
       return _fromRow(result.first.toColumnMap(), items);
@@ -180,38 +241,46 @@ class OrderRepository {
     }
   }
 
-  Future<List<OrderItem>> _loadItems(Session session, {required String orderId}) async {
+  Future<List<OrderItem>> _loadItems(
+    Session session, {
+    required String orderId,
+  }) async {
     final result = await session.execute(
-      Sql.named('SELECT $_itemColumns FROM order_items WHERE order_id = @order_id ORDER BY sort_order'),
+      Sql.named(
+        'SELECT $_itemColumns FROM order_items WHERE order_id = @order_id ORDER BY sort_order',
+      ),
       parameters: {'order_id': orderId},
     );
     return result.map((row) => _itemFromRow(row.toColumnMap())).toList();
   }
 
   OrderItem _itemFromRow(Map<String, dynamic> row) => OrderItem(
-        id: row['id'] as String,
-        kind: OrderItemKind.fromJson(row['kind'] as String),
-        articleId: row['article_id'] as String?,
-        productId: row['product_id'] as String?,
-        description: row['description'] as String,
-        quantity: (row['quantity'] as num).toDouble(),
-        unit: row['unit'] as String?,
-        unitPrice: (row['unit_price'] as num).toDouble(),
-        vatRate: (row['vat_rate'] as num).toDouble(),
-        groupLabel: row['group_label'] as String?,
-      );
+    id: row['id'] as String,
+    kind: OrderItemKind.fromJson(row['kind'] as String),
+    articleId: row['article_id'] as String?,
+    productId: row['product_id'] as String?,
+    description: row['description'] as String,
+    quantity: (row['quantity'] as num).toDouble(),
+    unit: row['unit'] as String?,
+    unitPrice: (row['unit_price'] as num).toDouble(),
+    vatRate: (row['vat_rate'] as num).toDouble(),
+    groupLabel: row['group_label'] as String?,
+  );
 
   Order _fromRow(Map<String, dynamic> row, List<OrderItem> items) => Order(
-        id: row['id'] as String,
-        tenantId: row['tenant_id'] as String,
-        orderNumber: row['order_number'] as String,
-        quoteId: row['quote_id'] as String?,
-        customerId: row['customer_id'] as String?,
-        projectId: row['project_id'] as String?,
-        title: row['title'] as String,
-        status: OrderStatus.fromJson(row['status'] as String),
-        notes: row['notes'] as String?,
-        createdAt: (row['created_at'] as DateTime).toUtc(),
-        items: items,
-      );
+    id: row['id'] as String,
+    tenantId: row['tenant_id'] as String,
+    orderNumber: row['order_number'] as String,
+    quoteId: row['quote_id'] as String?,
+    customerId: row['customer_id'] as String?,
+    isSubscription: row['is_subscription'] as bool,
+    billingInterval: row['billing_interval'] as String?,
+    billingStartDate: (row['billing_start_date'] as DateTime?)?.toUtc(),
+    projectId: row['project_id'] as String?,
+    title: row['title'] as String,
+    status: OrderStatus.fromJson(row['status'] as String),
+    notes: row['notes'] as String?,
+    createdAt: (row['created_at'] as DateTime).toUtc(),
+    items: items,
+  );
 }
