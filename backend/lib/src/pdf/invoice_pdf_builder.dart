@@ -1,8 +1,9 @@
 import 'dart:typed_data';
-
 import 'package:pdf/pdf.dart';
+
 import 'package:pdf/widgets.dart' as pw;
 import 'package:saaserp_shared/saaserp_shared.dart';
+import 'document_style.dart';
 
 /// Erzeugt das PDF-Dokument für eine Rechnung — Briefkopf mit
 /// Mandanten-Stammdaten, Kundenadresse, Positionstabelle (gruppiert nach
@@ -13,38 +14,26 @@ Future<Uint8List> buildInvoicePdf({
   required Tenant tenant,
   Customer? customer,
 }) async {
-  final doc = pw.Document()
+  final style = await DocumentStyle.load();
+  final doc = pw.Document(theme: style.theme)
     ..addPage(
       pw.MultiPage(
-        header: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              tenant.name,
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            if (tenant.companyAddress != null) pw.Text(tenant.companyAddress!),
-            if (tenant.companyTaxId != null)
-              pw.Text('USt-IdNr.: ${tenant.companyTaxId}'),
-            pw.SizedBox(height: 16),
-          ],
-        ),
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Text(
-            'Seite ${context.pageNumber} von ${context.pagesCount}',
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
-          ),
-        ),
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(44, 42, 44, 48),
+        header: (context) => style.header(tenant),
+        footer: (context) => style.footer(context, tenant),
         build: (context) => [
           if (customer != null) ...[
-            pw.Text(customer.name),
-            if (customer.address != null) pw.Text(customer.address!),
+            style.recipient('Empfänger', customer.name, customer.address),
             pw.SizedBox(height: 16),
           ],
           pw.Text(
             'Rechnung ${invoice.invoiceNumber}',
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              font: style.bold,
+              color: DocumentStyle.navy,
+              fontSize: 20,
+            ),
           ),
           pw.Text(invoice.title, style: const pw.TextStyle(fontSize: 14)),
           pw.SizedBox(height: 4),
@@ -62,7 +51,7 @@ Future<Uint8List> buildInvoicePdf({
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 ),
               ),
-            _itemsTable(group.items),
+            _itemsTable(group.items, style),
             if (group.label != null)
               pw.Align(
                 alignment: pw.Alignment.centerRight,
@@ -95,15 +84,18 @@ Future<Uint8List> buildInvoicePdf({
                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                   ),
                   for (final prior in invoice.priorInvoices)
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          '  ${prior.invoiceNumber} '
-                          '(${_invoiceTypeLabel(prior.invoiceType)})',
-                        ),
-                        pw.Text('- ${_formatAmount(prior.totalGross)}'),
-                      ],
+                    pw.SizedBox(
+                      width: 280,
+                      child: pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            '  ${prior.invoiceNumber} '
+                            '(${_invoiceTypeLabel(prior.invoiceType)})',
+                          ),
+                          pw.Text('- ${_formatAmount(prior.totalGross)}'),
+                        ],
+                      ),
                     ),
                   pw.Divider(thickness: 0.5),
                 ] else if (invoice.priorInvoicedTotal != null)
@@ -111,7 +103,9 @@ Future<Uint8List> buildInvoicePdf({
                     'Bereits in Rechnung gestellt: ${_formatAmount(invoice.priorInvoicedTotal!)}',
                   ),
                 if (invoice.dunningFeeTotal > 0)
-                  pw.Text('Mahngebühren: ${_formatAmount(invoice.dunningFeeTotal)}'),
+                  pw.Text(
+                    'Mahngebühren: ${_formatAmount(invoice.dunningFeeTotal)}',
+                  ),
                 pw.Text(
                   'Zu zahlen: ${_formatAmount(invoice.totalDue)}',
                   style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -121,38 +115,14 @@ Future<Uint8List> buildInvoicePdf({
           ),
           if (invoice.notes != null && invoice.notes!.trim().isNotEmpty) ...[
             pw.SizedBox(height: 16),
-            pw.Text(
-              'Notizen',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
+            style.section('Notizen'),
             pw.Text(invoice.notes!),
           ],
           if (tenant.companyIban != null) ...[
             pw.SizedBox(height: 16),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(8),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'Zahlungshinweis',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 10),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text('Bitte überweisen Sie den Betrag auf folgendes Konto:',
-                      style: const pw.TextStyle(fontSize: 10)),
-                  pw.Text('IBAN: ${tenant.companyIban}',
-                      style: pw.TextStyle(
-                          fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Empfänger: ${tenant.name}',
-                      style: const pw.TextStyle(fontSize: 10)),
-                ],
-              ),
+            style.payment(
+              tenant,
+              'Bitte überweisen Sie den Betrag auf folgendes Konto:',
             ),
           ],
         ],
@@ -162,10 +132,10 @@ Future<Uint8List> buildInvoicePdf({
   return doc.save();
 }
 
-pw.Widget _itemsTable(List<InvoiceItem> items) {
+pw.Widget _itemsTable(List<InvoiceItem> items, DocumentStyle style) {
   return pw.Table(
-    border: const pw.TableBorder(
-      horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+    border: pw.TableBorder(
+      horizontalInside: pw.BorderSide(color: DocumentStyle.rule, width: 0.5),
     ),
     columnWidths: const {
       0: pw.FlexColumnWidth(4),
@@ -175,59 +145,49 @@ pw.Widget _itemsTable(List<InvoiceItem> items) {
       4: pw.FlexColumnWidth(1.5),
     },
     children: [
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-        children: [
-          _cell('Beschreibung', bold: true),
-          _cell('Menge', bold: true, align: pw.TextAlign.right),
-          _cell('Einzelpreis', bold: true, align: pw.TextAlign.right),
-          _cell('MwSt.', bold: true, align: pw.TextAlign.right),
-          _cell('Gesamt (netto)', bold: true, align: pw.TextAlign.right),
+      style.heading(
+        [
+          style.cell('Beschreibung', boldText: true),
+          style.cell('Menge', boldText: true, align: pw.TextAlign.right),
+          style.cell('Einzelpreis', boldText: true, align: pw.TextAlign.right),
+          style.cell('MwSt.', boldText: true, align: pw.TextAlign.right),
+          style.cell(
+            'Gesamt (netto)',
+            boldText: true,
+            align: pw.TextAlign.right,
+          ),
         ],
       ),
       for (final item in items)
         pw.TableRow(
           children: [
-            _cell(item.description),
-            _cell(
+            style.cell(item.description),
+            style.cell(
               '${_formatNumber(item.quantity)}${item.unit != null ? ' ${item.unit}' : ''}',
               align: pw.TextAlign.right,
             ),
-            _cell(_formatAmount(item.unitPrice), align: pw.TextAlign.right),
-            _cell(
+            style.cell(
+              _formatAmount(item.unitPrice),
+              align: pw.TextAlign.right,
+            ),
+            style.cell(
               '${_formatNumber(item.vatRate)} %',
               align: pw.TextAlign.right,
             ),
-            _cell(_formatAmount(item.totalNet), align: pw.TextAlign.right),
+            style.cell(_formatAmount(item.totalNet), align: pw.TextAlign.right),
           ],
         ),
     ],
   );
 }
 
-pw.Widget _cell(
-  String text, {
-  bool bold = false,
-  pw.TextAlign align = pw.TextAlign.left,
-}) => pw.Padding(
-  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-  child: pw.Text(
-    text,
-    textAlign: align,
-    style: pw.TextStyle(
-      fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-      fontSize: 10,
-    ),
-  ),
-);
-
 String _statusLabel(InvoiceStatus status) => switch (status) {
-      InvoiceStatus.draft => 'Entwurf',
-      InvoiceStatus.sent => 'Versendet',
-      InvoiceStatus.paid => 'Bezahlt',
-      InvoiceStatus.overdue => 'Überfällig',
-      InvoiceStatus.cancelled => 'Storniert',
-    };
+  InvoiceStatus.draft => 'Entwurf',
+  InvoiceStatus.sent => 'Versendet',
+  InvoiceStatus.paid => 'Bezahlt',
+  InvoiceStatus.overdue => 'Überfällig',
+  InvoiceStatus.cancelled => 'Storniert',
+};
 
 String _formatDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
@@ -239,8 +199,8 @@ String _formatNumber(double value) => value == value.roundToDouble()
     : value.toStringAsFixed(2);
 
 String _invoiceTypeLabel(InvoiceType type) => switch (type) {
-      InvoiceType.standard => 'Rechnung',
-      InvoiceType.partial => 'Materialabschlag',
-      InvoiceType.downPayment => 'Abschlagsrechnung',
-      InvoiceType.closingInvoice => 'Schlussrechnung',
-    };
+  InvoiceType.standard => 'Rechnung',
+  InvoiceType.partial => 'Materialabschlag',
+  InvoiceType.downPayment => 'Abschlagsrechnung',
+  InvoiceType.closingInvoice => 'Schlussrechnung',
+};

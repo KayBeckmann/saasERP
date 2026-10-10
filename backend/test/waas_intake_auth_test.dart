@@ -1,0 +1,79 @@
+import 'package:backend/src/auth_service.dart';
+import 'package:backend/src/repositories/waas_intake_repository.dart';
+import 'package:dart_frog/dart_frog.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
+import 'package:test/test.dart';
+import '../routes/api/waas/intake/index.dart' as intake;
+import '../routes/api/waas/intake/[id]/associate.dart' as associate;
+import '../routes/api/waas/intake/[id]/review.dart' as review;
+import '../routes/api/waas/intake/[id]/attachment.dart' as attachment;
+import '../routes/api/waas/intake/[id]/raw.dart' as raw;
+
+class _Context extends Mock implements RequestContext {}
+
+class _Request extends Mock implements Request {}
+
+class _Auth extends Mock implements AuthService {}
+
+class _Repo extends Mock implements WaasIntakeRepository {}
+
+void main() {
+  test('owner can read serializable queue metadata', () async {
+    final c = _Context(), r = _Request(), a = _Auth(), repo = _Repo();
+    when(() => c.request).thenReturn(r);
+    when(() => r.method).thenReturn(HttpMethod.get);
+    when(() => r.headers).thenReturn({'Authorization': 'Bearer test'});
+    when(() => c.read<AuthService>()).thenReturn(a);
+    when(() => a.verifyToken('test')).thenReturn(
+      AuthTokenPayload(
+        userId: 'x',
+        tenantId: 'tenant',
+        email: 'a@b.invalid',
+        role: 'owner',
+        expiresAt: DateTime.utc(2099),
+      ),
+    );
+    when(() => c.read<WaasIntakeRepository>()).thenReturn(repo);
+    when(() => repo.list(tenantId: 'tenant')).thenAnswer(
+      (_) async => [
+        {'id': 'a', 'created_at': DateTime.utc(2026)},
+      ],
+    );
+    final response = await intake.onRequest(c);
+    expect(response.statusCode, 200);
+    expect(await response.body(), contains('2026-01-01'));
+  });
+  test(
+    'email intake routes refuse unauthenticated and customer tokens before accessing storage',
+    () async {
+      final c = _Context(), r = _Request(), a = _Auth();
+      when(() => c.request).thenReturn(r);
+      when(() => r.method).thenReturn(HttpMethod.get);
+      when(() => r.headers).thenReturn({});
+      when(() => c.read<AuthService>()).thenReturn(a);
+      expect((await intake.onRequest(c)).statusCode, 401);
+      expect((await attachment.onRequest(c, 'id')).statusCode, 401);
+      expect((await raw.onRequest(c, 'id')).statusCode, 401);
+      when(() => r.method).thenReturn(HttpMethod.post);
+      expect((await associate.onRequest(c, 'id')).statusCode, 401);
+      expect((await review.onRequest(c, 'id')).statusCode, 401);
+      when(() => r.headers).thenReturn({'Authorization': 'Bearer test'});
+      when(() => a.verifyToken('test')).thenReturn(
+        AuthTokenPayload(
+          userId: 'x',
+          tenantId: 'tenant',
+          email: 'a@b.invalid',
+          role: 'customer',
+          expiresAt: DateTime.utc(2099),
+        ),
+      );
+      expect((await intake.onRequest(c)).statusCode, 403);
+      expect((await associate.onRequest(c, 'id')).statusCode, 403);
+      expect((await review.onRequest(c, 'id')).statusCode, 403);
+      when(() => r.method).thenReturn(HttpMethod.get);
+      expect((await attachment.onRequest(c, 'id')).statusCode, 403);
+      expect((await raw.onRequest(c, 'id')).statusCode, 403);
+    },
+  );
+}

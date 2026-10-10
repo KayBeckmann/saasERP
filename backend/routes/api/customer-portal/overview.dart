@@ -18,19 +18,27 @@ Future<Response> onRequest(RequestContext context) async {
     return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
   }
 
-  final portalAccountRepository = context.read<CustomerPortalAccountRepository>();
+  final portalAccountRepository = context
+      .read<CustomerPortalAccountRepository>();
   final account = await portalAccountRepository.findById(auth.userId);
-  if (account == null) {
+  if (account == null || account.tenantId != auth.tenantId) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
   final quoteRepository = context.read<QuoteRepository>();
   final invoiceRepository = context.read<InvoiceRepository>();
-  final maintenanceContractRepository = context.read<MaintenanceContractRepository>();
+  final maintenanceContractRepository = context
+      .read<MaintenanceContractRepository>();
 
   final overview = CustomerPortalOverview(
-    quotes: await quoteRepository.listForCustomer(tenantId: auth.tenantId, customerId: account.customerId),
-    invoices: await invoiceRepository.listForCustomer(tenantId: auth.tenantId, customerId: account.customerId),
+    quotes: await quoteRepository.listForCustomer(
+      tenantId: auth.tenantId,
+      customerId: account.customerId,
+    ),
+    invoices: await invoiceRepository.listForCustomer(
+      tenantId: auth.tenantId,
+      customerId: account.customerId,
+    ),
     maintenanceContracts: await maintenanceContractRepository.listForCustomer(
       tenantId: auth.tenantId,
       customerId: account.customerId,

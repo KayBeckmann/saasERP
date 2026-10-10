@@ -3,8 +3,10 @@ import 'package:backend/src/repositories/customer_portal_account_repository.dart
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/customer-portal/invoices/<id>/pdf — Rechnung des eingeloggten
 /// Endkunden als PDF.
@@ -18,14 +20,38 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
   }
 
-  final portalAccountRepository = context.read<CustomerPortalAccountRepository>();
+  final portalAccountRepository = context
+      .read<CustomerPortalAccountRepository>();
   final account = await portalAccountRepository.findById(auth.userId);
-  if (account == null) {
+  if (account == null || account.tenantId != auth.tenantId) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
-  final invoice = await context.read<InvoiceRepository>().findById(tenantId: auth.tenantId, id: id);
-  if (invoice == null || invoice.customerId != account.customerId) {
+  final documents = context.read<WaasInvoiceDocumentRepository>();
+  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
+    final issued = await documents.read(
+      tenantId: auth.tenantId,
+      invoiceId: id,
+      customerId: account.customerId,
+    );
+    if (issued == null)
+      return Response.json(statusCode: 404, body: {'error': 'not_found'});
+    return Response.bytes(
+      body: issued.pdf,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+            'inline; filename="invoice-v${issued.version}.pdf"',
+      },
+    );
+  }
+  final invoice = await context.read<InvoiceRepository>().findPublishedById(
+    tenantId: auth.tenantId,
+    id: id,
+  );
+  if (invoice == null ||
+      invoice.customerId != account.customerId ||
+      invoice.status == InvoiceStatus.draft) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
@@ -35,11 +61,15 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   final customer = await context.read<CustomerRepository>().findById(
-        tenantId: auth.tenantId,
-        id: account.customerId,
-      );
+    tenantId: auth.tenantId,
+    id: account.customerId,
+  );
 
-  final bytes = await buildInvoicePdf(invoice: invoice, tenant: tenant, customer: customer);
+  final bytes = await buildInvoicePdf(
+    invoice: invoice,
+    tenant: tenant,
+    customer: customer,
+  );
 
   return Response.bytes(
     body: bytes,

@@ -1,8 +1,9 @@
 import 'dart:typed_data';
-
 import 'package:pdf/pdf.dart';
+
 import 'package:pdf/widgets.dart' as pw;
 import 'package:saaserp_shared/saaserp_shared.dart';
+import 'document_style.dart';
 
 /// Erzeugt das PDF-Dokument für eine Mahnung — Briefkopf mit
 /// Mandanten-Stammdaten, Kundenadresse, Mahnstufen-Text passend zu
@@ -16,45 +17,33 @@ Future<Uint8List> buildDunningPdf({
   final title = _dunningTitle(invoice.dunningLevel);
   final intro = _dunningIntro(invoice.dunningLevel);
 
-  final doc = pw.Document()
+  final style = await DocumentStyle.load();
+  final doc = pw.Document(theme: style.theme)
     ..addPage(
       pw.MultiPage(
-        header: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              tenant.name,
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-            ),
-            if (tenant.companyAddress != null) pw.Text(tenant.companyAddress!),
-            if (tenant.companyTaxId != null)
-              pw.Text('USt-IdNr.: ${tenant.companyTaxId}'),
-            pw.SizedBox(height: 16),
-          ],
-        ),
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Text(
-            'Seite ${context.pageNumber} von ${context.pagesCount}',
-            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey),
-          ),
-        ),
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.fromLTRB(44, 42, 44, 48),
+        header: (context) => style.header(tenant),
+        footer: (context) => style.footer(context, tenant),
         build: (context) => [
           if (customer != null) ...[
-            pw.Text(customer.name),
-            if (customer.address != null) pw.Text(customer.address!),
+            style.recipient('Empfänger', customer.name, customer.address),
             pw.SizedBox(height: 16),
           ],
           pw.Text(
             title,
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+            style: pw.TextStyle(
+              font: style.bold,
+              color: DocumentStyle.navy,
+              fontSize: 20,
+            ),
           ),
           pw.SizedBox(height: 4),
           pw.Text('Datum: ${_formatDate(DateTime.now())}'),
           pw.SizedBox(height: 16),
           pw.Text(intro),
           pw.SizedBox(height: 16),
-          _summaryTable(invoice),
+          _summaryTable(invoice, style),
           pw.SizedBox(height: 16),
           pw.Align(
             alignment: pw.Alignment.centerRight,
@@ -67,32 +56,9 @@ Future<Uint8List> buildDunningPdf({
           pw.Text(_dunningClosing(invoice.dunningLevel)),
           if (tenant.companyIban != null) ...[
             pw.SizedBox(height: 16),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(8),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                borderRadius:
-                    const pw.BorderRadius.all(pw.Radius.circular(4)),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'Zahlungshinweis',
-                    style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, fontSize: 10),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                      'Bitte überweisen Sie den offenen Betrag auf folgendes Konto:',
-                      style: const pw.TextStyle(fontSize: 10)),
-                  pw.Text('IBAN: ${tenant.companyIban}',
-                      style: pw.TextStyle(
-                          fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Empfänger: ${tenant.name}',
-                      style: const pw.TextStyle(fontSize: 10)),
-                ],
-              ),
+            style.payment(
+              tenant,
+              'Bitte überweisen Sie den offenen Betrag auf folgendes Konto:',
             ),
           ],
         ],
@@ -102,86 +68,84 @@ Future<Uint8List> buildDunningPdf({
   return doc.save();
 }
 
-pw.Widget _summaryTable(Invoice invoice) {
+pw.Widget _summaryTable(Invoice invoice, DocumentStyle style) {
   return pw.Table(
-    border: const pw.TableBorder(
-      horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
+    border: pw.TableBorder(
+      horizontalInside: pw.BorderSide(color: DocumentStyle.rule, width: 0.5),
     ),
     columnWidths: const {
       0: pw.FlexColumnWidth(3),
       1: pw.FlexColumnWidth(1.5),
     },
     children: [
-      pw.TableRow(
-        decoration: const pw.BoxDecoration(color: PdfColors.grey200),
-        children: [
-          _cell('Position', bold: true),
-          _cell('Betrag', bold: true, align: pw.TextAlign.right),
+      style.heading(
+        [
+          style.cell('Position', boldText: true),
+          style.cell('Betrag', boldText: true, align: pw.TextAlign.right),
         ],
       ),
       pw.TableRow(
         children: [
-          _cell('Rechnung ${invoice.invoiceNumber} — ${invoice.title}'),
-          _cell(_formatAmount(invoice.amountDue), align: pw.TextAlign.right),
+          style.cell('Rechnung ${invoice.invoiceNumber} — ${invoice.title}'),
+          style.cell(
+            _formatAmount(invoice.amountDue),
+            align: pw.TextAlign.right,
+          ),
         ],
       ),
       if (invoice.dueDate != null)
         pw.TableRow(
           children: [
-            _cell('Fällig seit'),
-            _cell(_formatDate(invoice.dueDate!), align: pw.TextAlign.right),
+            style.cell('Fällig seit'),
+            style.cell(
+              _formatDate(invoice.dueDate!),
+              align: pw.TextAlign.right,
+            ),
           ],
         ),
       if (invoice.dunningFeeTotal > 0)
         pw.TableRow(
           children: [
-            _cell('Mahngebühren'),
-            _cell(_formatAmount(invoice.dunningFeeTotal), align: pw.TextAlign.right),
+            style.cell('Mahngebühren'),
+            style.cell(
+              _formatAmount(invoice.dunningFeeTotal),
+              align: pw.TextAlign.right,
+            ),
           ],
         ),
     ],
   );
 }
 
-pw.Widget _cell(
-  String text, {
-  bool bold = false,
-  pw.TextAlign align = pw.TextAlign.left,
-}) => pw.Padding(
-  padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-  child: pw.Text(
-    text,
-    textAlign: align,
-    style: pw.TextStyle(
-      fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-      fontSize: 10,
-    ),
-  ),
-);
-
 String _dunningTitle(int dunningLevel) => switch (dunningLevel) {
-      1 => 'Zahlungserinnerung',
-      2 => '1. Mahnung',
-      _ => '2. Mahnung',
-    };
+  1 => 'Zahlungserinnerung',
+  2 => '1. Mahnung',
+  _ => '2. Mahnung',
+};
 
 String _dunningIntro(int dunningLevel) => switch (dunningLevel) {
-      1 => 'Mit dieser Zahlungserinnerung weisen wir Sie freundlich darauf hin, dass die folgende '
-          'Rechnung noch nicht ausgeglichen wurde:',
-      2 => 'Trotz Fälligkeit konnten wir bisher keinen Zahlungseingang zu folgender Rechnung '
-          'feststellen. Wir bitten Sie, den offenen Betrag zeitnah zu begleichen:',
-      _ => 'Wir haben Sie bereits gemahnt, der offene Betrag wurde jedoch weiterhin nicht '
-          'ausgeglichen. Wir fordern Sie letztmalig zur Zahlung der folgenden Rechnung auf:',
-    };
+  1 =>
+    'Mit dieser Zahlungserinnerung weisen wir Sie freundlich darauf hin, dass die folgende '
+        'Rechnung noch nicht ausgeglichen wurde:',
+  2 =>
+    'Trotz Fälligkeit konnten wir bisher keinen Zahlungseingang zu folgender Rechnung '
+        'feststellen. Wir bitten Sie, den offenen Betrag zeitnah zu begleichen:',
+  _ =>
+    'Wir haben Sie bereits gemahnt, der offene Betrag wurde jedoch weiterhin nicht '
+        'ausgeglichen. Wir fordern Sie letztmalig zur Zahlung der folgenden Rechnung auf:',
+};
 
 String _dunningClosing(int dunningLevel) => switch (dunningLevel) {
-      1 => 'Sollte Ihre Zahlung bereits erfolgt sein, betrachten Sie dieses Schreiben als '
-          'gegenstandslos. Andernfalls bitten wir um Ausgleich innerhalb von 7 Tagen.',
-      2 => 'Wir bitten um Ausgleich des Gesamtbetrags innerhalb von 7 Tagen. Bei weiterem '
-          'Zahlungsverzug behalten wir uns weitere Schritte vor.',
-      _ => 'Bitte begleichen Sie den Gesamtbetrag innerhalb von 7 Tagen, um weitere Schritte zu '
-          'vermeiden.',
-    };
+  1 =>
+    'Sollte Ihre Zahlung bereits erfolgt sein, betrachten Sie dieses Schreiben als '
+        'gegenstandslos. Andernfalls bitten wir um Ausgleich innerhalb von 7 Tagen.',
+  2 =>
+    'Wir bitten um Ausgleich des Gesamtbetrags innerhalb von 7 Tagen. Bei weiterem '
+        'Zahlungsverzug behalten wir uns weitere Schritte vor.',
+  _ =>
+    'Bitte begleichen Sie den Gesamtbetrag innerhalb von 7 Tagen, um weitere Schritte zu '
+        'vermeiden.',
+};
 
 String _formatDate(DateTime date) =>
     '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';

@@ -1,13 +1,8 @@
 import 'package:saaserp_shared/saaserp_shared.dart';
 
-/// Generiert ein ZUGFeRD 2.1 / Factur-X Basic Profile XML für die gegebene
-/// Rechnung. Das XML ist EN-16931-konform und kann direkt in Buchhaltungs-
-/// Software importiert oder als Anhang in ein PDF/A-3b-Dokument eingebettet
-/// werden.
-///
-/// Für XRechnung (B2G): `customer.leitwegId` wird als `BuyerReference`
-/// übernommen, wenn gesetzt — gesetzliche Pflicht bei öffentlichen
-/// Auftraggebern ab 2025.
+/// Erzeugt eigenständiges CrossIndustryInvoice-XML mit Factur-X-Basic-Kennung.
+/// Die fachliche EN-16931-/XRechnung-Konformität ist NICHT extern validiert;
+/// es wird weder PDF/A-3 noch ein eingebettetes Factur-X erzeugt.
 String buildZugferdXml({
   required Invoice invoice,
   required Tenant tenant,
