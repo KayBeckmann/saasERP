@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
@@ -28,6 +30,8 @@ import 'package:backend/src/repositories/time_entry_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/repositories/waas_billing_repository.dart';
 import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
+import 'package:backend/src/repositories/waas_payment_repository.dart';
+import 'package:backend/src/waas_psp.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:postgres/postgres.dart';
@@ -88,6 +92,23 @@ final _platformInvoiceRepository = PlatformInvoiceRepository(
 );
 final _waasBillingRepository = WaasBillingRepository(_pool);
 final _waasInvoiceDocuments = WaasInvoiceDocumentRepository(_pool);
+// Disabled unless explicitly configured for local fake/sandbox testing.
+final WaasPsp _waasPsp = _localFakePsp();
+WaasPsp _localFakePsp() {
+  if (Platform.environment['WAAS_FAKE_PSP_ENABLED'] != 'true')
+    return DisabledWaasPsp();
+  final secrets = jsonDecode(
+    Platform.environment['WAAS_FAKE_PSP_SECRETS'] ?? '{}',
+  );
+  if (secrets is! Map<String, dynamic> ||
+      secrets.isEmpty ||
+      secrets.values.any((value) => value is! String || value.isEmpty)) {
+    throw StateError('Invalid fake PSP test configuration');
+  }
+  return FakeWaasPsp(secrets.cast<String, String>());
+}
+
+final _waasPayments = WaasPaymentRepository(_pool, _waasPsp);
 final _dashboardRepository = DashboardRepository(
   _quoteRepository,
   _orderRepository,
@@ -150,6 +171,7 @@ Handler middleware(Handler handler) {
         provider<PlatformInvoiceRepository>((_) => _platformInvoiceRepository),
       )
       .use(provider<WaasBillingRepository>((_) => _waasBillingRepository))
+      .use(provider<WaasPaymentRepository>((_) => _waasPayments))
       .use(
         provider<WaasInvoiceDocumentRepository>((_) => _waasInvoiceDocuments),
       )

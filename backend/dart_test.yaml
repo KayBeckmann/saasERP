@@ -1,0 +1,3 @@
+# Integration tests apply database migrations to WAAS_TEST_DB_NAME.
+# Run files sequentially so parallel migration DDL cannot deadlock.
+concurrency: 1
