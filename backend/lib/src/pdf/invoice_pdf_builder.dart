@@ -188,7 +188,7 @@ pw.Widget _itemsTable(List<InvoiceItem> items) {
       for (final item in items)
         pw.TableRow(
           children: [
-            _cell(item.description),
+            _cell(item.description.replaceAll('–', '-')),
             _cell(
               '${_formatNumber(item.quantity)}${item.unit != null ? ' ${item.unit}' : ''}',
               align: pw.TextAlign.right,

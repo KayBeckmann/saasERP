@@ -201,34 +201,4 @@ class WaasBillingRepository {
       return created;
     });
   }
-
-  /// Explicit pilot release: still no email or debit; document appears in portal.
-  Future<bool> approve({
-    required String tenantId,
-    required String invoiceId,
-    required String actorId,
-  }) async {
-    return _pool.runTx((tx) async {
-      final rows = await tx.execute(
-        Sql.named(
-          'UPDATE waas_billing_runs '
-          'SET approved_by = @actor, approved_at = now() '
-          'WHERE tenant_id = @tenant AND invoice_id = @invoice AND approved_at IS NULL RETURNING invoice_id',
-        ),
-        parameters: {
-          'actor': actorId,
-          'tenant': tenantId,
-          'invoice': invoiceId,
-        },
-      );
-      if (rows.isEmpty) return false;
-      await tx.execute(
-        Sql.named(
-          "UPDATE invoices SET status = 'sent' WHERE tenant_id = @tenant AND id = @invoice AND status = 'draft'",
-        ),
-        parameters: {'tenant': tenantId, 'invoice': invoiceId},
-      );
-      return true;
-    });
-  }
 }

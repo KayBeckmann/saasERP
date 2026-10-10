@@ -3,6 +3,7 @@ import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
 import 'package:backend/src/repositories/waas_billing_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/waas_billing.dart';
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -63,6 +64,34 @@ void main() {
         );
         final actor = '00000000-0000-0000-0000-000000000001';
         final repository = WaasBillingRepository(pool);
+        final invoices = InvoiceRepository(
+          pool,
+          NumberSequenceRepository(pool),
+        );
+        final documents = WaasInvoiceDocumentRepository(pool);
+        Future<bool> approveInvoice(String scopedTenant, String id) async {
+          final invoice = await invoices.findById(tenantId: tenant, id: id);
+          return documents.approve(
+            tenantId: scopedTenant,
+            invoiceId: id,
+            actorId: actor,
+            invoice: invoice!,
+            tenant: Tenant(
+              id: tenant,
+              name: 'Tenant A',
+              createdAt: DateTime.utc(2026),
+            ),
+            customer: Customer(
+              id: customer,
+              tenantId: tenant,
+              customerNumber: 'K1',
+              kind: CustomerKind.business,
+              name: 'Demo',
+              createdAt: DateTime.utc(2026),
+            ),
+          );
+        }
+
         await repository.addRevision(
           tenantId: tenant,
           contractId: contract,
@@ -111,16 +140,8 @@ void main() {
           throwsStateError,
         );
         expect(
-          await repository.approve(
-            tenantId: other,
-            invoiceId: first.single,
-            actorId: actor,
-          ),
+          await approveInvoice(other, first.single),
           false,
-        );
-        final invoices = InvoiceRepository(
-          pool,
-          NumberSequenceRepository(pool),
         );
         final invoice = await invoices.findById(
           tenantId: tenant,
@@ -158,19 +179,11 @@ void main() {
           false,
         );
         expect(
-          await repository.approve(
-            tenantId: tenant,
-            invoiceId: first.single,
-            actorId: actor,
-          ),
+          await approveInvoice(tenant, first.single),
           true,
         );
         expect(
-          await repository.approve(
-            tenantId: tenant,
-            invoiceId: first.single,
-            actorId: actor,
-          ),
+          await approveInvoice(tenant, first.single),
           false,
         );
         expect(
@@ -253,11 +266,7 @@ void main() {
           isEmpty,
         );
         expect(
-          await repository.approve(
-            tenantId: other,
-            invoiceId: next,
-            actorId: actor,
-          ),
+          await approveInvoice(other, next),
           isFalse,
         );
         expect(

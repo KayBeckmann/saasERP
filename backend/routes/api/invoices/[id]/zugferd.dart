@@ -4,16 +4,12 @@ import 'package:backend/src/pdf/zugferd_xml_builder.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
 
-/// GET /api/invoices/<id>/zugferd — Rechnung als ZUGFeRD 2.1 Basic / Factur-X
-/// XML (EN 16931). Kann direkt in Buchhaltungs-Software importiert werden
-/// oder als Anhang in ein PDF/A-3b-Dokument eingebettet werden.
-///
-/// Für XRechnung (B2G) ist das erzeugte XML ebenfalls geeignet — die
-/// Leitweg-ID des Kunden wird als `BuyerReference` übernommen, sofern
-/// hinterlegt.
+/// GET /api/invoices/<id>/zugferd — separates, nicht extern validiertes
+/// CII-XML. Keine Zusage für EN 16931, XRechnung oder PDF/A-3.
 Future<Response> onRequest(RequestContext context, String id) async {
   final auth = authenticateRequest(context);
   if (auth == null) {
@@ -24,6 +20,20 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
 
+  final documents = context.read<WaasInvoiceDocumentRepository>();
+  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
+    final issued = await documents.read(tenantId: auth.tenantId, invoiceId: id);
+    if (issued == null)
+      return Response.json(statusCode: 404, body: {'error': 'not_found'});
+    return Response.bytes(
+      body: issued.xml,
+      headers: {
+        'Content-Type': 'application/xml; charset=UTF-8',
+        'Content-Disposition':
+            'attachment; filename="invoice-v${issued.version}.xml"',
+      },
+    );
+  }
   final invoice = await context.read<InvoiceRepository>().findPublishedById(
     tenantId: auth.tenantId,
     id: id,

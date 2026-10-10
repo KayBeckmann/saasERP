@@ -3,6 +3,7 @@ import 'package:backend/src/repositories/customer_portal_account_repository.dart
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -26,6 +27,24 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
+  final documents = context.read<WaasInvoiceDocumentRepository>();
+  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
+    final issued = await documents.read(
+      tenantId: auth.tenantId,
+      invoiceId: id,
+      customerId: account.customerId,
+    );
+    if (issued == null)
+      return Response.json(statusCode: 404, body: {'error': 'not_found'});
+    return Response.bytes(
+      body: issued.pdf,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+            'inline; filename="invoice-v${issued.version}.pdf"',
+      },
+    );
+  }
   final invoice = await context.read<InvoiceRepository>().findPublishedById(
     tenantId: auth.tenantId,
     id: id,

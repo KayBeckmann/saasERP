@@ -8,6 +8,7 @@ import '../routes/api/invoices/_middleware.dart' as invoices;
 import '../routes/api/waas/contracts/[id]/plan.dart' as plan;
 import '../routes/api/waas/contracts/[id]/run.dart' as run;
 import '../routes/api/waas/invoices/[id]/approve.dart' as approve;
+import '../routes/api/customer-portal/invoices/[id]/xml.dart' as portalXml;
 
 class _Context extends Mock implements RequestContext {}
 
@@ -40,6 +41,31 @@ void main() {
         expect((await run.onRequest(context, 'contract')).statusCode, 403);
         expect((await approve.onRequest(context, 'invoice')).statusCode, 403);
       }
+    },
+  );
+
+  test(
+    'portal XML rejects unauthenticated and staff tokens before database access',
+    () async {
+      final context = _Context();
+      final request = _Request();
+      final auth = _Auth();
+      when(() => context.request).thenReturn(request);
+      when(() => request.method).thenReturn(HttpMethod.get);
+      when(() => request.headers).thenReturn({});
+      when(() => context.read<AuthService>()).thenReturn(auth);
+      expect((await portalXml.onRequest(context, 'invoice')).statusCode, 401);
+      when(() => request.headers).thenReturn({'Authorization': 'Bearer test'});
+      when(() => auth.verifyToken('test')).thenReturn(
+        AuthTokenPayload(
+          userId: 'owner',
+          tenantId: 'tenant',
+          email: 'owner@example.test',
+          role: UserRole.owner.toJson(),
+          expiresAt: DateTime.utc(2099),
+        ),
+      );
+      expect((await portalXml.onRequest(context, 'invoice')).statusCode, 401);
     },
   );
 

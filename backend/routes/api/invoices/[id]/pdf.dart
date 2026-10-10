@@ -2,6 +2,7 @@ import 'package:backend/src/pdf/invoice_pdf_builder.dart';
 import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -17,6 +18,20 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
 
+  final documents = context.read<WaasInvoiceDocumentRepository>();
+  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
+    final issued = await documents.read(tenantId: auth.tenantId, invoiceId: id);
+    if (issued == null)
+      return Response.json(statusCode: 404, body: {'error': 'not_found'});
+    return Response.bytes(
+      body: issued.pdf,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition':
+            'inline; filename="invoice-v${issued.version}.pdf"',
+      },
+    );
+  }
   final invoiceRepo = context.read<InvoiceRepository>();
   final invoice = await invoiceRepo.findPublishedById(
     tenantId: auth.tenantId,

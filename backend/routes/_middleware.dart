@@ -27,6 +27,7 @@ import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/time_entry_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/repositories/waas_billing_repository.dart';
+import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:postgres/postgres.dart';
@@ -86,6 +87,7 @@ final _platformInvoiceRepository = PlatformInvoiceRepository(
   _numberSequenceRepository,
 );
 final _waasBillingRepository = WaasBillingRepository(_pool);
+final _waasInvoiceDocuments = WaasInvoiceDocumentRepository(_pool);
 final _dashboardRepository = DashboardRepository(
   _quoteRepository,
   _orderRepository,
@@ -148,6 +150,9 @@ Handler middleware(Handler handler) {
         provider<PlatformInvoiceRepository>((_) => _platformInvoiceRepository),
       )
       .use(provider<WaasBillingRepository>((_) => _waasBillingRepository))
+      .use(
+        provider<WaasInvoiceDocumentRepository>((_) => _waasInvoiceDocuments),
+      )
       .use(provider<DashboardRepository>((_) => _dashboardRepository));
 }
 
