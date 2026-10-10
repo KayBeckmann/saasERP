@@ -31,6 +31,7 @@ import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/repositories/waas_billing_repository.dart';
 import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/repositories/waas_payment_repository.dart';
+import 'package:backend/src/repositories/waas_intake_repository.dart';
 import 'package:backend/src/waas_psp.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -109,6 +110,7 @@ WaasPsp _localFakePsp() {
 }
 
 final _waasPayments = WaasPaymentRepository(_pool, _waasPsp);
+final _waasIntake = WaasIntakeRepository(_pool);
 final _dashboardRepository = DashboardRepository(
   _quoteRepository,
   _orderRepository,
@@ -172,6 +174,7 @@ Handler middleware(Handler handler) {
       )
       .use(provider<WaasBillingRepository>((_) => _waasBillingRepository))
       .use(provider<WaasPaymentRepository>((_) => _waasPayments))
+      .use(provider<WaasIntakeRepository>((_) => _waasIntake))
       .use(
         provider<WaasInvoiceDocumentRepository>((_) => _waasInvoiceDocuments),
       )
