@@ -26,6 +26,7 @@ import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/time_entry_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
+import 'package:backend/src/repositories/waas_billing_repository.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:postgres/postgres.dart';
@@ -38,10 +39,20 @@ final _tenantRepository = TenantRepository(_pool);
 final _userRepository = UserRepository(_pool);
 final _tenantAccessRepository = TenantAccessRepository(_pool);
 final _tenantEncryptionKeyRepository = TenantEncryptionKeyRepository(_pool);
-final _tenantEncryptionService = TenantEncryptionService(_config, _tenantEncryptionKeyRepository);
+final _tenantEncryptionService = TenantEncryptionService(
+  _config,
+  _tenantEncryptionKeyRepository,
+);
 final _numberSequenceRepository = NumberSequenceRepository(_pool);
-final _customerRepository = CustomerRepository(_pool, _tenantEncryptionService, _numberSequenceRepository);
-final _customerPortalAccountRepository = CustomerPortalAccountRepository(_pool, _config);
+final _customerRepository = CustomerRepository(
+  _pool,
+  _tenantEncryptionService,
+  _numberSequenceRepository,
+);
+final _customerPortalAccountRepository = CustomerPortalAccountRepository(
+  _pool,
+  _config,
+);
 final _notificationService = NotificationService(
   emailService: _emailService,
   config: _config,
@@ -57,14 +68,24 @@ final _quoteRepository = QuoteRepository(_pool, _numberSequenceRepository);
 final _orderRepository = OrderRepository(_pool, _numberSequenceRepository);
 final _invoiceRepository = InvoiceRepository(_pool, _numberSequenceRepository);
 final _timeEntryRepository = TimeEntryRepository(_pool);
-final _purchaseOrderRepository = PurchaseOrderRepository(_pool, _numberSequenceRepository);
+final _purchaseOrderRepository = PurchaseOrderRepository(
+  _pool,
+  _numberSequenceRepository,
+);
 final _projectRepository = ProjectRepository(_pool, _numberSequenceRepository);
 final _projectTransactionRepository = ProjectTransactionRepository(_pool);
-final _maintenanceContractRepository = MaintenanceContractRepository(_pool, _numberSequenceRepository);
+final _maintenanceContractRepository = MaintenanceContractRepository(
+  _pool,
+  _numberSequenceRepository,
+);
 final _documentRepository = DocumentRepository(_pool);
 final _subscriptionTierRepository = SubscriptionTierRepository(_pool);
 final _subscriptionRepository = SubscriptionRepository(_pool);
-final _platformInvoiceRepository = PlatformInvoiceRepository(_pool, _numberSequenceRepository);
+final _platformInvoiceRepository = PlatformInvoiceRepository(
+  _pool,
+  _numberSequenceRepository,
+);
+final _waasBillingRepository = WaasBillingRepository(_pool);
 final _dashboardRepository = DashboardRepository(
   _quoteRepository,
   _orderRepository,
@@ -84,11 +105,19 @@ Handler middleware(Handler handler) {
       .use(provider<TenantRepository>((_) => _tenantRepository))
       .use(provider<UserRepository>((_) => _userRepository))
       .use(provider<TenantAccessRepository>((_) => _tenantAccessRepository))
-      .use(provider<TenantEncryptionKeyRepository>((_) => _tenantEncryptionKeyRepository))
+      .use(
+        provider<TenantEncryptionKeyRepository>(
+          (_) => _tenantEncryptionKeyRepository,
+        ),
+      )
       .use(provider<TenantEncryptionService>((_) => _tenantEncryptionService))
       .use(provider<NumberSequenceRepository>((_) => _numberSequenceRepository))
       .use(provider<CustomerRepository>((_) => _customerRepository))
-      .use(provider<CustomerPortalAccountRepository>((_) => _customerPortalAccountRepository))
+      .use(
+        provider<CustomerPortalAccountRepository>(
+          (_) => _customerPortalAccountRepository,
+        ),
+      )
       .use(provider<SupplierRepository>((_) => _supplierRepository))
       .use(provider<ArticleRepository>((_) => _articleRepository))
       .use(provider<ProductRepository>((_) => _productRepository))
@@ -98,12 +127,27 @@ Handler middleware(Handler handler) {
       .use(provider<TimeEntryRepository>((_) => _timeEntryRepository))
       .use(provider<PurchaseOrderRepository>((_) => _purchaseOrderRepository))
       .use(provider<ProjectRepository>((_) => _projectRepository))
-      .use(provider<ProjectTransactionRepository>((_) => _projectTransactionRepository))
-      .use(provider<MaintenanceContractRepository>((_) => _maintenanceContractRepository))
+      .use(
+        provider<ProjectTransactionRepository>(
+          (_) => _projectTransactionRepository,
+        ),
+      )
+      .use(
+        provider<MaintenanceContractRepository>(
+          (_) => _maintenanceContractRepository,
+        ),
+      )
       .use(provider<DocumentRepository>((_) => _documentRepository))
-      .use(provider<SubscriptionTierRepository>((_) => _subscriptionTierRepository))
+      .use(
+        provider<SubscriptionTierRepository>(
+          (_) => _subscriptionTierRepository,
+        ),
+      )
       .use(provider<SubscriptionRepository>((_) => _subscriptionRepository))
-      .use(provider<PlatformInvoiceRepository>((_) => _platformInvoiceRepository))
+      .use(
+        provider<PlatformInvoiceRepository>((_) => _platformInvoiceRepository),
+      )
+      .use(provider<WaasBillingRepository>((_) => _waasBillingRepository))
       .use(provider<DashboardRepository>((_) => _dashboardRepository));
 }
 
@@ -114,7 +158,8 @@ Middleware _corsHeaders() {
     return (context) async {
       final headers = {
         'Access-Control-Allow-Origin': _config.corsOrigin,
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Methods':
+            'GET, POST, PUT, PATCH, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       };
 

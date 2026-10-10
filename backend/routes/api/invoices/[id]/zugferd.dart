@@ -24,7 +24,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
 
-  final invoice = await context.read<InvoiceRepository>().findById(tenantId: auth.tenantId, id: id);
+  final invoice = await context.read<InvoiceRepository>().findPublishedById(
+    tenantId: auth.tenantId,
+    id: id,
+  );
   if (invoice == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -32,7 +35,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (invoice.items.isEmpty) {
     return Response.json(
       statusCode: 422,
-      body: {'error': 'no_items', 'message': 'Eine Rechnung ohne Positionen kann nicht als E-Rechnung exportiert werden.'},
+      body: {
+        'error': 'no_items',
+        'message':
+            'Eine Rechnung ohne Positionen kann nicht als E-Rechnung exportiert werden.',
+      },
     );
   }
 
@@ -44,16 +51,24 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final customerId = invoice.customerId;
   final customer = customerId == null
       ? null
-      : await context.read<CustomerRepository>().findById(tenantId: auth.tenantId, id: customerId);
+      : await context.read<CustomerRepository>().findById(
+          tenantId: auth.tenantId,
+          id: customerId,
+        );
 
-  final xml = buildZugferdXml(invoice: invoice, tenant: tenant, customer: customer);
+  final xml = buildZugferdXml(
+    invoice: invoice,
+    tenant: tenant,
+    customer: customer,
+  );
   final bytes = utf8.encode(xml);
 
   return Response.bytes(
     body: bytes,
     headers: {
       'Content-Type': 'application/xml; charset=UTF-8',
-      'Content-Disposition': 'attachment; filename="${invoice.invoiceNumber}-facturx.xml"',
+      'Content-Disposition':
+          'attachment; filename="${invoice.invoiceNumber}-facturx.xml"',
     },
   );
 }

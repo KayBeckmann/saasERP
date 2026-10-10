@@ -17,7 +17,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
 
-  final invoice = await context.read<InvoiceRepository>().findById(tenantId: auth.tenantId, id: id);
+  final invoice = await context.read<InvoiceRepository>().findPublishedById(
+    tenantId: auth.tenantId,
+    id: id,
+  );
   if (invoice == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -25,7 +28,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (invoice.dunningLevel < 1) {
     return Response.json(
       statusCode: 400,
-      body: {'error': 'not_dunned', 'message': 'Für diese Rechnung wurde noch keine Mahnung erstellt.'},
+      body: {
+        'error': 'not_dunned',
+        'message': 'Für diese Rechnung wurde noch keine Mahnung erstellt.',
+      },
     );
   }
 
@@ -37,15 +43,23 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final customerId = invoice.customerId;
   final customer = customerId == null
       ? null
-      : await context.read<CustomerRepository>().findById(tenantId: auth.tenantId, id: customerId);
+      : await context.read<CustomerRepository>().findById(
+          tenantId: auth.tenantId,
+          id: customerId,
+        );
 
-  final bytes = await buildDunningPdf(invoice: invoice, tenant: tenant, customer: customer);
+  final bytes = await buildDunningPdf(
+    invoice: invoice,
+    tenant: tenant,
+    customer: customer,
+  );
 
   return Response.bytes(
     body: bytes,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'inline; filename="Mahnung-${invoice.invoiceNumber}.pdf"',
+      'Content-Disposition':
+          'inline; filename="Mahnung-${invoice.invoiceNumber}.pdf"',
     },
   );
 }

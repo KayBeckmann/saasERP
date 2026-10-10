@@ -18,7 +18,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   final invoiceRepo = context.read<InvoiceRepository>();
-  final invoice = await invoiceRepo.findById(tenantId: auth.tenantId, id: id);
+  final invoice = await invoiceRepo.findPublishedById(
+    tenantId: auth.tenantId,
+    id: id,
+  );
   if (invoice == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -31,17 +34,23 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final customerId = invoice.customerId;
   final customer = customerId == null
       ? null
-      : await context.read<CustomerRepository>().findById(tenantId: auth.tenantId, id: customerId);
+      : await context.read<CustomerRepository>().findById(
+          tenantId: auth.tenantId,
+          id: customerId,
+        );
 
   // Für Schlussrechnungen: Vorrechnungen laden und in die Invoice-Instanz injizieren
   Invoice invoiceWithPrior = invoice;
-  if (invoice.invoiceType == InvoiceType.closingInvoice && invoice.orderId != null) {
+  if (invoice.invoiceType == InvoiceType.closingInvoice &&
+      invoice.orderId != null) {
     final priorInvoices = await invoiceRepo.listPriorForOrder(
       tenantId: auth.tenantId,
       orderId: invoice.orderId!,
     );
     // Aktuelle Rechnung aus der Liste ausschließen
-    final filtered = priorInvoices.where((r) => r.invoiceNumber != invoice.invoiceNumber).toList();
+    final filtered = priorInvoices
+        .where((r) => r.invoiceNumber != invoice.invoiceNumber)
+        .toList();
     if (filtered.isNotEmpty) {
       invoiceWithPrior = Invoice.fromJson({
         ...invoice.toJson(),
@@ -50,7 +59,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
   }
 
-  final bytes = await buildInvoicePdf(invoice: invoiceWithPrior, tenant: tenant, customer: customer);
+  final bytes = await buildInvoicePdf(
+    invoice: invoiceWithPrior,
+    tenant: tenant,
+    customer: customer,
+  );
 
   return Response.bytes(
     body: bytes,

@@ -16,7 +16,8 @@ class InvoiceRepository {
       'id, tenant_id, invoice_number, order_id, customer_id, title, status, due_date, notes, created_at, '
       'invoice_type, prior_invoiced_total, dunning_level, dunning_fee_total, last_dunned_at';
 
-  static const _itemColumns = 'id, invoice_id, kind, article_id, product_id, description, quantity, unit, '
+  static const _itemColumns =
+      'id, invoice_id, kind, article_id, product_id, description, quantity, unit, '
       'unit_price, vat_rate, group_label, order_item_id';
 
   Future<Invoice> create({
@@ -53,7 +54,12 @@ class InvoiceRepository {
       );
       final invoiceId = result.first.toColumnMap()['id'] as String;
 
-      await _insertItems(session, tenantId: tenantId, invoiceId: invoiceId, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        invoiceId: invoiceId,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, invoiceId: invoiceId);
       return _fromRow(result.first.toColumnMap(), items);
@@ -74,7 +80,9 @@ class InvoiceRepository {
 
   Future<List<Invoice>> list(String tenantId) async {
     final invoiceRows = await _pool.execute(
-      Sql.named('SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id ORDER BY created_at DESC'),
+      Sql.named(
+        'SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id ORDER BY created_at DESC',
+      ),
       parameters: {'tenant_id': tenantId},
     );
     if (invoiceRows.isEmpty) return [];
@@ -95,17 +103,28 @@ class InvoiceRepository {
     }
 
     return invoiceRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByInvoice[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
   /// Rechnungen eines bestimmten Kunden — für die Kundenportal-Übersicht
   /// (`app_kunde`).
-  Future<List<Invoice>> listForCustomer({required String tenantId, required String customerId}) async {
+  Future<List<Invoice>> listForCustomer({
+    required String tenantId,
+    required String customerId,
+  }) async {
     final invoiceRows = await _pool.execute(
       Sql.named(
         'SELECT $_invoiceColumns FROM invoices '
-        'WHERE tenant_id = @tenant_id AND customer_id = @customer_id ORDER BY created_at DESC',
+        'WHERE tenant_id = @tenant_id AND customer_id = @customer_id '
+        "AND status != 'draft' AND NOT EXISTS (SELECT 1 FROM waas_billing_runs w "
+        'WHERE w.invoice_id = invoices.id AND w.approved_at IS NULL) '
+        'ORDER BY created_at DESC',
       ),
       parameters: {'tenant_id': tenantId, 'customer_id': customerId},
     );
@@ -127,19 +146,47 @@ class InvoiceRepository {
     }
 
     return invoiceRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByInvoice[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
-  Future<Invoice?> findById({required String tenantId, required String id}) async {
+  Future<Invoice?> findById({
+    required String tenantId,
+    required String id,
+  }) async {
     final result = await _pool.execute(
-      Sql.named('SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id AND id = @id'),
+      Sql.named(
+        'SELECT $_invoiceColumns FROM invoices WHERE tenant_id = @tenant_id AND id = @id',
+      ),
       parameters: {'tenant_id': tenantId, 'id': id},
     );
     if (result.isEmpty) return null;
 
     final items = await _loadItems(_pool, invoiceId: id);
     return _fromRow(result.first.toColumnMap(), items);
+  }
+
+  /// Published document lookup; an unapproved WaaS run is never exportable,
+  /// even if a different invoice workflow changed its status.
+  Future<Invoice?> findPublishedById({
+    required String tenantId,
+    required String id,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT 1 FROM invoices WHERE tenant_id = @tenant_id AND id = @id '
+        "AND status != 'draft' AND NOT EXISTS (SELECT 1 FROM waas_billing_runs w "
+        'WHERE w.invoice_id = invoices.id AND w.approved_at IS NULL)',
+      ),
+      parameters: {'tenant_id': tenantId, 'id': id},
+    );
+    if (result.isEmpty) return null;
+    return findById(tenantId: tenantId, id: id);
   }
 
   /// Rechnungen eines Mandanten, deren `created_at` im Zeitraum `[from, to]`
@@ -150,7 +197,10 @@ class InvoiceRepository {
     DateTime? from,
     DateTime? to,
   }) async {
-    final conditions = ['tenant_id = @tenant_id'];
+    final conditions = [
+      'tenant_id = @tenant_id',
+      'NOT EXISTS (SELECT 1 FROM waas_billing_runs w WHERE w.invoice_id = invoices.id AND w.approved_at IS NULL)',
+    ];
     final parameters = <String, dynamic>{'tenant_id': tenantId};
 
     if (from != null) {
@@ -187,7 +237,12 @@ class InvoiceRepository {
     }
 
     return invoiceRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByInvoice[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
@@ -203,6 +258,7 @@ class InvoiceRepository {
           'due_date = @due_date, notes = @notes, invoice_type = @invoice_type, '
           'prior_invoiced_total = @prior_invoiced_total '
           'WHERE tenant_id = @tenant_id AND id = @id '
+          'AND NOT EXISTS (SELECT 1 FROM waas_billing_runs WHERE invoice_id = @id) '
           'RETURNING $_invoiceColumns',
         ),
         parameters: {
@@ -223,7 +279,12 @@ class InvoiceRepository {
         Sql.named('DELETE FROM invoice_items WHERE invoice_id = @invoice_id'),
         parameters: {'invoice_id': id},
       );
-      await _insertItems(session, tenantId: tenantId, invoiceId: id, items: req.items);
+      await _insertItems(
+        session,
+        tenantId: tenantId,
+        invoiceId: id,
+        items: req.items,
+      );
 
       final items = await _loadItems(session, invoiceId: id);
       return _fromRow(result.first.toColumnMap(), items);
@@ -232,7 +293,10 @@ class InvoiceRepository {
 
   Future<bool> delete({required String tenantId, required String id}) async {
     final result = await _pool.execute(
-      Sql.named('DELETE FROM invoices WHERE tenant_id = @tenant_id AND id = @id'),
+      Sql.named(
+        'DELETE FROM invoices WHERE tenant_id = @tenant_id AND id = @id '
+        'AND NOT EXISTS (SELECT 1 FROM waas_billing_runs WHERE invoice_id = @id)',
+      ),
       parameters: {'tenant_id': tenantId, 'id': id},
     );
     return result.affectedRows > 0;
@@ -271,29 +335,35 @@ class InvoiceRepository {
     }
   }
 
-  Future<List<InvoiceItem>> _loadItems(Session session, {required String invoiceId}) async {
+  Future<List<InvoiceItem>> _loadItems(
+    Session session, {
+    required String invoiceId,
+  }) async {
     final result = await session.execute(
-      Sql.named('SELECT $_itemColumns FROM invoice_items WHERE invoice_id = @invoice_id ORDER BY sort_order'),
+      Sql.named(
+        'SELECT $_itemColumns FROM invoice_items WHERE invoice_id = @invoice_id ORDER BY sort_order',
+      ),
       parameters: {'invoice_id': invoiceId},
     );
     return result.map((row) => _itemFromRow(row.toColumnMap())).toList();
   }
 
   InvoiceItem _itemFromRow(Map<String, dynamic> row) => InvoiceItem(
-        id: row['id'] as String,
-        kind: InvoiceItemKind.fromJson(row['kind'] as String),
-        articleId: row['article_id'] as String?,
-        productId: row['product_id'] as String?,
-        description: row['description'] as String,
-        quantity: (row['quantity'] as num).toDouble(),
-        unit: row['unit'] as String?,
-        unitPrice: (row['unit_price'] as num).toDouble(),
-        vatRate: (row['vat_rate'] as num).toDouble(),
-        groupLabel: row['group_label'] as String?,
-        orderItemId: row['order_item_id'] as String?,
-      );
+    id: row['id'] as String,
+    kind: InvoiceItemKind.fromJson(row['kind'] as String),
+    articleId: row['article_id'] as String?,
+    productId: row['product_id'] as String?,
+    description: row['description'] as String,
+    quantity: (row['quantity'] as num).toDouble(),
+    unit: row['unit'] as String?,
+    unitPrice: (row['unit_price'] as num).toDouble(),
+    vatRate: (row['vat_rate'] as num).toDouble(),
+    groupLabel: row['group_label'] as String?,
+    orderItemId: row['order_item_id'] as String?,
+  );
 
-  Invoice _fromRow(Map<String, dynamic> row, List<InvoiceItem> items) => Invoice(
+  Invoice _fromRow(Map<String, dynamic> row, List<InvoiceItem> items) =>
+      Invoice(
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,
         invoiceNumber: row['invoice_number'] as String,
@@ -315,7 +385,10 @@ class InvoiceRepository {
   /// IDs der Auftragspositionen, die bereits über eine nicht-stornierte
   /// Rechnung dieses Auftrags abgerechnet wurden (Doppelabrechnungsschutz
   /// für Teil-/Abschlags-/Schlussrechnungen).
-  Future<Set<String>> invoicedOrderItemIds({required String tenantId, required String orderId}) async {
+  Future<Set<String>> invoicedOrderItemIds({
+    required String tenantId,
+    required String orderId,
+  }) async {
     final result = await _pool.execute(
       Sql.named(
         'SELECT ii.order_item_id FROM invoice_items ii '
@@ -325,12 +398,17 @@ class InvoiceRepository {
       ),
       parameters: {'tenant_id': tenantId, 'order_id': orderId},
     );
-    return result.map((row) => row.toColumnMap()['order_item_id'] as String).toSet();
+    return result
+        .map((row) => row.toColumnMap()['order_item_id'] as String)
+        .toSet();
   }
 
   /// Summe der Bruttobeträge aller nicht-stornierten Rechnungen eines
   /// Auftrags — Basis für `prior_invoiced_total` einer Schlussrechnung.
-  Future<double> sumInvoicedGrossForOrder({required String tenantId, required String orderId}) async {
+  Future<double> sumInvoicedGrossForOrder({
+    required String tenantId,
+    required String orderId,
+  }) async {
     final result = await _pool.execute(
       Sql.named(
         'SELECT COALESCE(SUM(ii.quantity * ii.unit_price * (1 + ii.vat_rate / 100.0)), 0) AS total '
@@ -374,7 +452,10 @@ class InvoiceRepository {
   /// Netto-Summe aller Rechnungspositionen von Rechnungen, die aus Aufträgen
   /// dieses Projekts erzeugt wurden — Einnahmen-Seite der
   /// Projekt-Gewinn/Verlust-Übersicht.
-  Future<double> sumNetForProject({required String tenantId, required String projectId}) async {
+  Future<double> sumNetForProject({
+    required String tenantId,
+    required String projectId,
+  }) async {
     final result = await _pool.execute(
       Sql.named(
         'SELECT COALESCE(SUM(ii.quantity * ii.unit_price), 0) AS total '
@@ -418,7 +499,12 @@ class InvoiceRepository {
     }
 
     return invoiceRows
-        .map((row) => _fromRow(row.toColumnMap(), itemsByInvoice[row.toColumnMap()['id']] ?? []))
+        .map(
+          (row) => _fromRow(
+            row.toColumnMap(),
+            itemsByInvoice[row.toColumnMap()['id']] ?? [],
+          ),
+        )
         .toList();
   }
 
@@ -437,6 +523,9 @@ class InvoiceRepository {
         'dunning_fee_total = dunning_fee_total + @fee, '
         'last_dunned_at = now() '
         'WHERE tenant_id = @tenant_id AND id = @id '
+        "AND status != 'draft' "
+        'AND NOT EXISTS (SELECT 1 FROM waas_billing_runs w '
+        'WHERE w.invoice_id = invoices.id AND w.approved_at IS NULL) '
         'RETURNING $_invoiceColumns',
       ),
       parameters: {'tenant_id': tenantId, 'id': id, 'fee': fee},
