@@ -16,6 +16,7 @@ dependencies:
   postgres: ^3.4.0
   saaserp_shared:
     path: ../shared
+  uuid: ^4.5.1
 
 dev_dependencies:
   dart_frog_lint: ^0.1.0
