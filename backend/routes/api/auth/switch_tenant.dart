@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:backend/src/auth_service.dart';
-import 'package:backend/src/repositories/tenant_access_repository.dart';
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/request_auth.dart';
@@ -35,12 +35,13 @@ Future<Response> onRequest(RequestContext context) async {
     return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
   }
 
-  final tenantAccessRepository = context.read<TenantAccessRepository>();
-  final roleName = await tenantAccessRepository.roleNameForUserAndTenant(
-    userId: auth.userId,
-    tenantId: req.tenantId,
-  );
-  if (roleName == null) {
+  // Deny-by-default + roleId/roleName/isAdminRole in einem Zug: kein
+  // Eintrag in user_tenant_access für diesen Mandanten → null → 403.
+  final authz = await context.read<AuthorizationService>().loadContext(
+        userId: auth.userId,
+        tenantId: req.tenantId,
+      );
+  if (authz == null) {
     return Response.json(
       statusCode: 403,
       body: {'error': 'tenant_access_denied'},
@@ -52,16 +53,21 @@ Future<Response> onRequest(RequestContext context) async {
   final authService = context.read<AuthService>();
 
   final tenant = await tenantRepository.findById(req.tenantId);
-  final user = await userRepository.findById(auth.userId);
-  if (tenant == null || user == null) {
+  final rawUser = await userRepository.findById(auth.userId);
+  if (tenant == null || rawUser == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
+  final user = rawUser.copyWith(
+    roleId: authz.roleId,
+    roleName: authz.roleName,
+    isAdminRole: authz.isAdminRole,
+  );
 
   final token = authService.issueToken(
     userId: user.id,
     tenantId: tenant.id,
     email: user.email,
-    role: roleName,
+    role: authz.roleName,
     isPlatformAdmin: user.isPlatformAdmin,
   );
 

@@ -1067,14 +1067,77 @@ class ApiClient {
     required String token,
     required String email,
     required String password,
+    String? roleId,
   }) async {
     final response = await _httpClient.post(
       _uri('/api/users'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password, 'role': 'employee'}),
+      body: jsonEncode(
+        CreateEmployeeRequest(email: email, password: password, roleId: roleId).toJson(),
+      ),
     );
     if (response.statusCode == 409) throw ApiException(409, 'E-Mail bereits registriert.');
     return AppUser.fromJson(_decode(response));
+  }
+
+  /// Ändert die Rolle eines Mitglieds (RF2). Liefert die Governance-/
+  /// Selbst-Eskalations-Fehler des Backends unübersetzt in [ApiException]
+  /// (siehe `_translateRoleError` in der Flutter-UI für lesbare Texte).
+  Future<void> updateUserRole({
+    required String token,
+    required String userId,
+    required String roleId,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/users/$userId/role'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'role_id': roleId}),
+    );
+    _decode(response);
+  }
+
+  // ── Rollenverwaltung (RF2) ─────────────────────────────────────────────
+
+  Future<List<Role>> listRoles(String token) async {
+    final response = await _httpClient.get(
+      _uri('/api/roles'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final json = _decode(response);
+    return (json['roles'] as List).map((r) => Role.fromJson(r as Map<String, dynamic>)).toList();
+  }
+
+  Future<Role> createRole({required String token, required UpsertRoleRequest req}) async {
+    final response = await _httpClient.post(
+      _uri('/api/roles'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(req.toJson()),
+    );
+    return Role.fromJson(_decode(response));
+  }
+
+  Future<Role> updateRole({
+    required String token,
+    required String id,
+    required UpsertRoleRequest req,
+  }) async {
+    final response = await _httpClient.patch(
+      _uri('/api/roles/$id'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(req.toJson()),
+    );
+    return Role.fromJson(_decode(response));
+  }
+
+  Future<void> deleteRole({required String token, required String id}) async {
+    final response = await _httpClient.delete(
+      _uri('/api/roles/$id'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode >= 400) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      throw ApiException(response.statusCode, (json['error'] ?? 'unknown_error').toString());
+    }
   }
 
   Future<void> deleteUser({required String token, required String id}) async {

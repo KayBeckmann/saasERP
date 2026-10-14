@@ -147,5 +147,6 @@ class UserRepository {
         isPlatformAdmin: row['is_platform_admin'] as bool? ?? false,
         roleId: row['role_id'] as String?,
         roleName: row['role_name'] as String?,
+        isAdminRole: (row['is_admin_role'] as bool?) ?? false,
       );
 }

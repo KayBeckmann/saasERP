@@ -46,7 +46,7 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Text('Name: ${tenant?.name ?? '-'}'),
                     Text('ID: ${tenant?.id ?? '-'}'),
-                    if (user?.role == UserRole.owner) ...[
+                    if (user?.isAdminRole == true) ...[
                       const SizedBox(height: 16),
                       _BrandingEditor(brandingColor: tenant?.brandingColor),
                     ],
@@ -54,7 +54,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
             ),
-            if (user?.role == UserRole.owner && tenant != null) ...[
+            if (user?.isAdminRole == true && tenant != null) ...[
               const SizedBox(height: 16),
               Card(
                 child: Padding(
@@ -86,7 +86,7 @@ class DashboardScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text('E-Mail: ${user?.email ?? '-'}'),
-                    Text('Rolle: ${user?.role.name ?? '-'}'),
+                    Text('Rolle: ${user?.roleName ?? user?.role.name ?? '-'}'),
                   ],
                 ),
               ),

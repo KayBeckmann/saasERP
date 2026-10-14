@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:backend/src/auth_service.dart';
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -44,14 +45,29 @@ Future<Response> onRequest(RequestContext context) async {
     return Response.json(statusCode: 500, body: {'error': 'tenant_missing'});
   }
 
+  // RF2: aktuelle Rolle live nachladen, statt sich auf die beim Login noch
+  // leeren roleId/roleName/isAdminRole-Felder zu verlassen — der Client
+  // braucht diese Angaben z. B. fürs Gating der Rollenverwaltung in der UI.
+  final authz = await context.read<AuthorizationService>().loadContext(
+        userId: record.user.id,
+        tenantId: tenant.id,
+      );
+  final user = authz == null
+      ? record.user
+      : record.user.copyWith(
+          roleId: authz.roleId,
+          roleName: authz.roleName,
+          isAdminRole: authz.isAdminRole,
+        );
+
   final token = authService.issueToken(
-    userId: record.user.id,
+    userId: user.id,
     tenantId: tenant.id,
-    email: record.user.email,
-    role: record.user.role.toJson(),
-    isPlatformAdmin: record.user.isPlatformAdmin,
+    email: user.email,
+    role: user.roleName ?? user.role.toJson(),
+    isPlatformAdmin: user.isPlatformAdmin,
   );
 
-  final response = AuthResponse(token: token, user: record.user, tenant: tenant);
+  final response = AuthResponse(token: token, user: user, tenant: tenant);
   return Response.json(body: response.toJson());
 }

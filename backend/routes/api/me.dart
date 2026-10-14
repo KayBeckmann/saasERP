@@ -1,3 +1,4 @@
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/user_repository.dart';
 import 'package:backend/src/request_auth.dart';
@@ -18,11 +19,26 @@ Future<Response> onRequest(RequestContext context) async {
   final userRepository = context.read<UserRepository>();
   final tenantRepository = context.read<TenantRepository>();
 
-  final user = await userRepository.findById(auth.userId);
+  final rawUser = await userRepository.findById(auth.userId);
   final tenant = await tenantRepository.findById(auth.tenantId);
-  if (user == null || tenant == null) {
+  if (rawUser == null || tenant == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
+
+  // RF2: aktuelle Rolle live nachladen (siehe login.dart) — nötig, damit die
+  // App auch nach restoreSession() (kein Login-Response verfügbar) ihre
+  // eigene roleId/roleName/isAdminRole kennt.
+  final authz = await context.read<AuthorizationService>().loadContext(
+        userId: auth.userId,
+        tenantId: auth.tenantId,
+      );
+  final user = authz == null
+      ? rawUser
+      : rawUser.copyWith(
+          roleId: authz.roleId,
+          roleName: authz.roleName,
+          isAdminRole: authz.isAdminRole,
+        );
 
   return Response.json(body: {
     'user': user.toJson(),
