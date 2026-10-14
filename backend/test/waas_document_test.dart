@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
+import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
 import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
+import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 import 'package:test/test.dart';
@@ -36,6 +39,12 @@ void main() {
         final otherId = await id('INSERT INTO tenants (name) VALUES (@name)', {
           'name': 'Other',
         });
+        final encryptionService = TenantEncryptionService(
+          AppConfig.fromEnvironment(),
+          TenantEncryptionKeyRepository(pool),
+        );
+        await encryptionService.provisionTenant(tenantId);
+        await encryptionService.provisionTenant(otherId);
         final customerId = await id(
           'INSERT INTO customers (tenant_id, customer_number, name) VALUES (@tenant, @number, @name)',
           {'tenant': tenantId, 'number': 'K1', 'name': 'Website Kunde'},
@@ -98,7 +107,7 @@ void main() {
             'end': DateTime.utc(2026, 2),
           },
         );
-        final docs = WaasInvoiceDocumentRepository(pool);
+        final docs = WaasInvoiceDocumentRepository(pool, encryptionService);
         expect(
           await docs.read(
             tenantId: tenantId,

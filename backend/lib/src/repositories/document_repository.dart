@@ -2,14 +2,22 @@ import 'dart:typed_data';
 
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
+import 'package:uuid/uuid.dart';
+
+import '../tenant_encryption_service.dart';
+
+const _table = 'documents';
 
 /// Mandantenfähige Dokumentenablage (Fotos, Pläne, Vollmachten) je Kunde —
 /// Dateien werden als BYTEA in Postgres abgelegt (M2b-Erweiterung, kein
-/// externer Objektspeicher).
+/// externer Objektspeicher). `content` ist feldverschlüsselt (AEAD, an
+/// Mandant/Datensatz gebunden) — RF1.
 class DocumentRepository {
-  DocumentRepository(this._pool);
+  DocumentRepository(this._pool, this._encryptionService);
 
   final Pool<void> _pool;
+  final TenantEncryptionService _encryptionService;
+  static const _uuid = Uuid();
 
   static const _summaryColumns =
       'id, tenant_id, customer_id, filename, content_type, size_bytes, description, uploaded_by, created_at';
@@ -23,20 +31,32 @@ class DocumentRepository {
     String? description,
     DocumentUploader uploadedBy = DocumentUploader.customer,
   }) async {
+    final crypto = await _encryptionService.forTenant(tenantId);
+    final id = _uuid.v4();
+    final encryptedContent = crypto.encryptBytesField(
+      table: _table,
+      recordId: id,
+      field: 'content',
+      value: content,
+    )!;
+
     final result = await _pool.execute(
       Sql.named(
         'INSERT INTO documents '
-        '(tenant_id, customer_id, filename, content_type, size_bytes, content, description, uploaded_by) '
-        'VALUES (@tenant_id, @customer_id, @filename, @content_type, @size_bytes, @content, @description, @uploaded_by) '
+        '(id, tenant_id, customer_id, filename, content_type, size_bytes, content, description, uploaded_by) '
+        'VALUES (@id, @tenant_id, @customer_id, @filename, @content_type, @size_bytes, @content, @description, @uploaded_by) '
         'RETURNING $_summaryColumns',
       ),
       parameters: {
+        'id': id,
         'tenant_id': tenantId,
         'customer_id': customerId,
         'filename': filename,
         'content_type': contentType,
+        // size_bytes bewusst die Klartextgröße (für Anzeige/Limits), nicht
+        // die (durch AEAD-Overhead leicht größere) Ciphertext-Länge.
         'size_bytes': content.length,
-        'content': content,
+        'content': encryptedContent,
         'description': description,
         'uploaded_by': uploadedBy.toJson(),
       },
@@ -74,7 +94,14 @@ class DocumentRepository {
     );
     if (result.isEmpty) return null;
     final row = result.first.toColumnMap();
-    return (_summaryFromRow(row), row['content'] as Uint8List);
+    final crypto = await _encryptionService.forTenant(tenantId);
+    final content = crypto.decryptBytesField(
+      table: _table,
+      recordId: id,
+      field: 'content',
+      value: row['content'] as Uint8List,
+    )!;
+    return (_summaryFromRow(row), content);
   }
 
   /// Löscht ein Dokument. Mit [customerId] zusätzlich darauf eingeschränkt,

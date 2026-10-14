@@ -6,9 +6,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../pdf/invoice_pdf_builder.dart';
 import '../pdf/zugferd_xml_builder.dart';
+import '../tenant_encryption_service.dart';
+
+const _table = 'waas_invoice_documents';
 
 /// Stored, single-version PDF/XML pair for an explicitly approved WaaS invoice.
 /// This is NOT a validated Factur-X, XRechnung, or PDF/A-3 artifact.
+///
+/// RF1-Hinweis: `pdf`/`xml` sind serverseitig feldverschlüsselt (AEAD,
+/// gebunden an invoice_id). Das `snapshot`-JSONB bleibt bewusst unverschlüsselt
+/// (siehe docs/waas-issued-documents.md) — es enthält aktuell aber auch
+/// `tenant.company_address`/`company_iban`/`customer.address`, die in ihren
+/// Quelltabellen verschlüsselt sind. Das ist ein dokumentierter, noch offener
+/// Punkt (siehe RF0/RF1-Auditnotiz im Vault), keine stille Lücke.
 class WaasInvoiceDocument {
   const WaasInvoiceDocument({
     required this.version,
@@ -23,8 +33,9 @@ class WaasInvoiceDocument {
 }
 
 class WaasInvoiceDocumentRepository {
-  WaasInvoiceDocumentRepository(this._pool);
+  WaasInvoiceDocumentRepository(this._pool, this._encryptionService);
   final Pool<void> _pool;
+  final TenantEncryptionService _encryptionService;
 
   /// Serialized by the run-row lock. Approval and artifact persistence commit
   /// together. No retry may re-render a previously approved document.
@@ -44,6 +55,7 @@ class WaasInvoiceDocumentRepository {
         invoice.items.isEmpty) {
       return false;
     }
+    final crypto = await _encryptionService.forTenant(tenantId);
     return _pool.runTx((tx) async {
       final runs = await tx.execute(
         Sql.named(
@@ -169,8 +181,8 @@ class WaasInvoiceDocumentRepository {
           'tenant': tenantId,
           'customer': customer.id,
           'snapshot': jsonEncode(snapshot),
-          'pdf': pdf,
-          'xml': xml,
+          'pdf': crypto.encryptBytesField(table: _table, recordId: invoiceId, field: 'pdf', value: pdf),
+          'xml': crypto.encryptBytesField(table: _table, recordId: invoiceId, field: 'xml', value: xml),
         },
       );
       await tx.execute(
@@ -229,11 +241,12 @@ class WaasInvoiceDocumentRepository {
     );
     if (rows.isEmpty) return null;
     final row = rows.first.toColumnMap();
+    final crypto = await _encryptionService.forTenant(tenantId);
     return WaasInvoiceDocument(
       version: row['version'] as int,
       snapshot: (row['snapshot'] as Map).cast<String, dynamic>(),
-      pdf: row['pdf'] as Uint8List,
-      xml: row['xml'] as Uint8List,
+      pdf: crypto.decryptBytesField(table: _table, recordId: invoiceId, field: 'pdf', value: row['pdf'] as Uint8List)!,
+      xml: crypto.decryptBytesField(table: _table, recordId: invoiceId, field: 'xml', value: row['xml'] as Uint8List)!,
     );
   }
 }

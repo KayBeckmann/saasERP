@@ -1,9 +1,12 @@
 import 'dart:io';
+import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/number_sequence_repository.dart';
+import 'package:backend/src/repositories/tenant_encryption_key_repository.dart';
 import 'package:backend/src/repositories/waas_billing_repository.dart';
 import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
+import 'package:backend/src/tenant_encryption_service.dart';
 import 'package:backend/src/waas_billing.dart';
 import 'package:postgres/postgres.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
@@ -40,10 +43,16 @@ void main() {
           'INSERT INTO tenants (name) VALUES (@name)',
           {'name': 'Tenant A'},
         );
+        final encryptionService = TenantEncryptionService(
+          AppConfig.fromEnvironment(),
+          TenantEncryptionKeyRepository(pool),
+        );
+        await encryptionService.provisionTenant(tenant);
         final other = await insert(
           'INSERT INTO tenants (name) VALUES (@name)',
           {'name': 'Tenant B'},
         );
+        await encryptionService.provisionTenant(other);
         final customer = await insert(
           'INSERT INTO customers (tenant_id, customer_number, name) '
           'VALUES (@tenant, @number, @name)',
@@ -68,7 +77,7 @@ void main() {
           pool,
           NumberSequenceRepository(pool),
         );
-        final documents = WaasInvoiceDocumentRepository(pool);
+        final documents = WaasInvoiceDocumentRepository(pool, encryptionService);
         Future<bool> approveInvoice(String scopedTenant, String id) async {
           final invoice = await invoices.findById(tenantId: tenant, id: id);
           return documents.approve(

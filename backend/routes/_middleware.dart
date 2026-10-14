@@ -41,7 +41,6 @@ final _config = AppConfig.fromEnvironment();
 final _pool = createDbPool(_config);
 final _authService = AuthService(_config);
 final _emailService = EmailService(_config);
-final _tenantRepository = TenantRepository(_pool);
 final _userRepository = UserRepository(_pool);
 final _tenantAccessRepository = TenantAccessRepository(_pool);
 final _tenantEncryptionKeyRepository = TenantEncryptionKeyRepository(_pool);
@@ -49,6 +48,7 @@ final _tenantEncryptionService = TenantEncryptionService(
   _config,
   _tenantEncryptionKeyRepository,
 );
+final _tenantRepository = TenantRepository(_pool, _tenantEncryptionService);
 final _numberSequenceRepository = NumberSequenceRepository(_pool);
 final _customerRepository = CustomerRepository(
   _pool,
@@ -84,7 +84,7 @@ final _maintenanceContractRepository = MaintenanceContractRepository(
   _pool,
   _numberSequenceRepository,
 );
-final _documentRepository = DocumentRepository(_pool);
+final _documentRepository = DocumentRepository(_pool, _tenantEncryptionService);
 final _subscriptionTierRepository = SubscriptionTierRepository(_pool);
 final _subscriptionRepository = SubscriptionRepository(_pool);
 final _platformInvoiceRepository = PlatformInvoiceRepository(
@@ -92,7 +92,7 @@ final _platformInvoiceRepository = PlatformInvoiceRepository(
   _numberSequenceRepository,
 );
 final _waasBillingRepository = WaasBillingRepository(_pool);
-final _waasInvoiceDocuments = WaasInvoiceDocumentRepository(_pool);
+final _waasInvoiceDocuments = WaasInvoiceDocumentRepository(_pool, _tenantEncryptionService);
 // Disabled unless explicitly configured for local fake/sandbox testing.
 final WaasPsp _waasPsp = _localFakePsp();
 WaasPsp _localFakePsp() {
