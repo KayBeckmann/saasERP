@@ -10,22 +10,26 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// POST /api/customers/<id>/portal-access — Kundenzugang anlegen (Einladung).
 /// DELETE /api/customers/<id>/portal-access — Kundenzugang widerrufen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.edit,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.customers, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final customerRepository = context.read<CustomerRepository>();
   final portalAccountRepository = context.read<CustomerPortalAccountRepository>();
 
-  final customer = await customerRepository.findById(tenantId: auth.tenantId, id: id);
+  final customer = await customerRepository.findById(tenantId: payload.tenantId, id: id);
   if (customer == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
   if (context.request.method == HttpMethod.get) {
     final account = await portalAccountRepository.findByCustomerId(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       customerId: id,
     );
     if (account == null) {
@@ -36,7 +40,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   if (context.request.method == HttpMethod.post) {
     final existing = await portalAccountRepository.findByCustomerId(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       customerId: id,
     );
     if (existing != null) {
@@ -74,7 +78,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
 
     final account = await portalAccountRepository.create(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       customerId: id,
       email: email,
     );
@@ -82,7 +86,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await portalAccountRepository.delete(tenantId: auth.tenantId, customerId: id);
+    final deleted = await portalAccountRepository.delete(tenantId: payload.tenantId, customerId: id);
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }

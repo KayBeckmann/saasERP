@@ -9,15 +9,18 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// aktuellen Mandanten.
 /// POST /api/maintenance-contracts — neuen Wartungsvertrag anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.create,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.maintenanceContracts, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final maintenanceContractRepository = context.read<MaintenanceContractRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final contracts = await maintenanceContractRepository.list(auth.tenantId);
+    final contracts = await maintenanceContractRepository.list(payload.tenantId);
     return Response.json(body: {'maintenance_contracts': contracts.map((c) => c.toJson()).toList()});
   }
 
@@ -49,7 +52,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final contract = await maintenanceContractRepository.create(tenantId: auth.tenantId, req: req);
+    final contract = await maintenanceContractRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: contract.toJson());
   }
 

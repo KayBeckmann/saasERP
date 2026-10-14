@@ -10,13 +10,16 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// Projekts.
 /// POST /api/projects/<id>/transactions — neue Projekt-Transaktion anlegen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.create,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.projects, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final projectRepository = context.read<ProjectRepository>();
-  final project = await projectRepository.findById(tenantId: auth.tenantId, id: id);
+  final project = await projectRepository.findById(tenantId: payload.tenantId, id: id);
   if (project == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -24,7 +27,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final projectTransactionRepository = context.read<ProjectTransactionRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final transactions = await projectTransactionRepository.list(tenantId: auth.tenantId, projectId: id);
+    final transactions = await projectTransactionRepository.list(tenantId: payload.tenantId, projectId: id);
     return Response.json(body: {'project_transactions': transactions.map((t) => t.toJson()).toList()});
   }
 
@@ -51,7 +54,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
 
     final transaction = await projectTransactionRepository.create(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       projectId: id,
       req: req,
     );

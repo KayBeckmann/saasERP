@@ -9,15 +9,18 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// POST /api/purchase-orders — neue Bestellung anlegen (manuell oder aus
 /// einem Bestellvorschlag, siehe `GET /api/orders/<id>/purchase-proposal`).
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.create,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.purchaseOrders, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final purchaseOrderRepository = context.read<PurchaseOrderRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final purchaseOrders = await purchaseOrderRepository.list(auth.tenantId);
+    final purchaseOrders = await purchaseOrderRepository.list(payload.tenantId);
     return Response.json(body: {'purchase_orders': purchaseOrders.map((o) => o.toJson()).toList()});
   }
 
@@ -43,7 +46,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final purchaseOrder = await purchaseOrderRepository.create(tenantId: auth.tenantId, req: req);
+    final purchaseOrder = await purchaseOrderRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: purchaseOrder.toJson());
   }
 

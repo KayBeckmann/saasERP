@@ -9,15 +9,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/purchase-orders/<id> — Bestellung aktualisieren.
 /// DELETE /api/purchase-orders/<id> — Bestellung löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.purchaseOrders, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final purchaseOrderRepository = context.read<PurchaseOrderRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final purchaseOrder = await purchaseOrderRepository.findById(tenantId: auth.tenantId, id: id);
+    final purchaseOrder = await purchaseOrderRepository.findById(tenantId: payload.tenantId, id: id);
     if (purchaseOrder == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -46,7 +50,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    final purchaseOrder = await purchaseOrderRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final purchaseOrder = await purchaseOrderRepository.update(tenantId: payload.tenantId, id: id, req: req);
     if (purchaseOrder == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -54,7 +58,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await purchaseOrderRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await purchaseOrderRepository.delete(tenantId: payload.tenantId, id: id);
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }

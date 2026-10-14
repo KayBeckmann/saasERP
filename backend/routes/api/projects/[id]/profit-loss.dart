@@ -11,16 +11,15 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// Einnahmen, Ausgaben aus zugeordneten Bestellungen plus sonstige Ausgaben,
 /// sowie Stundenkosten (erfasste Stunden × hinterlegter Stundensatz).
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.projects, action: PermissionAction.view);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
   }
 
   final projectRepository = context.read<ProjectRepository>();
-  final project = await projectRepository.findById(tenantId: auth.tenantId, id: id);
+  final project = await projectRepository.findById(tenantId: payload.tenantId, id: id);
   if (project == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -29,22 +28,22 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final projectTransactionRepository = context.read<ProjectTransactionRepository>();
   final tenantRepository = context.read<TenantRepository>();
 
-  final tenant = await tenantRepository.findById(auth.tenantId);
+  final tenant = await tenantRepository.findById(payload.tenantId);
   final hourlyRate = tenant?.defaultHourlyRate ?? 0;
 
-  final invoicedIncome = await invoiceRepository.sumNetForProject(tenantId: auth.tenantId, projectId: id);
+  final invoicedIncome = await invoiceRepository.sumNetForProject(tenantId: payload.tenantId, projectId: id);
   final otherIncome = await projectTransactionRepository.sumByKind(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     projectId: id,
     kind: ProjectTransactionKind.income,
   );
-  final purchaseExpenses = await projectRepository.sumPurchaseExpenses(tenantId: auth.tenantId, projectId: id);
+  final purchaseExpenses = await projectRepository.sumPurchaseExpenses(tenantId: payload.tenantId, projectId: id);
   final otherExpenses = await projectTransactionRepository.sumByKind(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     projectId: id,
     kind: ProjectTransactionKind.expense,
   );
-  final laborHours = await projectRepository.sumLaborHours(tenantId: auth.tenantId, projectId: id);
+  final laborHours = await projectRepository.sumLaborHours(tenantId: payload.tenantId, projectId: id);
 
   final profitLoss = ProjectProfitLoss(
     invoicedIncome: invoicedIncome,

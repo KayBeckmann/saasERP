@@ -10,10 +10,13 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// DELETE /api/projects/<id>/transactions/<transactionId> — Transaktion
 /// löschen.
 Future<Response> onRequest(RequestContext context, String id, String transactionId) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.edit,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.projects, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final projectTransactionRepository = context.read<ProjectTransactionRepository>();
 
@@ -40,7 +43,7 @@ Future<Response> onRequest(RequestContext context, String id, String transaction
     }
 
     final transaction = await projectTransactionRepository.update(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       projectId: id,
       id: transactionId,
       req: req,
@@ -53,7 +56,7 @@ Future<Response> onRequest(RequestContext context, String id, String transaction
 
   if (context.request.method == HttpMethod.delete) {
     final deleted = await projectTransactionRepository.delete(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       projectId: id,
       id: transactionId,
     );
