@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/notification_service.dart';
+import 'package:backend/src/repositories/role_repository.dart';
 import 'package:backend/src/repositories/subscription_repository.dart';
 import 'package:backend/src/repositories/tenant_access_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
@@ -51,6 +52,7 @@ Future<Response> onRequest(RequestContext context) async {
   final tenantRepository = context.read<TenantRepository>();
   final tenantAccessRepository = context.read<TenantAccessRepository>();
   final tenantEncryptionService = context.read<TenantEncryptionService>();
+  final roleRepository = context.read<RoleRepository>();
   final authService = context.read<AuthService>();
 
   final existing = await userRepository.findByEmail(req.email);
@@ -69,10 +71,15 @@ Future<Response> onRequest(RequestContext context) async {
     passwordHash: passwordHash,
     role: UserRole.owner,
   );
+  // RF2: Rollenvorlagen anlegen (Admin/Buchhaltung/.../Nur Lesen) und den
+  // registrierenden Nutzer als Admin dieses Mandanten eintragen — die
+  // eigentliche Autorisierung läuft ab hier ausschließlich über role_id/
+  // role_permissions, nicht mehr über users.role (siehe request_auth.dart).
+  final adminRoleId = await roleRepository.ensureBuiltinRoles(tenant.id);
   await tenantAccessRepository.grant(
     userId: user.id,
     tenantId: tenant.id,
-    role: user.role.toJson(),
+    roleId: adminRoleId,
   );
   await tenantEncryptionService.provisionTenant(tenant.id);
 
@@ -96,7 +103,9 @@ Future<Response> onRequest(RequestContext context) async {
     userId: user.id,
     tenantId: tenant.id,
     email: user.email,
-    role: user.role.toJson(),
+    // Anzeige-Metadaten (siehe request_auth.dart) — die registrierende
+    // Person ist immer Admin ihres neuen Mandanten.
+    role: 'Admin',
     isPlatformAdmin: user.isPlatformAdmin,
   );
 

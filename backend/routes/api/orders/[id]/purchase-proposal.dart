@@ -15,16 +15,15 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// `default_supplier_id` gruppiert (Artikel ohne Standard-Lieferant landen
 /// in einer Gruppe mit `supplier_id: null`).
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
   }
+  final auth = await requirePermission(context, module: PermissionModule.purchaseOrders, action: PermissionAction.view);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final orderRepository = context.read<OrderRepository>();
-  final order = await orderRepository.findById(tenantId: auth.tenantId, id: id);
+  final order = await orderRepository.findById(tenantId: payload.tenantId, id: id);
   if (order == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -40,7 +39,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
       continue;
     }
     if (item.kind == OrderItemKind.product && item.productId != null) {
-      final product = await productRepository.findById(tenantId: auth.tenantId, id: item.productId!);
+      final product = await productRepository.findById(tenantId: payload.tenantId, id: item.productId!);
       if (product == null) continue;
       for (final component in product.components) {
         if (component.kind == ProductComponentKind.article && component.articleId != null) {
@@ -55,10 +54,10 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response.json(body: {'proposals': <Map<String, dynamic>>[]});
   }
 
-  final articles = await articleRepository.findByIds(tenantId: auth.tenantId, ids: requiredQuantities.keys.toSet());
+  final articles = await articleRepository.findByIds(tenantId: payload.tenantId, ids: requiredQuantities.keys.toSet());
   final articlesById = {for (final article in articles) article.id: article};
 
-  final suppliers = await supplierRepository.list(auth.tenantId);
+  final suppliers = await supplierRepository.list(payload.tenantId);
   final supplierNames = {for (final supplier in suppliers) supplier.id: supplier.name};
 
   final itemsBySupplier = <String?, List<PurchaseProposalItem>>{};

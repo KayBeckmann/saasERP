@@ -7,14 +7,12 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 Future<Response> onRequest(RequestContext context, String id) async {
   if (context.request.method != HttpMethod.post)
     return Response(statusCode: 405);
-  final auth = authenticateRequest(context);
-  if (auth == null)
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  if (auth.role != UserRole.owner.toJson())
-    return Response.json(statusCode: 403, body: {'error': 'forbidden'});
+  final auth = await requirePermission(context, module: PermissionModule.waas, action: PermissionAction.edit);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
   try {
     final created = await context.read<WaasBillingRepository>().run(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       contractId: id,
       asOf: DateTime.now().toUtc(),
     );

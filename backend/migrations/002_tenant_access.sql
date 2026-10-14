@@ -9,6 +9,18 @@ CREATE TABLE IF NOT EXISTS user_tenant_access (
 );
 
 -- Bestehende Nutzer erhalten Zugriff auf ihren bisherigen (einzigen) Mandanten.
-INSERT INTO user_tenant_access (user_id, tenant_id, role)
-SELECT id, tenant_id, role FROM users
-ON CONFLICT (user_id, tenant_id) DO NOTHING;
+-- Nur solange user_tenant_access.role (TEXT) noch existiert — Migration 034
+-- (RF2) ersetzt sie durch role_id und entfernt die Spalte; dieser Block wird
+-- danach übersprungen statt bei jedem Neustart erneut gegen die dann fehlende
+-- Spalte zu laufen (kein Migrations-Tracking, siehe db.dart).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_tenant_access' AND column_name = 'role'
+  ) THEN
+    INSERT INTO user_tenant_access (user_id, tenant_id, role)
+    SELECT id, tenant_id, role FROM users
+    ON CONFLICT (user_id, tenant_id) DO NOTHING;
+  END IF;
+END $$;

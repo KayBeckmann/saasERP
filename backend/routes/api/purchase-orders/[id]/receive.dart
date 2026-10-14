@@ -10,10 +10,9 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// aktualisiert den Bestellstatus (`ordered` -> `partially_delivered` ->
 /// `fully_delivered`).
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.purchaseOrders, action: PermissionAction.edit);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
@@ -40,7 +39,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   final purchaseOrderRepository = context.read<PurchaseOrderRepository>();
-  final purchaseOrder = await purchaseOrderRepository.receive(tenantId: auth.tenantId, id: id, req: req);
+  final purchaseOrder = await purchaseOrderRepository.receive(tenantId: payload.tenantId, id: id, req: req);
   if (purchaseOrder == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }

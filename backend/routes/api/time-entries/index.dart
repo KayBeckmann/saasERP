@@ -10,10 +10,13 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// (für die Wochenansicht).
 /// POST /api/time-entries — neuen Eintrag anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.create,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.timeEntries, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final timeEntryRepository = context.read<TimeEntryRepository>();
 
@@ -23,8 +26,8 @@ Future<Response> onRequest(RequestContext context) async {
     final to = query['to'] != null ? DateTime.parse(query['to']!) : null;
 
     final entries = await timeEntryRepository.list(
-      tenantId: auth.tenantId,
-      userId: auth.userId,
+      tenantId: payload.tenantId,
+      userId: payload.userId,
       from: from,
       to: to,
     );
@@ -54,8 +57,8 @@ Future<Response> onRequest(RequestContext context) async {
     }
 
     final entry = await timeEntryRepository.create(
-      tenantId: auth.tenantId,
-      userId: auth.userId,
+      tenantId: payload.tenantId,
+      userId: payload.userId,
       req: req,
     );
     return Response.json(statusCode: 201, body: entry.toJson());

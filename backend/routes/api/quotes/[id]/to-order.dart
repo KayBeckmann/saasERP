@@ -8,19 +8,18 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// Auftrag (Kunde, Titel, Notizen und Positionen inkl. Gruppen-Label werden
 /// übernommen, `quote_id` verweist auf das Ursprungsangebot).
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
-
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
 
+  final auth = await requirePermission(context, module: PermissionModule.orders, action: PermissionAction.create);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
+
   final quoteRepository = context.read<QuoteRepository>();
   final orderRepository = context.read<OrderRepository>();
 
-  final quote = await quoteRepository.findById(tenantId: auth.tenantId, id: id);
+  final quote = await quoteRepository.findById(tenantId: payload.tenantId, id: id);
   if (quote == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -50,7 +49,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   );
 
   final order = await orderRepository.create(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     req: req,
     quoteId: quote.id,
   );

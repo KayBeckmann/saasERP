@@ -9,15 +9,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/projects/<id> — Projekt aktualisieren.
 /// DELETE /api/projects/<id> — Projekt löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.projects, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final projectRepository = context.read<ProjectRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final project = await projectRepository.findById(tenantId: auth.tenantId, id: id);
+    final project = await projectRepository.findById(tenantId: payload.tenantId, id: id);
     if (project == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -46,7 +50,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    final project = await projectRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final project = await projectRepository.update(tenantId: payload.tenantId, id: id, req: req);
     if (project == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -54,7 +58,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await projectRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await projectRepository.delete(tenantId: payload.tenantId, id: id);
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }

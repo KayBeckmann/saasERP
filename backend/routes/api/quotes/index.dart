@@ -9,15 +9,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/quotes — Angebotsliste des aktuellen Mandanten.
 /// POST /api/quotes — neues Angebot anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.quotes, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final quoteRepository = context.read<QuoteRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final quotes = await quoteRepository.list(auth.tenantId);
+    final quotes = await quoteRepository.list(payload.tenantId);
     return Response.json(
       body: {'quotes': quotes.map((q) => q.toJson()).toList()},
     );
@@ -68,7 +70,7 @@ Future<Response> onRequest(RequestContext context) async {
     }
 
     final quote = await quoteRepository.create(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       req: req,
     );
     return Response.json(statusCode: 201, body: quote.toJson());

@@ -7,11 +7,9 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 Future<Response> onRequest(RequestContext context, String id) async {
   if (context.request.method != HttpMethod.post)
     return Response(statusCode: 405);
-  final auth = authenticateRequest(context);
-  if (auth == null)
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  if (auth.role != UserRole.owner.toJson())
-    return Response.json(statusCode: 403, body: {'error': 'forbidden'});
+  final auth = await requirePermission(context, module: PermissionModule.waas, action: PermissionAction.send);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
   try {
     final body = await context.request.json();
     if (body is! Map<String, dynamic> ||
@@ -20,7 +18,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
         body['amount_cents'] is! int)
       return Response.json(statusCode: 400, body: {'error': 'invalid_request'});
     final payment = await context.read<WaasPaymentRepository>().submit(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       customerId: body['customer_id'] as String,
       invoiceId: id,
       mandateId: body['mandate_id'] as String,

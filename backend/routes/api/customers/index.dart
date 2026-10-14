@@ -8,15 +8,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/customers — Kundenliste des aktuellen Mandanten.
 /// POST /api/customers — neuen Kunden anlegen (Kundennummer wird vergeben).
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.customers, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final customerRepository = context.read<CustomerRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final customers = await customerRepository.list(auth.tenantId);
+    final customers = await customerRepository.list(payload.tenantId);
     return Response.json(body: {'customers': customers.map((c) => c.toJson()).toList()});
   }
 
@@ -42,7 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final customer = await customerRepository.create(tenantId: auth.tenantId, req: req);
+    final customer = await customerRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: customer.toJson());
   }
 

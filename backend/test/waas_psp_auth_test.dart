@@ -1,3 +1,4 @@
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/auth_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:mocktail/mocktail.dart';
@@ -13,15 +14,22 @@ class _Request extends Mock implements Request {}
 
 class _Auth extends Mock implements AuthService {}
 
+class _Authz extends Mock implements AuthorizationService {}
+
 void main() {
   test(
     'owner gate rejects unauthenticated and customer tokens before PSP access',
     () async {
-      final c = _Context(), r = _Request(), a = _Auth();
+      final c = _Context(), r = _Request(), a = _Auth(), authz = _Authz();
       when(() => c.request).thenReturn(r);
       when(() => r.method).thenReturn(HttpMethod.post);
       when(() => r.headers).thenReturn({});
       when(() => c.read<AuthService>()).thenReturn(a);
+      when(() => c.read<AuthorizationService>()).thenReturn(authz);
+      // 'customer': kein user_tenant_access-Eintrag für Kundenportal-Konten
+      // -> loadContext liefert null (deny-by-default), kein DB-Zugriff nötig.
+      when(() => authz.loadContext(userId: any(named: 'userId'), tenantId: any(named: 'tenantId')))
+          .thenAnswer((_) async => null);
       expect((await mandate.onRequest(c, 'customer')).statusCode, 401);
       expect((await submit.onRequest(c, 'invoice')).statusCode, 401);
       when(() => r.headers).thenReturn({'Authorization': 'Bearer test'});

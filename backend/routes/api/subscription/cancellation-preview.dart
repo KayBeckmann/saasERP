@@ -12,13 +12,9 @@ Future<Response> onRequest(RequestContext context) async {
     return Response(statusCode: 405);
   }
 
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
-  if (auth.role != UserRole.owner.toJson()) {
-    return Response.json(statusCode: 403, body: {'error': 'forbidden'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.tenantConfig, action: PermissionAction.view);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final dateParam = context.request.uri.queryParameters['date'];
   DateTime date;
@@ -29,7 +25,7 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   final subscriptionRepository = context.read<SubscriptionRepository>();
-  final subscription = await subscriptionRepository.findActiveForTenant(auth.tenantId);
+  final subscription = await subscriptionRepository.findActiveForTenant(payload.tenantId);
   if (subscription == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }

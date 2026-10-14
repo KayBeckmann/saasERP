@@ -7,22 +7,22 @@ import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/repositories/waas_invoice_document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/invoices/<id>/zugferd — separates, nicht extern validiertes
 /// CII-XML. Keine Zusage für EN 16931, XRechnung oder PDF/A-3.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: PermissionAction.export);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
   }
 
   final documents = context.read<WaasInvoiceDocumentRepository>();
-  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
-    final issued = await documents.read(tenantId: auth.tenantId, invoiceId: id);
+  if (await documents.isWaasInvoice(tenantId: payload.tenantId, invoiceId: id)) {
+    final issued = await documents.read(tenantId: payload.tenantId, invoiceId: id);
     if (issued == null)
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     return Response.bytes(
@@ -35,7 +35,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     );
   }
   final invoice = await context.read<InvoiceRepository>().findPublishedById(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     id: id,
   );
   if (invoice == null) {
@@ -53,7 +53,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     );
   }
 
-  final tenant = await context.read<TenantRepository>().findById(auth.tenantId);
+  final tenant = await context.read<TenantRepository>().findById(payload.tenantId);
   if (tenant == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -62,7 +62,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final customer = customerId == null
       ? null
       : await context.read<CustomerRepository>().findById(
-          tenantId: auth.tenantId,
+          tenantId: payload.tenantId,
           id: customerId,
         );
 

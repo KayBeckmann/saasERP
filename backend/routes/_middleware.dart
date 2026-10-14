@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:backend/src/auth_service.dart';
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/config.dart';
 import 'package:backend/src/db.dart';
 import 'package:backend/src/email_service.dart';
@@ -20,6 +21,7 @@ import 'package:backend/src/repositories/project_repository.dart';
 import 'package:backend/src/repositories/project_transaction_repository.dart';
 import 'package:backend/src/repositories/purchase_order_repository.dart';
 import 'package:backend/src/repositories/quote_repository.dart';
+import 'package:backend/src/repositories/role_repository.dart';
 import 'package:backend/src/repositories/subscription_repository.dart';
 import 'package:backend/src/repositories/subscription_tier_repository.dart';
 import 'package:backend/src/repositories/supplier_repository.dart';
@@ -44,6 +46,8 @@ final _authService = AuthService(_config);
 final _emailService = EmailService(_config);
 final _userRepository = UserRepository(_pool);
 final _tenantAccessRepository = TenantAccessRepository(_pool);
+final _roleRepository = RoleRepository(_pool);
+final _authorizationService = AuthorizationService(_pool);
 final _tenantEncryptionKeyRepository = TenantEncryptionKeyRepository(_pool);
 final _tenantEncryptionService = TenantEncryptionService(
   _config,
@@ -132,6 +136,8 @@ Handler middleware(Handler handler) {
       .use(provider<TenantRepository>((_) => _tenantRepository))
       .use(provider<UserRepository>((_) => _userRepository))
       .use(provider<TenantAccessRepository>((_) => _tenantAccessRepository))
+      .use(provider<RoleRepository>((_) => _roleRepository))
+      .use(provider<AuthorizationService>((_) => _authorizationService))
       .use(
         provider<TenantEncryptionKeyRepository>(
           (_) => _tenantEncryptionKeyRepository,

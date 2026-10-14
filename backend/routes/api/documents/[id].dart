@@ -1,6 +1,7 @@
 import 'package:backend/src/repositories/document_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/documents/<id> — Dokument herunterladen (User-App,
 /// mandantengescoped über `tenant_id`).
@@ -9,12 +10,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
     return Response(statusCode: 405);
   }
 
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.documents, action: PermissionAction.export);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
-  final result = await context.read<DocumentRepository>().findContentById(tenantId: auth.tenantId, id: id);
+  final result = await context.read<DocumentRepository>().findContentById(tenantId: payload.tenantId, id: id);
   if (result == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }

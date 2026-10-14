@@ -9,18 +9,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/invoices/<id>/pdf — Rechnung als PDF.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: PermissionAction.export);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
   }
 
   final documents = context.read<WaasInvoiceDocumentRepository>();
-  if (await documents.isWaasInvoice(tenantId: auth.tenantId, invoiceId: id)) {
-    final issued = await documents.read(tenantId: auth.tenantId, invoiceId: id);
+  if (await documents.isWaasInvoice(tenantId: payload.tenantId, invoiceId: id)) {
+    final issued = await documents.read(tenantId: payload.tenantId, invoiceId: id);
     if (issued == null)
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     return Response.bytes(
@@ -34,14 +33,14 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
   final invoiceRepo = context.read<InvoiceRepository>();
   final invoice = await invoiceRepo.findPublishedById(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     id: id,
   );
   if (invoice == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
-  final tenant = await context.read<TenantRepository>().findById(auth.tenantId);
+  final tenant = await context.read<TenantRepository>().findById(payload.tenantId);
   if (tenant == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -50,7 +49,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final customer = customerId == null
       ? null
       : await context.read<CustomerRepository>().findById(
-          tenantId: auth.tenantId,
+          tenantId: payload.tenantId,
           id: customerId,
         );
 
@@ -59,7 +58,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   if (invoice.invoiceType == InvoiceType.closingInvoice &&
       invoice.orderId != null) {
     final priorInvoices = await invoiceRepo.listPriorForOrder(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       orderId: invoice.orderId!,
     );
     // Aktuelle Rechnung aus der Liste ausschließen

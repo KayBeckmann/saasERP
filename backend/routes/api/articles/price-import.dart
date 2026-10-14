@@ -11,14 +11,13 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// automatisch erkannt) und aktualisiert Verkaufspreis-Vorschläge für
 /// betroffene Produkte.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
-
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
+
+  final auth = await requirePermission(context, module: PermissionModule.articles, action: PermissionAction.edit);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final Map<String, dynamic> body;
   try {
@@ -52,13 +51,13 @@ Future<Response> onRequest(RequestContext context) async {
   final articleRepository = context.read<ArticleRepository>();
   final productRepository = context.read<ProductRepository>();
 
-  final updates = await articleRepository.importPurchasePrices(tenantId: auth.tenantId, pricesBySku: pricesBySku);
+  final updates = await articleRepository.importPurchasePrices(tenantId: payload.tenantId, pricesBySku: pricesBySku);
 
   final updatedSkus = updates.map((u) => u.sku).toSet();
   final notFoundSkus = pricesBySku.keys.where((sku) => !updatedSkus.contains(sku)).toList();
 
   final suggestions = await productRepository.recalculatePendingPrices(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     articleIds: updates.map((u) => u.articleId).toSet(),
   );
 

@@ -8,15 +8,18 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/projects — Projektliste des aktuellen Mandanten.
 /// POST /api/projects — neues Projekt anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.post => PermissionAction.create,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.projects, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final projectRepository = context.read<ProjectRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final projects = await projectRepository.list(auth.tenantId);
+    final projects = await projectRepository.list(payload.tenantId);
     return Response.json(body: {'projects': projects.map((p) => p.toJson()).toList()});
   }
 
@@ -42,7 +45,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final project = await projectRepository.create(tenantId: auth.tenantId, req: req);
+    final project = await projectRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: project.toJson());
   }
 

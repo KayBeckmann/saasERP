@@ -5,23 +5,23 @@ import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/repositories/tenant_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// POST /api/invoices/<id>/dun — erhöht die Mahnstufe einer Rechnung um eine
 /// Stufe (1 = Zahlungserinnerung, 2 = 1. Mahnung, 3 = 2. Mahnung) und
 /// addiert die zur neuen Stufe passende Mahngebühr aus der
 /// Mandanten-Konfiguration.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: PermissionAction.send);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
 
   final invoiceRepository = context.read<InvoiceRepository>();
-  final invoice = await invoiceRepository.findById(tenantId: auth.tenantId, id: id);
+  final invoice = await invoiceRepository.findById(tenantId: payload.tenantId, id: id);
   if (invoice == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -33,7 +33,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     );
   }
 
-  final tenant = await context.read<TenantRepository>().findById(auth.tenantId);
+  final tenant = await context.read<TenantRepository>().findById(payload.tenantId);
   if (tenant == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -44,13 +44,13 @@ Future<Response> onRequest(RequestContext context, String id) async {
     _ => tenant.dunningFeeLevel3,
   };
 
-  final updated = await invoiceRepository.recordDunning(tenantId: auth.tenantId, id: id, fee: fee);
+  final updated = await invoiceRepository.recordDunning(tenantId: payload.tenantId, id: id, fee: fee);
   if (updated == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
   unawaited(context.read<NotificationService>().notifyCustomerDunning(
-        tenantId: auth.tenantId,
+        tenantId: payload.tenantId,
         invoice: updated,
       ));
 

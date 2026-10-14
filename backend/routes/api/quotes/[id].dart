@@ -12,16 +12,20 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/quotes/<id> — Angebot aktualisieren.
 /// DELETE /api/quotes/<id> — Angebot löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.quotes, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final quoteRepository = context.read<QuoteRepository>();
 
   if (context.request.method == HttpMethod.get) {
     final quote = await quoteRepository.findById(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     if (quote == null) {
@@ -75,11 +79,11 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
 
     final existing = await quoteRepository.findById(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     final quote = await quoteRepository.update(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
       req: req,
     );
@@ -92,7 +96,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
       final notificationService = context.read<NotificationService>();
       unawaited(
         notificationService.notifyCustomerNewQuote(
-          tenantId: auth.tenantId,
+          tenantId: payload.tenantId,
           quote: quote,
         ),
       );
@@ -103,7 +107,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   if (context.request.method == HttpMethod.delete) {
     final deleted = await quoteRepository.delete(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     if (!deleted) {

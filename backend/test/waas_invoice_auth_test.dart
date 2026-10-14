@@ -1,3 +1,4 @@
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/auth_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:mocktail/mocktail.dart';
@@ -16,18 +17,38 @@ class _Request extends Mock implements Request {}
 
 class _Auth extends Mock implements AuthService {}
 
+class _Authz extends Mock implements AuthorizationService {}
+
 void main() {
   test(
-    'WaaS mutations reject customer and employee roles before touching the DB',
+    'WaaS mutations reject customer and a permission-less "Nur Lesen" role before touching the DB',
     () async {
       final context = _Context();
       final request = _Request();
       final auth = _Auth();
+      final authz = _Authz();
       when(() => context.request).thenReturn(request);
       when(() => request.method).thenReturn(HttpMethod.post);
       when(() => request.headers).thenReturn({'Authorization': 'Bearer test'});
       when(() => context.read<AuthService>()).thenReturn(auth);
-      for (final role in ['customer', UserRole.employee.toJson()]) {
+      when(() => context.read<AuthorizationService>()).thenReturn(authz);
+      // 'customer': kein user_tenant_access-Eintrag existiert für
+      // Kundenportal-Konten -> loadContext liefert null (deny-by-default).
+      // 'Nur Lesen': echte Rolle ohne waas-Berechtigungen.
+      for (final (role, authzContext) in [
+        ('customer', null),
+        (
+          'Nur Lesen',
+          const AuthorizationContext(
+            userId: 'user',
+            tenantId: 'tenant',
+            roleId: 'role-nur-lesen',
+            roleName: 'Nur Lesen',
+            isAdminRole: false,
+            permissions: {'waas:view'},
+          ),
+        ),
+      ]) {
         when(() => auth.verifyToken('test')).thenReturn(
           AuthTokenPayload(
             userId: 'user',
@@ -37,6 +58,8 @@ void main() {
             expiresAt: DateTime.utc(2099),
           ),
         );
+        when(() => authz.loadContext(userId: any(named: 'userId'), tenantId: any(named: 'tenantId')))
+            .thenAnswer((_) async => authzContext);
         expect((await plan.onRequest(context, 'contract')).statusCode, 403);
         expect((await run.onRequest(context, 'contract')).statusCode, 403);
         expect((await approve.onRequest(context, 'invoice')).statusCode, 403);

@@ -11,15 +11,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/invoices/<id> — Rechnung aktualisieren.
 /// DELETE /api/invoices/<id> — Rechnung löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final invoiceRepository = context.read<InvoiceRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final invoice = await invoiceRepository.findById(tenantId: auth.tenantId, id: id);
+    final invoice = await invoiceRepository.findById(tenantId: payload.tenantId, id: id);
     if (invoice == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -48,22 +52,22 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    final existing = await invoiceRepository.findById(tenantId: auth.tenantId, id: id);
-    final invoice = await invoiceRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final existing = await invoiceRepository.findById(tenantId: payload.tenantId, id: id);
+    final invoice = await invoiceRepository.update(tenantId: payload.tenantId, id: id, req: req);
     if (invoice == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
 
     if (invoice.status == InvoiceStatus.sent && existing?.status != InvoiceStatus.sent) {
       final notificationService = context.read<NotificationService>();
-      unawaited(notificationService.notifyCustomerNewInvoice(tenantId: auth.tenantId, invoice: invoice));
+      unawaited(notificationService.notifyCustomerNewInvoice(tenantId: payload.tenantId, invoice: invoice));
     }
 
     return Response.json(body: invoice.toJson());
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await invoiceRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await invoiceRepository.delete(tenantId: payload.tenantId, id: id);
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
