@@ -241,12 +241,30 @@ class WaasInvoiceDocumentRepository {
     );
     if (rows.isEmpty) return null;
     final row = rows.first.toColumnMap();
-    final crypto = await _encryptionService.forTenant(tenantId);
+    // waas_invoice_documents ist per DB-Trigger unveränderlich — eine
+    // Rotation kann bestehende Zeilen nicht umschlüsseln (siehe
+    // TenantEncryptionService.decryptImmutableBytesField). Entschlüsselung
+    // muss daher die im Ciphertext codierte (ggf. retired) Version
+    // auflösen, nicht die aktuell aktive erzwingen.
+    final pdf = await _encryptionService.decryptImmutableBytesField(
+      tenantId: tenantId,
+      table: _table,
+      recordId: invoiceId,
+      field: 'pdf',
+      value: row['pdf'] as Uint8List,
+    );
+    final xml = await _encryptionService.decryptImmutableBytesField(
+      tenantId: tenantId,
+      table: _table,
+      recordId: invoiceId,
+      field: 'xml',
+      value: row['xml'] as Uint8List,
+    );
     return WaasInvoiceDocument(
       version: row['version'] as int,
       snapshot: (row['snapshot'] as Map).cast<String, dynamic>(),
-      pdf: crypto.decryptBytesField(table: _table, recordId: invoiceId, field: 'pdf', value: row['pdf'] as Uint8List)!,
-      xml: crypto.decryptBytesField(table: _table, recordId: invoiceId, field: 'xml', value: row['xml'] as Uint8List)!,
+      pdf: pdf!,
+      xml: xml!,
     );
   }
 }

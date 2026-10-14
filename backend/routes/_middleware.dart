@@ -34,6 +34,7 @@ import 'package:backend/src/repositories/waas_payment_repository.dart';
 import 'package:backend/src/repositories/waas_intake_repository.dart';
 import 'package:backend/src/waas_psp.dart';
 import 'package:backend/src/tenant_encryption_service.dart';
+import 'package:backend/src/tenant_key_rotation_service.dart';
 import 'package:dart_frog/dart_frog.dart';
 import 'package:postgres/postgres.dart';
 
@@ -49,6 +50,7 @@ final _tenantEncryptionService = TenantEncryptionService(
   _tenantEncryptionKeyRepository,
 );
 final _tenantRepository = TenantRepository(_pool, _tenantEncryptionService);
+final _tenantKeyRotationService = TenantKeyRotationService(_pool, _tenantEncryptionService);
 final _numberSequenceRepository = NumberSequenceRepository(_pool);
 final _customerRepository = CustomerRepository(
   _pool,
@@ -136,6 +138,7 @@ Handler middleware(Handler handler) {
         ),
       )
       .use(provider<TenantEncryptionService>((_) => _tenantEncryptionService))
+      .use(provider<TenantKeyRotationService>((_) => _tenantKeyRotationService))
       .use(provider<NumberSequenceRepository>((_) => _numberSequenceRepository))
       .use(provider<CustomerRepository>((_) => _customerRepository))
       .use(

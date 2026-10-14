@@ -63,6 +63,30 @@ class TenantEncryptionService {
     return FieldCipher(dek);
   }
 
+  /// Entschlüsselt ein Byte-Feld unabhängig davon, ob es mit der aktiven
+  /// oder einer älteren (retired) Schlüsselversion verschlüsselt wurde —
+  /// für Tabellen, die eine Rotation prinzipiell **nicht** umschlüsseln kann
+  /// (z. B. `waas_invoice_documents`: per DB-Trigger unveränderlich/
+  /// GoBD-fest). Im Gegensatz zu [TenantFieldEncryption.decryptBytesField]
+  /// also bewusst **kein** [StaleKeyVersionException] bei abweichender
+  /// Version — das ist hier der erwartete Normalfall nach einer Rotation,
+  /// kein Hinweis auf eine Rotations-Lücke.
+  Future<Uint8List?> decryptImmutableBytesField({
+    required String tenantId,
+    required String table,
+    required String recordId,
+    required String field,
+    required Uint8List? value,
+  }) async {
+    if (value == null) return null;
+    final version = FieldCipher.keyVersionOfBytes(value);
+    final cipher = await cipherForVersion(tenantId, version);
+    return cipher.decryptBytes(
+      value,
+      aad: AadBuilder.field(tenantId: tenantId, table: table, recordId: recordId, field: field),
+    );
+  }
+
   /// Erzeugt eine neue DEK-Version und aktiviert sie innerhalb derselben
   /// Transaktion [tx] (zusammen mit dem Umschlüsseln der Bestandsdaten,
   /// siehe `TenantKeyRotationService` — niemals isoliert aufrufen, sonst
