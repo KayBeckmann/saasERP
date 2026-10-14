@@ -79,12 +79,31 @@ class PurchaseOrderRepository {
       ),
       parameters: {'tenant_id': tenantId},
     );
+    final sourceRows = await _pool.execute(
+      Sql.named(
+        'SELECT purchase_order_item_id, order_id, order_item_id, group_label, quantity '
+        'FROM purchase_order_item_sources WHERE tenant_id = @tenant_id',
+      ),
+      parameters: {'tenant_id': tenantId},
+    );
+    final sourcesByItemId = <String, List<PurchaseOrderItemSource>>{};
+    for (final row in sourceRows) {
+      final map = row.toColumnMap();
+      sourcesByItemId.putIfAbsent(map['purchase_order_item_id'] as String, () => []).add(
+            PurchaseOrderItemSource(
+              orderId: map['order_id'] as String?,
+              orderItemId: map['order_item_id'] as String?,
+              groupLabel: map['group_label'] as String?,
+              quantity: (map['quantity'] as num).toDouble(),
+            ),
+          );
+    }
 
     final itemsByOrder = <String, List<PurchaseOrderItem>>{};
     for (final row in itemRows) {
       final map = row.toColumnMap();
       final purchaseOrderId = map['purchase_order_id'] as String;
-      itemsByOrder.putIfAbsent(purchaseOrderId, () => []).add(_itemFromRow(map));
+      itemsByOrder.putIfAbsent(purchaseOrderId, () => []).add(_itemFromRow(map, sourcesByItemId));
     }
 
     return orderRows
@@ -127,11 +146,35 @@ class PurchaseOrderRepository {
       );
       if (result.isEmpty) return null;
 
+      // Quellverweise (Raumgruppen-Rückverfolgung) bleiben erhalten, wenn
+      // eine bestehende Position ohne explizit mitgeschickte sources
+      // aktualisiert wird — der Editor in der UI kennt sources nicht und
+      // würde sie sonst bei jeder normalen Bearbeitung stillschweigend
+      // löschen. Nur wirklich neue Positionen oder ein explizit
+      // mitgeschicktes sources starten ohne/mit den neuen Werten.
+      final existingSourcesByItemId = await _loadSourcesByItemId(session, purchaseOrderId: id);
+
       await session.execute(
         Sql.named('DELETE FROM purchase_order_items WHERE purchase_order_id = @purchase_order_id'),
         parameters: {'purchase_order_id': id},
       );
-      await _insertItems(session, tenantId: tenantId, purchaseOrderId: id, items: req.items);
+      final itemsWithPreservedSources = [
+        for (final item in req.items)
+          if (item.id != null && item.sources.isEmpty && existingSourcesByItemId.containsKey(item.id))
+            PurchaseOrderItem(
+              id: item.id,
+              articleId: item.articleId,
+              description: item.description,
+              quantity: item.quantity,
+              quantityDelivered: item.quantityDelivered,
+              unit: item.unit,
+              unitPrice: item.unitPrice,
+              sources: existingSourcesByItemId[item.id]!,
+            )
+          else
+            item,
+      ];
+      await _insertItems(session, tenantId: tenantId, purchaseOrderId: id, items: itemsWithPreservedSources);
 
       final items = await _loadItems(session, purchaseOrderId: id);
       return _fromRow(result.first.toColumnMap(), items);
@@ -224,11 +267,12 @@ class PurchaseOrderRepository {
   }) async {
     for (var i = 0; i < items.length; i++) {
       final item = items[i];
-      await session.execute(
+      final result = await session.execute(
         Sql.named(
           'INSERT INTO purchase_order_items '
           '(tenant_id, purchase_order_id, article_id, description, quantity, quantity_delivered, unit, unit_price, sort_order) '
-          'VALUES (@tenant_id, @purchase_order_id, @article_id, @description, @quantity, @quantity_delivered, @unit, @unit_price, @sort_order)',
+          'VALUES (@tenant_id, @purchase_order_id, @article_id, @description, @quantity, @quantity_delivered, @unit, @unit_price, @sort_order) '
+          'RETURNING id',
         ),
         parameters: {
           'tenant_id': tenantId,
@@ -242,6 +286,24 @@ class PurchaseOrderRepository {
           'sort_order': i,
         },
       );
+      final itemId = result.first.toColumnMap()['id'] as String;
+      for (final source in item.sources) {
+        await session.execute(
+          Sql.named(
+            'INSERT INTO purchase_order_item_sources '
+            '(tenant_id, purchase_order_item_id, order_id, order_item_id, group_label, quantity) '
+            'VALUES (@tenant_id, @purchase_order_item_id, @order_id, @order_item_id, @group_label, @quantity)',
+          ),
+          parameters: {
+            'tenant_id': tenantId,
+            'purchase_order_item_id': itemId,
+            'order_id': source.orderId,
+            'order_item_id': source.orderItemId,
+            'group_label': source.groupLabel,
+            'quantity': source.quantity,
+          },
+        );
+      }
     }
   }
 
@@ -253,10 +315,73 @@ class PurchaseOrderRepository {
       ),
       parameters: {'purchase_order_id': purchaseOrderId},
     );
-    return result.map((row) => _itemFromRow(row.toColumnMap())).toList();
+    final sourcesByItemId = await _loadSourcesByItemId(session, purchaseOrderId: purchaseOrderId);
+    return result
+        .map((row) => _itemFromRow(row.toColumnMap(), sourcesByItemId))
+        .toList();
   }
 
-  PurchaseOrderItem _itemFromRow(Map<String, dynamic> row) => PurchaseOrderItem(
+  /// Lädt alle Quellverweise einer Bestellung, gruppiert nach
+  /// Bestellpositions-ID — Hilfsmethode für [_loadItems] und für den
+  /// Sources-Erhalt in [update].
+  Future<Map<String, List<PurchaseOrderItemSource>>> _loadSourcesByItemId(
+    Session session, {
+    required String purchaseOrderId,
+  }) async {
+    final result = await session.execute(
+      Sql.named(
+        'SELECT src.purchase_order_item_id, src.order_id, src.order_item_id, src.group_label, src.quantity '
+        'FROM purchase_order_item_sources src '
+        'JOIN purchase_order_items poi ON poi.id = src.purchase_order_item_id '
+        'WHERE poi.purchase_order_id = @purchase_order_id',
+      ),
+      parameters: {'purchase_order_id': purchaseOrderId},
+    );
+    final sourcesByItemId = <String, List<PurchaseOrderItemSource>>{};
+    for (final row in result) {
+      final map = row.toColumnMap();
+      final itemId = map['purchase_order_item_id'] as String;
+      sourcesByItemId.putIfAbsent(itemId, () => []).add(
+            PurchaseOrderItemSource(
+              orderId: map['order_id'] as String?,
+              orderItemId: map['order_item_id'] as String?,
+              groupLabel: map['group_label'] as String?,
+              quantity: (map['quantity'] as num).toDouble(),
+            ),
+          );
+    }
+    return sourcesByItemId;
+  }
+
+  /// Summe bereits in (beliebigen, nicht gelöschten) Bestellungen
+  /// erfasster Mengen je Artikel für einen Auftrag — Grundlage der
+  /// Idempotenzprüfung im Bestellvorschlag (verhindert Doppelbestellung
+  /// bei wiederholtem Abruf/Sync-Retry).
+  Future<Map<String, double>> sumOrderedQuantitiesForOrder({
+    required String tenantId,
+    required String orderId,
+  }) async {
+    final result = await _pool.execute(
+      Sql.named(
+        'SELECT poi.article_id, SUM(src.quantity) AS total '
+        'FROM purchase_order_item_sources src '
+        'JOIN purchase_order_items poi ON poi.id = src.purchase_order_item_id '
+        'WHERE src.tenant_id = @tenant_id AND src.order_id = @order_id AND poi.article_id IS NOT NULL '
+        'GROUP BY poi.article_id',
+      ),
+      parameters: {'tenant_id': tenantId, 'order_id': orderId},
+    );
+    return {
+      for (final row in result)
+        row.toColumnMap()['article_id'] as String: (row.toColumnMap()['total'] as num).toDouble(),
+    };
+  }
+
+  PurchaseOrderItem _itemFromRow(
+    Map<String, dynamic> row, [
+    Map<String, List<PurchaseOrderItemSource>>? sourcesByItemId,
+  ]) =>
+      PurchaseOrderItem(
         id: row['id'] as String,
         articleId: row['article_id'] as String?,
         description: row['description'] as String,
@@ -264,6 +389,7 @@ class PurchaseOrderRepository {
         quantityDelivered: (row['quantity_delivered'] as num).toDouble(),
         unit: row['unit'] as String?,
         unitPrice: (row['unit_price'] as num).toDouble(),
+        sources: sourcesByItemId?[row['id'] as String] ?? const [],
       );
 
   PurchaseOrder _fromRow(Map<String, dynamic> row, List<PurchaseOrderItem> items) => PurchaseOrder(

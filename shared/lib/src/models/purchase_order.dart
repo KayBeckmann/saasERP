@@ -21,8 +21,48 @@ enum PurchaseOrderStatus {
       };
 }
 
+/// Eingefrorener Quellverweis einer Bestellposition auf die
+/// Auftragsposition(en)/Raumgruppe(n), die zu ihr beigetragen haben
+/// (Roadmap "Raumgruppen → Auftrag → Lieferantenbestellungen"). Eine
+/// Bestellposition fasst dieselbe Artikel-SKU für den Einkauf zusammen,
+/// kann aber mehrere Quellen haben — deshalb eine Liste statt einer
+/// einzelnen Referenz. `orderItemId` kann `null` werden, wenn die
+/// ursprüngliche Auftragsposition später gelöscht/ersetzt wurde
+/// (Aufträge ersetzen ihre Positionen komplett bei jeder Änderung);
+/// `groupLabel`/`quantity` bleiben als eingefrorene Angabe trotzdem
+/// erhalten (analog zum WaaS-Rechnungs-Snapshot aus RF1).
+class PurchaseOrderItemSource {
+  const PurchaseOrderItemSource({
+    this.orderId,
+    this.orderItemId,
+    this.groupLabel,
+    required this.quantity,
+  });
+
+  final String? orderId;
+  final String? orderItemId;
+  final String? groupLabel;
+  final double quantity;
+
+  factory PurchaseOrderItemSource.fromJson(Map<String, dynamic> json) => PurchaseOrderItemSource(
+        orderId: json['order_id'] as String?,
+        orderItemId: json['order_item_id'] as String?,
+        groupLabel: json['group_label'] as String?,
+        quantity: (json['quantity'] as num).toDouble(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'order_id': orderId,
+        'order_item_id': orderItemId,
+        'group_label': groupLabel,
+        'quantity': quantity,
+      };
+}
+
 /// Position einer Bestellung. `articleId` ist optional (Freitext-Position
 /// möglich), `quantityDelivered` trackt den bisherigen Wareneingang.
+/// `sources` ist nur bei aus einem Auftrag erzeugten Positionen gesetzt
+/// (siehe [PurchaseOrderItemSource]).
 class PurchaseOrderItem {
   const PurchaseOrderItem({
     this.id,
@@ -32,6 +72,7 @@ class PurchaseOrderItem {
     this.quantityDelivered = 0,
     this.unit,
     this.unitPrice = 0,
+    this.sources = const [],
   });
 
   final String? id;
@@ -41,6 +82,7 @@ class PurchaseOrderItem {
   final double quantityDelivered;
   final String? unit;
   final double unitPrice;
+  final List<PurchaseOrderItemSource> sources;
 
   double get totalNet => quantity * unitPrice;
 
@@ -54,6 +96,9 @@ class PurchaseOrderItem {
         quantityDelivered: (json['quantity_delivered'] as num? ?? 0).toDouble(),
         unit: json['unit'] as String?,
         unitPrice: (json['unit_price'] as num).toDouble(),
+        sources: (json['sources'] as List? ?? [])
+            .map((e) => PurchaseOrderItemSource.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -64,6 +109,7 @@ class PurchaseOrderItem {
         'quantity_delivered': quantityDelivered,
         'unit': unit,
         'unit_price': unitPrice,
+        'sources': sources.map((s) => s.toJson()).toList(),
       };
 }
 
@@ -240,8 +286,12 @@ class ReceivePurchaseOrderItem {
 /// Vorschlag, wie viel eines Artikels nachbestellt werden sollte —
 /// `requiredQuantity` ist der Bedarf aus dem Auftrag (inkl. in Produkten
 /// enthaltener Artikel), `stockQuantity` der aktuelle Lagerbestand,
-/// `orderQuantity = max(0, requiredQuantity - stockQuantity)` die
-/// vorgeschlagene Bestellmenge (Fehlmenge).
+/// `alreadyOrderedQuantity` die Menge, die für diesen Auftrag bereits in
+/// einer bestehenden Bestellung steckt (Idempotenz — verhindert
+/// Doppelbestellung bei erneutem Abruf/Sync-Retry), `orderQuantity =
+/// max(0, requiredQuantity - stockQuantity - alreadyOrderedQuantity)` die
+/// vorgeschlagene Restbestellmenge. `sources` zeigt, aus welchen
+/// Auftrags-Positionsgruppen sich `requiredQuantity` zusammensetzt.
 class PurchaseProposalItem {
   const PurchaseProposalItem({
     required this.articleId,
@@ -249,8 +299,10 @@ class PurchaseProposalItem {
     this.unit,
     required this.requiredQuantity,
     required this.stockQuantity,
+    this.alreadyOrderedQuantity = 0,
     required this.orderQuantity,
     this.unitPrice,
+    this.sources = const [],
   });
 
   final String articleId;
@@ -258,8 +310,10 @@ class PurchaseProposalItem {
   final String? unit;
   final double requiredQuantity;
   final double stockQuantity;
+  final double alreadyOrderedQuantity;
   final double orderQuantity;
   final double? unitPrice;
+  final List<PurchaseOrderItemSource> sources;
 
   factory PurchaseProposalItem.fromJson(Map<String, dynamic> json) => PurchaseProposalItem(
         articleId: json['article_id'] as String,
@@ -267,8 +321,12 @@ class PurchaseProposalItem {
         unit: json['unit'] as String?,
         requiredQuantity: (json['required_quantity'] as num).toDouble(),
         stockQuantity: (json['stock_quantity'] as num).toDouble(),
+        alreadyOrderedQuantity: (json['already_ordered_quantity'] as num? ?? 0).toDouble(),
         orderQuantity: (json['order_quantity'] as num).toDouble(),
         unitPrice: (json['unit_price'] as num?)?.toDouble(),
+        sources: (json['sources'] as List? ?? [])
+            .map((e) => PurchaseOrderItemSource.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -277,8 +335,10 @@ class PurchaseProposalItem {
         'unit': unit,
         'required_quantity': requiredQuantity,
         'stock_quantity': stockQuantity,
+        'already_ordered_quantity': alreadyOrderedQuantity,
         'order_quantity': orderQuantity,
         'unit_price': unitPrice,
+        'sources': sources.map((s) => s.toJson()).toList(),
       };
 }
 

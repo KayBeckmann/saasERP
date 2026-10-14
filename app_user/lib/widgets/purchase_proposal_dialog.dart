@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// Ergebnis des Bestellvorschlag-Dialogs: entweder eine einzelne
-/// Lieferantengruppe oder alle Gruppen zusammengeführt unter einem
-/// vom Nutzer gewählten Lieferanten.
+/// Lieferantengruppe, alle Gruppen zusammengeführt unter einem vom Nutzer
+/// gewählten Lieferanten, oder (siehe [createDraftsForAllSuppliers]) die
+/// Anweisung, für jede Lieferantengruppe direkt einen eigenen
+/// Bestellentwurf anzulegen (Roadmap: "mehrere getrennte
+/// Lieferanten-Bestellentwürfe... in einem kontrollierten Vorgang").
+/// [items]/[supplierId] sind in diesem Fall irrelevant.
 class PurchaseProposalSelection {
   const PurchaseProposalSelection({
     required this.items,
     required this.supplierId,
+    this.createDraftsForAllSuppliers = false,
   });
 
   final List<PurchaseProposalItem> items;
   final String? supplierId;
+  final bool createDraftsForAllSuppliers;
 }
 
 /// Dialog zur Auswahl einer Lieferanten-Gruppe aus einem Bestellvorschlag
@@ -28,7 +34,7 @@ Future<PurchaseProposalSelection?> showPurchaseProposalDialog({
   );
 }
 
-enum _SelectionMode { bySupplier, allArticles }
+enum _SelectionMode { allSuppliersAsDrafts, bySupplier, allArticles }
 
 class _PurchaseProposalDialog extends StatefulWidget {
   const _PurchaseProposalDialog({required this.proposals});
@@ -41,7 +47,7 @@ class _PurchaseProposalDialog extends StatefulWidget {
 }
 
 class _PurchaseProposalDialogState extends State<_PurchaseProposalDialog> {
-  _SelectionMode _mode = _SelectionMode.bySupplier;
+  _SelectionMode _mode = _SelectionMode.allSuppliersAsDrafts;
   int _selectedGroup = 0;
   String? _allArticlesSupplierIndex;
 
@@ -70,8 +76,13 @@ class _PurchaseProposalDialogState extends State<_PurchaseProposalDialog> {
               child: Column(
                 children: [
                   const RadioListTile<_SelectionMode>(
+                    value: _SelectionMode.allSuppliersAsDrafts,
+                    title: Text('Für jeden Lieferanten einen Entwurf anlegen'),
+                    subtitle: Text('Empfohlen — ein Schritt, bleibt danach als Entwurf bearbeitbar.'),
+                  ),
+                  const RadioListTile<_SelectionMode>(
                     value: _SelectionMode.bySupplier,
-                    title: Text('Nach Lieferant bestellen'),
+                    title: Text('Nur einen Lieferanten im Editor öffnen'),
                   ),
                   const RadioListTile<_SelectionMode>(
                     value: _SelectionMode.allArticles,
@@ -81,7 +92,25 @@ class _PurchaseProposalDialogState extends State<_PurchaseProposalDialog> {
               ),
             ),
             const Divider(height: 16),
-            if (_mode == _SelectionMode.bySupplier) ...[
+            if (_mode == _SelectionMode.allSuppliersAsDrafts) ...[
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final group in widget.proposals)
+                      ListTile(
+                        dense: true,
+                        title: Text(group.supplierName ?? '— ohne Lieferant —'),
+                        subtitle: Text(
+                          '${group.items.length} Position(en), '
+                          '${_fmtQty(group.items.fold(0.0, (s, i) => s + i.orderQuantity))} Stk/Einheiten gesamt',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ] else if (_mode == _SelectionMode.bySupplier) ...[
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 300),
                 child: RadioGroup<int>(
@@ -147,7 +176,16 @@ class _PurchaseProposalDialogState extends State<_PurchaseProposalDialog> {
             child: const Text('Abbrechen')),
         FilledButton(
           onPressed: () {
-            if (_mode == _SelectionMode.bySupplier) {
+            if (_mode == _SelectionMode.allSuppliersAsDrafts) {
+              Navigator.pop(
+                context,
+                const PurchaseProposalSelection(
+                  items: [],
+                  supplierId: null,
+                  createDraftsForAllSuppliers: true,
+                ),
+              );
+            } else if (_mode == _SelectionMode.bySupplier) {
               final group = widget.proposals[_selectedGroup];
               Navigator.pop(
                 context,
@@ -169,7 +207,9 @@ class _PurchaseProposalDialogState extends State<_PurchaseProposalDialog> {
               );
             }
           },
-          child: const Text('Bestellung erstellen'),
+          child: Text(
+            _mode == _SelectionMode.allSuppliersAsDrafts ? 'Entwürfe anlegen' : 'Im Editor öffnen',
+          ),
         ),
       ],
     );
