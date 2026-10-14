@@ -8,15 +8,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/articles — Artikelliste des aktuellen Mandanten.
 /// POST /api/articles — neuen Artikel anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.articles, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final articleRepository = context.read<ArticleRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final articles = await articleRepository.list(auth.tenantId);
+    final articles = await articleRepository.list(payload.tenantId);
     return Response.json(body: {'articles': articles.map((a) => a.toJson()).toList()});
   }
 
@@ -42,7 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final article = await articleRepository.create(tenantId: auth.tenantId, req: req);
+    final article = await articleRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: article.toJson());
   }
 

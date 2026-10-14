@@ -14,13 +14,9 @@ Future<Response> onRequest(RequestContext context) async {
     return Response(statusCode: 405);
   }
 
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
-  if (auth.role != UserRole.owner.toJson()) {
-    return Response.json(statusCode: 403, body: {'error': 'forbidden'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.tenantConfig, action: PermissionAction.edit);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final Map<String, dynamic> body;
   try {
@@ -39,7 +35,7 @@ Future<Response> onRequest(RequestContext context) async {
 
   final subscriptionRepository = context.read<SubscriptionRepository>();
   final subscription = await subscriptionRepository.changeTier(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     newTierId: tierId,
   );
   if (subscription == null) {

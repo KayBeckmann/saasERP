@@ -9,15 +9,19 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/articles/<id> — Artikel aktualisieren.
 /// DELETE /api/articles/<id> — Artikel löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.articles, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final articleRepository = context.read<ArticleRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final article = await articleRepository.findById(tenantId: auth.tenantId, id: id);
+    final article = await articleRepository.findById(tenantId: payload.tenantId, id: id);
     if (article == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -46,7 +50,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
       );
     }
 
-    final article = await articleRepository.update(tenantId: auth.tenantId, id: id, req: req);
+    final article = await articleRepository.update(tenantId: payload.tenantId, id: id, req: req);
     if (article == null) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }
@@ -54,7 +58,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.delete) {
-    final deleted = await articleRepository.delete(tenantId: auth.tenantId, id: id);
+    final deleted = await articleRepository.delete(tenantId: payload.tenantId, id: id);
     if (!deleted) {
       return Response.json(statusCode: 404, body: {'error': 'not_found'});
     }

@@ -11,31 +11,28 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 Future<Response> onRequest(RequestContext context, String id) async {
   if (context.request.method != HttpMethod.post)
     return Response(statusCode: 405);
-  final auth = authenticateRequest(context);
-  if (auth == null)
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  if (auth.role != UserRole.owner.toJson()) {
-    return Response.json(statusCode: 403, body: {'error': 'forbidden'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.waas, action: PermissionAction.release);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
   final invoice = await context.read<InvoiceRepository>().findById(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     id: id,
   );
   if (invoice == null || invoice.customerId == null || invoice.items.isEmpty) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
-  final tenant = await context.read<TenantRepository>().findById(auth.tenantId);
+  final tenant = await context.read<TenantRepository>().findById(payload.tenantId);
   final customer = await context.read<CustomerRepository>().findById(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     id: invoice.customerId!,
   );
   if (tenant == null || customer == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
   final approved = await context.read<WaasInvoiceDocumentRepository>().approve(
-    tenantId: auth.tenantId,
+    tenantId: payload.tenantId,
     invoiceId: id,
-    actorId: auth.userId,
+    actorId: payload.userId,
     invoice: invoice,
     tenant: tenant,
     customer: customer,

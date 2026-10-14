@@ -2,16 +2,16 @@ import 'package:backend/src/repositories/customer_repository.dart';
 import 'package:backend/src/repositories/invoice_repository.dart';
 import 'package:backend/src/request_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/invoices/export?from=YYYY-MM-DD&to=YYYY-MM-DD — Rechnungen des
 /// Mandanten als CSV (Semikolon-getrennt, Komma als Dezimaltrennzeichen —
 /// gängige Konvention für den Import in deutsche Buchhaltungssoftware) für
 /// den Steuerberater. `from`/`to` filtern auf `created_at`, beide optional.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: PermissionAction.export);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
@@ -22,7 +22,7 @@ Future<Response> onRequest(RequestContext context) async {
   final to = query['to'] != null ? DateTime.parse(query['to']!) : null;
 
   final invoices = await context.read<InvoiceRepository>().listForExport(
-        tenantId: auth.tenantId,
+        tenantId: payload.tenantId,
         from: from,
         to: to,
       );
@@ -32,7 +32,7 @@ Future<Response> onRequest(RequestContext context) async {
   for (final invoice in invoices) {
     final customerId = invoice.customerId;
     if (customerId == null || customerNames.containsKey(customerId)) continue;
-    final customer = await customerRepository.findById(tenantId: auth.tenantId, id: customerId);
+    final customer = await customerRepository.findById(tenantId: payload.tenantId, id: customerId);
     customerNames[customerId] = customer?.name ?? '';
   }
 

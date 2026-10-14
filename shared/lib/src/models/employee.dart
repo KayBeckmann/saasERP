@@ -1,30 +1,32 @@
-import 'user_role.dart';
-
-/// Request: Owner legt einen neuen Mitarbeiter-Zugang an.
+/// Request: Admin legt einen neuen Mitarbeiter-Zugang an.
+///
+/// `roleId` ist optional, damit der bestehende Flutter-Client (noch ohne
+/// Rollen-Auswahl-UI, siehe RF2-Auditnotiz) weiterläuft — ohne `roleId`
+/// bekommt der neue Zugang serverseitig die "Nur Lesen"-Rolle des
+/// Mandanten (Least Privilege als sicherer Default), siehe
+/// `routes/api/users/index.dart`.
 class CreateEmployeeRequest {
   const CreateEmployeeRequest({
     required this.email,
     required this.password,
-    this.role = UserRole.employee,
+    this.roleId,
   });
 
   final String email;
   final String password;
-  final UserRole role;
+  final String? roleId;
 
   factory CreateEmployeeRequest.fromJson(Map<String, dynamic> json) =>
       CreateEmployeeRequest(
         email: json['email'] as String,
         password: json['password'] as String,
-        role: json['role'] != null
-            ? UserRole.fromJson(json['role'] as String)
-            : UserRole.employee,
+        roleId: json['role_id'] as String?,
       );
 
   Map<String, dynamic> toJson() => {
         'email': email,
         'password': password,
-        'role': role.toJson(),
+        if (roleId != null) 'role_id': roleId,
       };
 }
 

@@ -8,15 +8,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/invoices — Rechnungsliste des aktuellen Mandanten.
 /// POST /api/invoices — neue Rechnung anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final invoiceRepository = context.read<InvoiceRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final invoices = await invoiceRepository.list(auth.tenantId);
+    final invoices = await invoiceRepository.list(payload.tenantId);
     return Response.json(body: {'invoices': invoices.map((i) => i.toJson()).toList()});
   }
 
@@ -42,7 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final invoice = await invoiceRepository.create(tenantId: auth.tenantId, req: req);
+    final invoice = await invoiceRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: invoice.toJson());
   }
 

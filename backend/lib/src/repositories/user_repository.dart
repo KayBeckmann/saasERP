@@ -67,13 +67,16 @@ class UserRepository {
     return _userFromRow(result.first.toColumnMap());
   }
 
-  /// Alle Benutzer eines Mandanten (via user_tenant_access), geordnet nach Erstelldatum.
+  /// Alle Benutzer eines Mandanten (via user_tenant_access) samt ihrer
+  /// RF2-Rolle, geordnet nach Erstelldatum.
   Future<List<AppUser>> listForTenant(String tenantId) async {
     final result = await _pool.execute(
       Sql.named(
-        'SELECT u.id, u.tenant_id, u.email, uta.role, u.created_at, u.is_platform_admin '
+        'SELECT u.id, u.tenant_id, u.email, u.role, u.created_at, u.is_platform_admin, '
+        'r.id AS role_id, r.name AS role_name, r.is_admin_role '
         'FROM users u '
         'JOIN user_tenant_access uta ON uta.user_id = u.id '
+        'JOIN roles r ON r.id = uta.role_id '
         'WHERE uta.tenant_id = @tenant_id '
         'ORDER BY u.created_at ASC',
       ),
@@ -112,15 +115,16 @@ class UserRepository {
     return result.isNotEmpty;
   }
 
-  /// E-Mail-Adresse des Inhabers (`role = 'owner'`) eines Mandanten — für
-  /// Benachrichtigungen über Status-Änderungen (z. B. Kundenentscheidung zu
-  /// einem Angebot). `null`, falls kein Owner-Zugang existiert.
+  /// E-Mail-Adresse eines Admins (`roles.is_admin_role = TRUE`) eines
+  /// Mandanten — für Benachrichtigungen über Status-Änderungen (z. B.
+  /// Kundenentscheidung zu einem Angebot). `null`, falls keiner existiert.
   Future<String?> findOwnerEmail(String tenantId) async {
     final result = await _pool.execute(
       Sql.named(
         'SELECT u.email FROM users u '
         'JOIN user_tenant_access uta ON uta.user_id = u.id '
-        "WHERE uta.tenant_id = @tenant_id AND uta.role = 'owner' "
+        'JOIN roles r ON r.id = uta.role_id '
+        'WHERE uta.tenant_id = @tenant_id AND r.is_admin_role = TRUE '
         'ORDER BY u.created_at ASC LIMIT 1',
       ),
       parameters: {'tenant_id': tenantId},
@@ -133,8 +137,15 @@ class UserRepository {
         id: row['id'] as String,
         tenantId: row['tenant_id'] as String,
         email: row['email'] as String,
-        role: UserRole.fromJson(row['role'] as String),
+        // Grobe Anzeige-Näherung aus is_admin_role abgeleitet, falls im
+        // Query mitgeladen — sonst Fallback auf die (nicht mehr
+        // autoritative) users.role-Spalte. Siehe Klassendoc in app_user.dart.
+        role: row.containsKey('is_admin_role')
+            ? ((row['is_admin_role'] as bool?) == true ? UserRole.owner : UserRole.employee)
+            : UserRole.fromJson(row['role'] as String),
         createdAt: (row['created_at'] as DateTime).toUtc(),
         isPlatformAdmin: row['is_platform_admin'] as bool? ?? false,
+        roleId: row['role_id'] as String?,
+        roleName: row['role_name'] as String?,
       );
 }

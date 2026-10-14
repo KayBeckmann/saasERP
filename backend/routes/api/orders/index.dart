@@ -9,15 +9,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/orders — Auftragsliste des aktuellen Mandanten.
 /// POST /api/orders — neuen Auftrag anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.orders, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final orderRepository = context.read<OrderRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final orders = await orderRepository.list(auth.tenantId);
+    final orders = await orderRepository.list(payload.tenantId);
     return Response.json(
       body: {'orders': orders.map((o) => o.toJson()).toList()},
     );
@@ -68,7 +70,7 @@ Future<Response> onRequest(RequestContext context) async {
     }
 
     final order = await orderRepository.create(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       req: req,
     );
     return Response.json(statusCode: 201, body: order.toJson());

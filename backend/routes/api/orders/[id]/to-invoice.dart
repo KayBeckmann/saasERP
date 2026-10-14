@@ -15,13 +15,12 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// `prior_invoiced_total` aus der Summe aller vorherigen, nicht-stornierten
 /// Rechnungen dieses Auftrags berechnet.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
   if (context.request.method != HttpMethod.post) {
     return Response(statusCode: 405);
   }
+  final auth = await requirePermission(context, module: PermissionModule.invoices, action: PermissionAction.create);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   var invoiceType = InvoiceType.standard;
   List<String>? itemIds;
@@ -50,7 +49,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final orderRepository = context.read<OrderRepository>();
   final invoiceRepository = context.read<InvoiceRepository>();
 
-  final order = await orderRepository.findById(tenantId: auth.tenantId, id: id);
+  final order = await orderRepository.findById(tenantId: payload.tenantId, id: id);
   if (order == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
@@ -64,7 +63,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     );
   }
 
-  final invoicedIds = await invoiceRepository.invoicedOrderItemIds(tenantId: auth.tenantId, orderId: order.id);
+  final invoicedIds = await invoiceRepository.invoicedOrderItemIds(tenantId: payload.tenantId, orderId: order.id);
 
   // Closing invoices include ALL positions (already-invoiced ones appear as full sum;
   // prior invoices are deducted separately). All other types exclude already-invoiced items.
@@ -102,7 +101,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   List<PriorInvoiceRef> priorInvoices = [];
   if (invoiceType == InvoiceType.closingInvoice) {
     priorInvoices = await invoiceRepository.listPriorForOrder(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       orderId: order.id,
     );
     priorInvoicedTotal = priorInvoices.fold<double>(0.0, (sum, r) => sum + r.totalGross);
@@ -134,7 +133,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     ],
   );
 
-  final invoice = await invoiceRepository.create(tenantId: auth.tenantId, req: req, orderId: order.id);
+  final invoice = await invoiceRepository.create(tenantId: payload.tenantId, req: req, orderId: order.id);
   final responseJson = invoice.toJson();
   if (priorInvoices.isNotEmpty) {
     responseJson['prior_invoices'] = priorInvoices.map((r) => r.toJson()).toList();

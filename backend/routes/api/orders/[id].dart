@@ -12,16 +12,20 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// PATCH /api/orders/<id> — Auftrag aktualisieren.
 /// DELETE /api/orders/<id> — Auftrag löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = switch (context.request.method) {
+    HttpMethod.patch => PermissionAction.edit,
+    HttpMethod.delete => PermissionAction.delete,
+    _ => PermissionAction.view,
+  };
+  final auth = await requirePermission(context, module: PermissionModule.orders, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final orderRepository = context.read<OrderRepository>();
 
   if (context.request.method == HttpMethod.get) {
     final order = await orderRepository.findById(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     if (order == null) {
@@ -75,7 +79,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
 
     final existing = await orderRepository.findById(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     if (existing == null) {
@@ -83,7 +87,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     }
 
     final order = await orderRepository.update(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
       req: req,
     );
@@ -96,7 +100,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
     // Lagerbestand abgezogen — analog zur Bedarfsermittlung im Bestellvorschlag.
     if (existing.status != OrderStatus.completed &&
         order.status == OrderStatus.completed) {
-      await _consumeStock(context, tenantId: auth.tenantId, order: order);
+      await _consumeStock(context, tenantId: payload.tenantId, order: order);
     }
 
     return Response.json(body: order.toJson());
@@ -104,7 +108,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
 
   if (context.request.method == HttpMethod.delete) {
     final deleted = await orderRepository.delete(
-      tenantId: auth.tenantId,
+      tenantId: payload.tenantId,
       id: id,
     );
     if (!deleted) {

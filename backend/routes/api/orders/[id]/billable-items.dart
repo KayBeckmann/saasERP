@@ -15,14 +15,13 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// Arbeitsstunden-Komponenten werden übersprungen. Direktpositionen vom Typ
 /// `hours` und `text` werden in diesem Modus ebenfalls ausgeblendet.
 Future<Response> onRequest(RequestContext context, String id) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
-
   if (context.request.method != HttpMethod.get) {
     return Response(statusCode: 405);
   }
+
+  final auth = await requirePermission(context, module: PermissionModule.orders, action: PermissionAction.view);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final expandProducts =
       context.request.uri.queryParameters['expand_products'] == '1';
@@ -31,13 +30,13 @@ Future<Response> onRequest(RequestContext context, String id) async {
   final invoiceRepository = context.read<InvoiceRepository>();
 
   final order =
-      await orderRepository.findById(tenantId: auth.tenantId, id: id);
+      await orderRepository.findById(tenantId: payload.tenantId, id: id);
   if (order == null) {
     return Response.json(statusCode: 404, body: {'error': 'not_found'});
   }
 
   final invoicedIds = await invoiceRepository.invoicedOrderItemIds(
-      tenantId: auth.tenantId, orderId: order.id);
+      tenantId: payload.tenantId, orderId: order.id);
 
   if (!expandProducts) {
     return Response.json(

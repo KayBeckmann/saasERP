@@ -36,11 +36,11 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   final tenantAccessRepository = context.read<TenantAccessRepository>();
-  final role = await tenantAccessRepository.roleForUserAndTenant(
+  final roleName = await tenantAccessRepository.roleNameForUserAndTenant(
     userId: auth.userId,
     tenantId: req.tenantId,
   );
-  if (role == null) {
+  if (roleName == null) {
     return Response.json(
       statusCode: 403,
       body: {'error': 'tenant_access_denied'},
@@ -61,7 +61,7 @@ Future<Response> onRequest(RequestContext context) async {
     userId: user.id,
     tenantId: tenant.id,
     email: user.email,
-    role: role,
+    role: roleName,
     isPlatformAdmin: user.isPlatformAdmin,
   );
 

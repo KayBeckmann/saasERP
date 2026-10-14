@@ -8,15 +8,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/suppliers — Lieferantenliste des aktuellen Mandanten.
 /// POST /api/suppliers — neuen Lieferanten anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.suppliers, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final supplierRepository = context.read<SupplierRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final suppliers = await supplierRepository.list(auth.tenantId);
+    final suppliers = await supplierRepository.list(payload.tenantId);
     return Response.json(body: {'suppliers': suppliers.map((s) => s.toJson()).toList()});
   }
 
@@ -42,7 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final supplier = await supplierRepository.create(tenantId: auth.tenantId, req: req);
+    final supplier = await supplierRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: supplier.toJson());
   }
 

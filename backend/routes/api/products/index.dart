@@ -8,15 +8,17 @@ import 'package:saaserp_shared/saaserp_shared.dart';
 /// GET /api/products — Produktliste des aktuellen Mandanten.
 /// POST /api/products — neues Produkt anlegen.
 Future<Response> onRequest(RequestContext context) async {
-  final auth = authenticateRequest(context);
-  if (auth == null) {
-    return Response.json(statusCode: 401, body: {'error': 'unauthorized'});
-  }
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final auth = await requirePermission(context, module: PermissionModule.products, action: action);
+  if (auth.denied != null) return auth.denied!;
+  final payload = auth.payload!;
 
   final productRepository = context.read<ProductRepository>();
 
   if (context.request.method == HttpMethod.get) {
-    final products = await productRepository.list(auth.tenantId);
+    final products = await productRepository.list(payload.tenantId);
     return Response.json(body: {'products': products.map((p) => p.toJson()).toList()});
   }
 
@@ -42,7 +44,7 @@ Future<Response> onRequest(RequestContext context) async {
       );
     }
 
-    final product = await productRepository.create(tenantId: auth.tenantId, req: req);
+    final product = await productRepository.create(tenantId: payload.tenantId, req: req);
     return Response.json(statusCode: 201, body: product.toJson());
   }
 
