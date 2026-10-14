@@ -82,6 +82,10 @@ Future<Response> onRequest(RequestContext context) async {
     roleId: adminRoleId,
   );
   await tenantEncryptionService.provisionTenant(tenant.id);
+  // Die registrierende Person ist immer Admin ihres neuen Mandanten —
+  // roleId/roleName/isAdminRole direkt aus der gerade erfolgten Zuweisung
+  // übernehmen, ohne zusätzliche Abfrage.
+  final enrichedUser = user.copyWith(roleId: adminRoleId, roleName: 'Admin', isAdminRole: true);
 
   final tierId = req.tierId;
   if (tierId != null && tierId.isNotEmpty) {
@@ -100,20 +104,20 @@ Future<Response> onRequest(RequestContext context) async {
   }
 
   final token = authService.issueToken(
-    userId: user.id,
+    userId: enrichedUser.id,
     tenantId: tenant.id,
-    email: user.email,
+    email: enrichedUser.email,
     // Anzeige-Metadaten (siehe request_auth.dart) — die registrierende
     // Person ist immer Admin ihres neuen Mandanten.
     role: 'Admin',
-    isPlatformAdmin: user.isPlatformAdmin,
+    isPlatformAdmin: enrichedUser.isPlatformAdmin,
   );
 
   unawaited(context.read<NotificationService>().notifyOwnerWelcome(
-        email: user.email,
+        email: enrichedUser.email,
         companyName: tenant.name,
       ));
 
-  final response = AuthResponse(token: token, user: user, tenant: tenant);
+  final response = AuthResponse(token: token, user: enrichedUser, tenant: tenant);
   return Response.json(statusCode: 201, body: response.toJson());
 }

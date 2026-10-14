@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:saaserp_shared/saaserp_shared.dart';
 
 import '../screens/articles_screen.dart';
 import '../screens/customers_screen.dart';
@@ -437,7 +436,7 @@ class _Sidebar extends StatelessWidget {
                       selected: entry.item == currentItem,
                       showLabel: true,
                     ),
-                  if (auth.user?.role == UserRole.owner) ...[
+                  if (auth.user?.isAdminRole == true) ...[
                     const Divider(height: 16, indent: 16, endIndent: 16),
                     for (final entry in _ownerOnlyNavEntries)
                       _NavTile(
@@ -513,7 +512,7 @@ class _IconRail extends StatelessWidget {
                   const Divider(height: 8, indent: 8, endIndent: 8),
                   for (final entry in _secondaryNavEntries)
                     _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),
-                  if (auth.user?.role == UserRole.owner) ...[
+                  if (auth.user?.isAdminRole == true) ...[
                     const Divider(height: 8, indent: 8, endIndent: 8),
                     for (final entry in _ownerOnlyNavEntries)
                       _NavTile(entry: entry, selected: entry.item == currentItem, showLabel: false),

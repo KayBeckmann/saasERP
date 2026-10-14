@@ -20,6 +20,7 @@ class AppUser {
     this.isPlatformAdmin = false,
     this.roleId,
     this.roleName,
+    this.isAdminRole = false,
   });
 
   final String id;
@@ -33,9 +34,15 @@ class AppUser {
   final bool isPlatformAdmin;
 
   /// RF2: tatsächliche Rolle im aktuellen Mandanten (falls im jeweiligen
-  /// Kontext bekannt, z. B. Mitgliederliste).
+  /// Kontext bekannt, z. B. Mitgliederliste, Login/Me/Tenant-Wechsel).
   final String? roleId;
   final String? roleName;
+
+  /// RF2: `true`, wenn [roleId] die Admin-Rolle des Mandanten ist. Clients
+  /// nutzen das für UI-Gating (z. B. Rollenverwaltung ein-/ausblenden) —
+  /// die eigentliche Autorisierung bleibt ausschließlich serverseitig
+  /// (`AuthorizationService`), dieses Feld ist reine Anzeige-Bequemlichkeit.
+  final bool isAdminRole;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
         id: json['id'] as String,
@@ -46,6 +53,7 @@ class AppUser {
         isPlatformAdmin: json['is_platform_admin'] as bool? ?? false,
         roleId: json['role_id'] as String?,
         roleName: json['role_name'] as String?,
+        isAdminRole: json['is_admin_role'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -57,5 +65,18 @@ class AppUser {
         'is_platform_admin': isPlatformAdmin,
         if (roleId != null) 'role_id': roleId,
         if (roleName != null) 'role_name': roleName,
+        'is_admin_role': isAdminRole,
       };
+
+  AppUser copyWith({String? roleId, String? roleName, bool? isAdminRole}) => AppUser(
+        id: id,
+        tenantId: tenantId,
+        email: email,
+        role: role,
+        createdAt: createdAt,
+        isPlatformAdmin: isPlatformAdmin,
+        roleId: roleId ?? this.roleId,
+        roleName: roleName ?? this.roleName,
+        isAdminRole: isAdminRole ?? this.isAdminRole,
+      );
 }
