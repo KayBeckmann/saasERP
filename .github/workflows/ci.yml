@@ -37,6 +37,25 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Viele Backend-Tests (waas_db_test.dart, tenant_key_rotation_test.dart,
+    # ...) sind echte Integrationstests gegen Postgres und melden sich ohne
+    # WAAS_TEST_DB_PORT bislang nur als "Skip" statt zu laufen (siehe
+    # dart_test.yaml-Kommentar zu sequenziellen Migrationen). Dieser
+    # Service-Container + die Env-Variablen unten sorgen dafür, dass sie
+    # auch in CI tatsächlich ausgeführt werden, nicht nur lokal.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test_only
+          POSTGRES_DB: saaserp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +73,9 @@ jobs:
 
       - name: Test
         run: dart test
+        env:
+          WAAS_TEST_DB_PORT: 5432
+          WAAS_TEST_DB_NAME: saaserp_test
 
   app_user:
     name: app_user (Flutter Web)
