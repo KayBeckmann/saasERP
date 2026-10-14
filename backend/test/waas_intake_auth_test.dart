@@ -1,3 +1,4 @@
+import 'package:backend/src/authorization_service.dart';
 import 'package:backend/src/auth_service.dart';
 import 'package:backend/src/repositories/waas_intake_repository.dart';
 import 'package:dart_frog/dart_frog.dart';
@@ -16,22 +17,36 @@ class _Request extends Mock implements Request {}
 
 class _Auth extends Mock implements AuthService {}
 
+class _Authz extends Mock implements AuthorizationService {}
+
 class _Repo extends Mock implements WaasIntakeRepository {}
 
 void main() {
-  test('owner can read serializable queue metadata', () async {
-    final c = _Context(), r = _Request(), a = _Auth(), repo = _Repo();
+  test('admin can read serializable queue metadata', () async {
+    final c = _Context(), r = _Request(), a = _Auth(), authz = _Authz(), repo = _Repo();
     when(() => c.request).thenReturn(r);
     when(() => r.method).thenReturn(HttpMethod.get);
     when(() => r.headers).thenReturn({'Authorization': 'Bearer test'});
     when(() => c.read<AuthService>()).thenReturn(a);
+    when(() => c.read<AuthorizationService>()).thenReturn(authz);
     when(() => a.verifyToken('test')).thenReturn(
       AuthTokenPayload(
         userId: 'x',
         tenantId: 'tenant',
         email: 'a@b.invalid',
-        role: 'owner',
+        role: 'Admin',
         expiresAt: DateTime.utc(2099),
+      ),
+    );
+    when(() => authz.loadContext(userId: any(named: 'userId'), tenantId: any(named: 'tenantId')))
+        .thenAnswer(
+      (_) async => const AuthorizationContext(
+        userId: 'x',
+        tenantId: 'tenant',
+        roleId: 'role-admin',
+        roleName: 'Admin',
+        isAdminRole: true,
+        permissions: {},
       ),
     );
     when(() => c.read<WaasIntakeRepository>()).thenReturn(repo);
@@ -45,13 +60,14 @@ void main() {
     expect(await response.body(), contains('2026-01-01'));
   });
   test(
-    'email intake routes refuse unauthenticated and customer tokens before accessing storage',
+    'email intake routes refuse unauthenticated, customer and non-admin staff tokens before accessing storage',
     () async {
-      final c = _Context(), r = _Request(), a = _Auth();
+      final c = _Context(), r = _Request(), a = _Auth(), authz = _Authz();
       when(() => c.request).thenReturn(r);
       when(() => r.method).thenReturn(HttpMethod.get);
       when(() => r.headers).thenReturn({});
       when(() => c.read<AuthService>()).thenReturn(a);
+      when(() => c.read<AuthorizationService>()).thenReturn(authz);
       expect((await intake.onRequest(c)).statusCode, 401);
       expect((await attachment.onRequest(c, 'id')).statusCode, 401);
       expect((await raw.onRequest(c, 'id')).statusCode, 401);
@@ -68,12 +84,43 @@ void main() {
           expiresAt: DateTime.utc(2099),
         ),
       );
+      // 'customer': kein user_tenant_access-Eintrag für Kundenportal-Konten
+      // -> loadContext liefert null (deny-by-default).
+      when(() => authz.loadContext(userId: any(named: 'userId'), tenantId: any(named: 'tenantId')))
+          .thenAnswer((_) async => null);
       expect((await intake.onRequest(c)).statusCode, 403);
       expect((await associate.onRequest(c, 'id')).statusCode, 403);
       expect((await review.onRequest(c, 'id')).statusCode, 403);
       when(() => r.method).thenReturn(HttpMethod.get);
       expect((await attachment.onRequest(c, 'id')).statusCode, 403);
       expect((await raw.onRequest(c, 'id')).statusCode, 403);
+      // Echte Mandanten-Rolle ohne Admin-Status ('Nur Lesen' mit waas:view):
+      // Intake bleibt trotz vorhandener waas-Berechtigung Admin-exklusiv.
+      when(() => a.verifyToken('test')).thenReturn(
+        AuthTokenPayload(
+          userId: 'x',
+          tenantId: 'tenant',
+          email: 'a@b.invalid',
+          role: 'Nur Lesen',
+          expiresAt: DateTime.utc(2099),
+        ),
+      );
+      when(() => authz.loadContext(userId: any(named: 'userId'), tenantId: any(named: 'tenantId')))
+          .thenAnswer(
+        (_) async => const AuthorizationContext(
+          userId: 'x',
+          tenantId: 'tenant',
+          roleId: 'role-nur-lesen',
+          roleName: 'Nur Lesen',
+          isAdminRole: false,
+          permissions: {'waas:view'},
+        ),
+      );
+      expect((await attachment.onRequest(c, 'id')).statusCode, 403);
+      expect((await raw.onRequest(c, 'id')).statusCode, 403);
+      when(() => r.method).thenReturn(HttpMethod.post);
+      expect((await associate.onRequest(c, 'id')).statusCode, 403);
+      expect((await review.onRequest(c, 'id')).statusCode, 403);
     },
   );
 }

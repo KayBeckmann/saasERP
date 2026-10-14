@@ -1,19 +1,22 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:backend/src/repositories/waas_intake_repository.dart';
-import 'package:backend/src/request_auth.dart';
 import 'package:backend/src/waas_intake_auth.dart';
 import 'package:dart_frog/dart_frog.dart';
+import 'package:saaserp_shared/saaserp_shared.dart';
 
-/// Owner-only manual import. Not a mail-provider webhook. Mail headers, UID and
-/// extracted fields are merely claims supplied by the owner, never auth data.
+/// Admin-only manual import. Not a mail-provider webhook. Mail headers, UID and
+/// extracted fields are merely claims supplied by the admin, never auth data.
 Future<Response> onRequest(RequestContext context) async {
   if (context.request.method != HttpMethod.get &&
       context.request.method != HttpMethod.post)
     return Response(statusCode: 405);
-  final denied = intakeOwnerGate(context);
-  if (denied != null) return denied;
-  final auth = authenticateRequest(context)!;
+  final action = context.request.method == HttpMethod.post
+      ? PermissionAction.create
+      : PermissionAction.view;
+  final gate = await intakeOwnerGate(context, action: action);
+  if (gate.denied != null) return gate.denied!;
+  final auth = gate.payload!;
   final repo = context.read<WaasIntakeRepository>();
   if (context.request.method == HttpMethod.get) {
     final rows = await repo.list(tenantId: auth.tenantId);
