@@ -6,12 +6,39 @@ import 'package:dart_frog/dart_frog.dart';
 import 'package:saaserp_shared/saaserp_shared.dart';
 
 /// GET /api/purchase-orders/<id> — einzelne Bestellung lesen.
-/// PATCH /api/purchase-orders/<id> — Bestellung aktualisieren.
+/// PATCH /api/purchase-orders/<id> — Bestellung aktualisieren. Setzt die
+/// Anfrage einen Status != `open`, ist das fachlich eine Freigabe/Versand
+/// (oder eine Änderung an einer bereits freigegebenen Bestellung) und
+/// braucht deshalb `PermissionAction.release` statt des für reine
+/// Entwurfsbearbeitung ausreichenden `edit` (Roadmap: "Entwurf anlegen/
+/// ändern und Freigabe/Versand getrennt").
 /// DELETE /api/purchase-orders/<id> — Bestellung löschen.
 Future<Response> onRequest(RequestContext context, String id) async {
+  if (context.request.method != HttpMethod.get &&
+      context.request.method != HttpMethod.patch &&
+      context.request.method != HttpMethod.delete) {
+    return Response(statusCode: 405);
+  }
+
+  UpdatePurchaseOrderRequest? patchReq;
+  if (context.request.method == HttpMethod.patch) {
+    final Map<String, dynamic> body;
+    try {
+      body = jsonDecode(await context.request.body()) as Map<String, dynamic>;
+    } on FormatException {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_json'});
+    }
+    try {
+      patchReq = UpdatePurchaseOrderRequest.fromJson(body);
+    } on TypeError {
+      return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
+    }
+  }
+
   final action = switch (context.request.method) {
-    HttpMethod.patch => PermissionAction.edit,
     HttpMethod.delete => PermissionAction.delete,
+    HttpMethod.patch when patchReq!.status != PurchaseOrderStatus.open => PermissionAction.release,
+    HttpMethod.patch => PermissionAction.edit,
     _ => PermissionAction.view,
   };
   final auth = await requirePermission(context, module: PermissionModule.purchaseOrders, action: action);
@@ -29,20 +56,7 @@ Future<Response> onRequest(RequestContext context, String id) async {
   }
 
   if (context.request.method == HttpMethod.patch) {
-    final Map<String, dynamic> body;
-    try {
-      body = jsonDecode(await context.request.body()) as Map<String, dynamic>;
-    } on FormatException {
-      return Response.json(statusCode: 400, body: {'error': 'invalid_json'});
-    }
-
-    late final UpdatePurchaseOrderRequest req;
-    try {
-      req = UpdatePurchaseOrderRequest.fromJson(body);
-    } on TypeError {
-      return Response.json(statusCode: 400, body: {'error': 'invalid_body'});
-    }
-
+    final req = patchReq!;
     if (req.items.isEmpty) {
       return Response.json(
         statusCode: 400,

@@ -20,6 +20,7 @@ import 'package:backend/src/repositories/product_repository.dart';
 import 'package:backend/src/repositories/project_repository.dart';
 import 'package:backend/src/repositories/project_transaction_repository.dart';
 import 'package:backend/src/repositories/purchase_order_repository.dart';
+import 'package:backend/src/purchase_proposal_service.dart';
 import 'package:backend/src/repositories/quote_repository.dart';
 import 'package:backend/src/repositories/role_repository.dart';
 import 'package:backend/src/repositories/subscription_repository.dart';
@@ -83,6 +84,13 @@ final _timeEntryRepository = TimeEntryRepository(_pool);
 final _purchaseOrderRepository = PurchaseOrderRepository(
   _pool,
   _numberSequenceRepository,
+);
+final _purchaseProposalService = PurchaseProposalService(
+  _orderRepository,
+  _productRepository,
+  _articleRepository,
+  _supplierRepository,
+  _purchaseOrderRepository,
 );
 final _projectRepository = ProjectRepository(_pool, _numberSequenceRepository);
 final _projectTransactionRepository = ProjectTransactionRepository(_pool);
@@ -160,6 +168,7 @@ Handler middleware(Handler handler) {
       .use(provider<InvoiceRepository>((_) => _invoiceRepository))
       .use(provider<TimeEntryRepository>((_) => _timeEntryRepository))
       .use(provider<PurchaseOrderRepository>((_) => _purchaseOrderRepository))
+      .use(provider<PurchaseProposalService>((_) => _purchaseProposalService))
       .use(provider<ProjectRepository>((_) => _projectRepository))
       .use(
         provider<ProjectTransactionRepository>(

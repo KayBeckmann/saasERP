@@ -896,6 +896,26 @@ class ApiClient {
         .toList();
   }
 
+  /// Erzeugt in einem kontrollierten Vorgang einen Bestellentwurf je
+  /// Lieferant aus dem aktuellen Bestellvorschlag (ohne [supplierIds]: für
+  /// alle Lieferantengruppen mit offener Bestellmenge). Quellverweise
+  /// (Raumgruppen-Rückverfolgung) werden serverseitig mitgespeichert.
+  Future<List<PurchaseOrder>> createPurchaseOrderDraftsFromProposal({
+    required String token,
+    required String orderId,
+    Set<String?>? supplierIds,
+  }) async {
+    final response = await _httpClient.post(
+      _uri('/api/orders/$orderId/purchase-proposal'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode(supplierIds == null ? {} : {'supplier_ids': supplierIds.toList()}),
+    );
+    final json = _decode(response);
+    return (json['purchase_orders'] as List)
+        .map((e) => PurchaseOrder.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<Project>> listProjects(String token) async {
     final response = await _httpClient.get(
       _uri('/api/projects'),

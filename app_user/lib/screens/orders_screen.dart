@@ -120,6 +120,30 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (selection == null) return;
     if (!mounted) return;
 
+    if (selection.createDraftsForAllSuppliers) {
+      try {
+        final created = await auth.apiClient.createPurchaseOrderDraftsFromProposal(
+          token: auth.token!,
+          orderId: order.id,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              created.isEmpty
+                  ? 'Kein Bestellbedarf — Lagerbestand/bereits bestehende Bestellungen decken den Auftrag.'
+                  : '${created.length} Bestellentwurf/entwürfe angelegt: '
+                      '${created.map((po) => po.purchaseOrderNumber).join(', ')}.',
+            ),
+          ),
+        );
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Fehler: ${e.message}')));
+      }
+      return;
+    }
+
     final items = selection.items
         .map(
           (item) => PurchaseOrderItem(
